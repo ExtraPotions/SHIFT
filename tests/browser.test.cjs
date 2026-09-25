@@ -209,46 +209,66 @@ test('appearance live-commits on selection and survives SPA traversal', async (t
 test('first run is Original and menu is a six-row Dropper-style shell', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
-  const initial = await page.evaluate(() => ({ themed: document.querySelectorAll('[data-exp-shift-live]').length, style: document.querySelector('#exp-shift-page-style')?.textContent || '' }));
+
+  const initial = await page.evaluate(() => ({
+    themed: document.querySelectorAll('[data-exp-shift-live]').length,
+    style: document.querySelector('#exp-shift-page-style')?.textContent || '',
+  }));
   assert.equal(initial.themed, 0);
   assert.equal(initial.style, '');
+
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => node.shadowRoot.querySelector('.launcher').click());
-  const facts = await root.evaluate(async (node) => { const shadow=node.shadowRoot;const panel=shadow.querySelector('.panel');shadow.querySelector('.version').click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));const changelog=shadow.querySelector('.changelog');const panelRect=panel.getBoundingClientRect();const changelogRect=changelog.getBoundingClientRect();const launcherRect=shadow.querySelector('.launcher').getBoundingClientRect();return ({
-    panelHidden: node.shadowRoot.querySelector('.panel').hidden,
-    navCount: node.shadowRoot.querySelectorAll('nav .nav-item').length,
-    checkboxCount: node.shadowRoot.querySelectorAll('input[type="checkbox"]').length,
-    switchCount: node.shadowRoot.querySelectorAll('[role="switch"]').length,
-    visibleBodies: [...node.shadowRoot.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
-    width: node.shadowRoot.querySelector('.panel').getBoundingClientRect().width,
-    panelZ: Number(getComputedStyle(node.shadowRoot.querySelector('.panel')).zIndex),
-    launcherZ: Number(getComputedStyle(node.shadowRoot.querySelector('.launcher')).zIndex),
-    changelogOutside: changelog.parentNode===shadow&&!panel.contains(changelog)&&!changelog.hidden,
-    versionLabel: shadow.querySelector('.version')?.textContent || '',
-    changelogHeading: changelog.querySelector('.changelog-version')?.textContent || '',
-    changelogBullets: [...changelog.querySelectorAll('.changelog-list li')].map((item) => item.textContent),
-    changelogPlacement: changelog.dataset.placement,
-    panelLeft: panelRect.left,
-    changelogRight: changelogRect.right,
-    changelogBottom: changelogRect.bottom,
-    launcherTop: launcherRect.top
-  }); });
+
+  const facts = await root.evaluate(async (node) => {
+    const shadow = node.shadowRoot;
+    const panel = shadow.querySelector('.panel');
+    shadow.querySelector('.version').click();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const notice = shadow.querySelector('.update-notice');
+    const panelRect = panel.getBoundingClientRect();
+    const noticeRect = notice.getBoundingClientRect();
+    return {
+      panelHidden: panel.hidden,
+      navCount: shadow.querySelectorAll('nav .nav-item').length,
+      checkboxCount: shadow.querySelectorAll('input[type="checkbox"]').length,
+      switchCount: shadow.querySelectorAll('[role="switch"]').length,
+      visibleBodies: [...shadow.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
+      width: panelRect.width,
+      noticeOutside: !panel.contains(notice) && !notice.hidden,
+      versionLabel: shadow.querySelector('.version')?.textContent || '',
+      noticeTitle: notice.querySelector('.update-title')?.textContent || '',
+      noticeVersion: notice.querySelector('.update-version')?.textContent || '',
+      noticeBullets: [...notice.querySelectorAll('.update-list li')].map((item) => item.textContent),
+      noticePlacement: notice.dataset.placement,
+      panelRight: panelRect.right,
+      noticeRight: noticeRect.right,
+      noticeTop: noticeRect.top,
+      noticeBottom: noticeRect.bottom,
+      panelTop: panelRect.top,
+      panelBottom: panelRect.bottom,
+    };
+  });
+
   assert.equal(facts.panelHidden, false);
   assert.equal(facts.navCount, 6);
   assert.equal(facts.checkboxCount, 0);
   assert.equal(facts.switchCount, 0);
   assert.equal(facts.visibleBodies, 0);
   assert.equal(facts.width, 260);
-  assert.equal(facts.changelogOutside, true);
+  assert.equal(facts.noticeOutside, true);
   assert.equal(facts.versionLabel, `v${pkg.version}`);
-  assert.equal(facts.changelogHeading, `Version ${pkg.version}`);
-  assert.ok(facts.changelogBullets.length >= 2 && facts.changelogBullets.length <= 4, JSON.stringify(facts.changelogBullets));
-  assert.ok(facts.changelogBullets.some((item) => /settings across userscript updates/i.test(item)));
-  assert.equal(facts.changelogPlacement, 'launcher-grid');
-  assert.ok(facts.changelogRight > 0, JSON.stringify(facts));
-  assert.ok(facts.changelogBottom <= facts.launcherTop, JSON.stringify(facts));
+  assert.equal(facts.noticeTitle, 'SHIFT Changelog');
+  assert.equal(facts.noticeVersion, `v${pkg.version}`);
+  assert.ok(facts.noticeBullets.length >= 2 && facts.noticeBullets.length <= 4, JSON.stringify(facts.noticeBullets));
+  assert.ok(facts.noticeBullets.some((item) => /menu-width notice surface|fresh update check|geometry/i.test(item)));
+  assert.equal(facts.noticePlacement, 'menu');
+  assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
+  assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
+
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].map((item) => item.querySelector('span')?.textContent));
   assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'System']);
+
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
     const title = shadow.querySelector('.menu-title');
@@ -269,14 +289,43 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
     { paddingLeft: subtitle.paddingLeft, borderTopWidth: subtitle.borderTopWidth, textAlign: subtitle.textAlign },
     { paddingLeft: '0px', borderTopWidth: '0px', textAlign: 'start' },
   );
-  const expanded = await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('[data-route="readability"]').click();return {switchCount:shadow.querySelectorAll('[role="switch"]').length,visibleBodies:[...shadow.querySelectorAll('.route-body')].filter((body)=>!body.hidden).length,nested:shadow.querySelectorAll('.route-body:not([hidden]) details').length}; });
+
+  const expanded = await root.evaluate((node) => {
+    const shadow = node.shadowRoot;
+    shadow.querySelector('[data-route="readability"]').click();
+    return {
+      switchCount: shadow.querySelectorAll('[role="switch"]').length,
+      visibleBodies: [...shadow.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
+      nested: shadow.querySelectorAll('.route-body:not([hidden]) details').length,
+    };
+  });
   assert.ok(expanded.switchCount >= 2);
-  assert.equal(expanded.visibleBodies,1);
+  assert.equal(expanded.visibleBodies, 1);
   assert.equal(expanded.nested, 0);
-  const reopened = await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('.launcher').click();return {visibleBodies:[...shadow.querySelectorAll('.route-body')].filter((body)=>!body.hidden).length,marker:shadow.querySelector('.nav-item.last-opened span')?.textContent}; });
-  assert.deepEqual(reopened,{visibleBodies:0,marker:'Readability'});
-  const launcherChrome = await page.locator('#exp-shift-root').evaluate((host) => { const root=host.shadowRoot;const launcher=root.querySelector('.launcher');return {button:Math.round(launcher.getBoundingClientRect().width),radius:getComputedStyle(launcher).borderRadius,hasRing:Boolean(root.querySelector('.launcher-ring')),icon:Math.round(root.querySelector('.launcher-icon').getBoundingClientRect().width),headerBadge:Math.round(root.querySelector('.header-icon .menu-icon').getBoundingClientRect().width)}; });
-  assert.deepEqual(launcherChrome,{button:48,radius:'10px',hasRing:false,icon:40,headerBadge:38});
+
+  const reopened = await root.evaluate((node) => {
+    const shadow = node.shadowRoot;
+    shadow.querySelector('.launcher').click();
+    shadow.querySelector('.launcher').click();
+    return {
+      visibleBodies: [...shadow.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
+      marker: shadow.querySelector('.nav-item.last-opened span')?.textContent,
+    };
+  });
+  assert.deepEqual(reopened, { visibleBodies: 0, marker: 'Readability' });
+
+  const launcherChrome = await root.evaluate((host) => {
+    const shadow = host.shadowRoot;
+    const launcher = shadow.querySelector('.launcher');
+    return {
+      button: Math.round(launcher.getBoundingClientRect().width),
+      radius: getComputedStyle(launcher).borderRadius,
+      hasRing: Boolean(shadow.querySelector('.launcher-ring')),
+      icon: Math.round(shadow.querySelector('.launcher-icon').getBoundingClientRect().width),
+      headerBadge: Math.round(shadow.querySelector('.header-icon .menu-icon').getBoundingClientRect().width),
+    };
+  });
+  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: 38 });
 });
 
 test('Appearance owns palette and surfaces; Readability owns text and motion', async (t) => {
