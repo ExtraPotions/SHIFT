@@ -243,7 +243,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.versionLabel, `v${pkg.version}`);
   assert.equal(facts.changelogHeading, `Version ${pkg.version}`);
   assert.ok(facts.changelogBullets.length >= 2 && facts.changelogBullets.length <= 4, JSON.stringify(facts.changelogBullets));
-  assert.ok(facts.changelogBullets.some((item) => /borderless SHIFT launcher artwork/i.test(item)));
+  assert.ok(facts.changelogBullets.some((item) => /every launcher clickable/i.test(item)));
   assert.equal(facts.changelogPlacement, 'launcher-side');
   assert.ok(facts.changelogRight <= facts.panelLeft - 6, JSON.stringify(facts));
   assert.ok(facts.changelogBottom > facts.launcherTop, JSON.stringify(facts));

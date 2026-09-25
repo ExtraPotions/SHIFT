@@ -1,7 +1,11 @@
-EXP.VERSION = '3.3.19';
+EXP.VERSION = '3.3.20';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+	'3.3.20': [
+	  'Keeps every launcher clickable when Dropper and multiple ExtraPotions products share the page.',
+	  'Uses exp-core 3.2.19 to prevent transparent launcher containers from intercepting pointer input.',
+	],
 	'3.3.19': [
 	  'Uses the borderless SHIFT launcher artwork everywhere an icon is shown.',
 	  'References the SVG by URL instead of embedding image bytes in the userscript.',
