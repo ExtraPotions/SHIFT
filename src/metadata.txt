@@ -1,0 +1,30 @@
+// ==UserScript==
+// @name         SHIFT
+// @namespace    https://github.com/ExtraPotions
+// @version      3.3.18
+// @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
+// @icon         __EXP_SHIFT_BADGE_DATA__
+// @tag          accessibility
+// @tag          themes
+// @tag          customization
+// @author       ExtraPotions
+// @license      PolyForm-Noncommercial-1.0.0
+// @homepageURL  https://github.com/ExtraPotions/SHIFT
+// @supportURL   https://github.com/ExtraPotions/SHIFT/issues
+// @updateURL    https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js
+// @downloadURL  https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js
+// @match        http://*/*
+// @match        https://*/*
+// @run-at       document-start
+// @inject-into  content
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_addStyle
+// @grant        GM_addElement
+// @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
+// @connect      api.github.com
+// ==/UserScript==
+// SHIFT Manager Metadata
+// Description: Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
+// Tags: accessibility, themes, customization
