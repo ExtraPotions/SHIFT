@@ -2116,8 +2116,8 @@ const ExtraPotionsCore = (() => {
     }
     function normalize(state) {
       const next = { ...(state || {}) };
-      if (!next.lastCheckAt && next.checkedAt) next.lastCheckAt = Number(next.checkedAt) || 0;
-      if (!next.lastRemoteVersion && next.latest) next.lastRemoteVersion = String(next.latest || '');
+      if (!Object.hasOwn(next, 'lastCheckAt') && next.checkedAt) next.lastCheckAt = Number(next.checkedAt) || 0;
+      if (!Object.hasOwn(next, 'lastRemoteVersion') && next.latest) next.lastRemoteVersion = String(next.latest || '');
       if (!Array.isArray(next.details)) next.details = [];
       return next;
     }
@@ -3947,6 +3947,7 @@ EXP.Updates = ExtraPotionsCore.createReleaseUpdateChecker({
   onError: error => EXP.Core.safeError(error, 'shift-updates'),
 });
 
+// Dropper 3.2.8 is the canonical shared UI; product-specific color stays declarative.
 EXP.MenuChrome = Object.freeze({ create: options => ExtraPotionsCore.create({ ...options, launcherSrc: 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg', productTheme: {"id":"shift","name":"SHIFT gem","swatch":"linear-gradient(135deg,#b9fff9 0 34%,#20d9d3 34% 67%,#f23868 67%)","bg":"#101719","panel":"#182326","line":"#344442","text":"#f2f8f7","muted":"#b8c9c7","accent":"#26d9c7","accent2":"#f23868","skin":"linear-gradient(135deg,#b9fff9,#20d9d3,#f23868)","skinVertical":"linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)"} }) });
 
 /* Diagnostics reports and controls follow Dropper's shared implementation. */
