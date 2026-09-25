@@ -1,7 +1,12 @@
-EXP.VERSION = '3.3.18';
+EXP.VERSION = '3.3.19';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+	'3.3.19': [
+	  'Uses the borderless SHIFT launcher artwork everywhere an icon is shown.',
+	  'References the SVG by URL instead of embedding image bytes in the userscript.',
+	  'Removes the superseded bordered SVG and raster badge files.',
+	],
 	'3.3.18': [
 	  'Keeps the rebuilt theme rendering and expanded Amazon coverage from 3.3.17.',
 	  'Aligns shared status and progress chrome with the rounded-rectangle suite preference.',

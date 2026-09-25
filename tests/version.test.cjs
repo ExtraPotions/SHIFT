@@ -12,7 +12,7 @@ const releaseNotes = fs.readFileSync(path.join(root, 'src', 'release-notes.js'),
 
 test('legacy release-note files and screenshots are removed', () => {
   for (const name of fs.readdirSync(root)) assert.doesNotMatch(name, /^RELEASE-NOTES-/);
-  for (const file of ['docs/preview-rc1.png', 'docs/shift-badge-32.png', 'docs/checkpoint-d.md', 'assets/shift-badge.png']) {
+  for (const file of ['docs/preview-rc1.png', 'docs/shift-badge-32.png', 'docs/checkpoint-d.md', 'assets/shift-badge.png', 'assets/shift-badge.svg', 'assets/shift-badge-128.png']) {
     assert.equal(fs.existsSync(path.join(root, file)), false, file);
   }
   const screenshots = fs.readdirSync(path.join(root, 'docs', 'screenshots')).filter((name) => name.endsWith('.png'));

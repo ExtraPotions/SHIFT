@@ -4,7 +4,7 @@ const path = require('node:path');
 const cp = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-for (const asset of ['shift-badge.svg', 'shift-launcher.svg', 'shift-badge-128.png']) {
+for (const asset of ['shift-launcher.svg']) {
   if (!fs.existsSync(path.join(root, 'assets', asset))) throw new Error(`Missing SHIFT asset: ${asset}`);
 }
 const run = (args) => cp.execFileSync(process.execPath, args, { cwd: root, stdio: 'inherit' });
@@ -20,6 +20,7 @@ for (const directory of ['src', 'scripts', 'tests', 'docs']) {
 files.push(path.join(root, 'README.md'), path.join(root, 'CHANGELOG.md'), path.join(root, 'package.json'), path.join(root, 'shift.user.js'));
 const combined = files.filter(fs.existsSync).map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const artifact = fs.readFileSync(path.join(root, 'shift.user.js'), 'utf8');
+if (/data:image\//u.test(artifact)) throw new Error('Release blocked: embedded image data detected.');
 const credentialPatterns = [
   [/AKIA[0-9A-Z]{16}/, 'AWS access key'],
   [/gh[pousr]_[A-Za-z0-9_]{30,}/, 'GitHub token'],

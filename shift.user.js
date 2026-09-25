@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.3.18
+// @version      3.3.19
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
-// @icon         data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbGxlZGJ5PSJ0aXRsZSBkZXNjIj4KICA8dGl0bGUgaWQ9InRpdGxlIj5TSElGVCBJY29uPC90aXRsZT48ZGVzYyBpZD0iZGVzYyI+QSBjeWFuIGFuZCBjb3JhbCBwaGFzZS1jdXQgZmFjZXRlZCBnZW0gaW4gYSBtYXRjaGluZyBncmFkaWVudCBiYWRnZS48L2Rlc2M+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJiZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIHN0b3AtY29sb3I9IiMwNzE5MWMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNjBkMTgiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYm9yZGVyIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agc3RvcC1jb2xvcj0iI2I5ZmZmOSIvPjxzdG9wIG9mZnNldD0iLjQ4IiBzdG9wLWNvbG9yPSIjMjBkOWQzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZjIzODY4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+CiAgPHJlY3QgeD0iMzIiIHk9IjMyIiB3aWR0aD0iOTYwIiBoZWlnaHQ9Ijk2MCIgcng9IjE4NSIgZmlsbD0idXJsKCNiZykiLz48cmVjdCB4PSI0MiIgeT0iNDIiIHdpZHRoPSI5NDAiIGhlaWdodD0iOTQwIiByeD0iMTc1IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjYm9yZGVyKSIgc3Ryb2tlLXdpZHRoPSIyOCIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTQ4LDE4NCA3OTAsMzYwIDc3MCw2NTAgNDc2LDg0MCAyMzAsNjYyIDI1NCwzNjYiIGZpbGw9IiMxNTE1MWQiLz48cG9seWdvbiBwb2ludHM9IjU0OCwxODQgNTQ4LDQxNiAyNTQsMzY2IiBmaWxsPSIjYjlmZmY5Ii8+PHBvbHlnb24gcG9pbnRzPSI1NDgsMTg0IDc5MCwzNjAgNTQ4LDQxNiIgZmlsbD0iIzYyZjVlYyIvPjxwb2x5Z29uIHBvaW50cz0iMjU0LDM2NiA1NDgsNDE2IDQzOCw1MjYgMjMwLDY2MiIgZmlsbD0iIzFjZDVkMSIvPjxwb2x5Z29uIHBvaW50cz0iMjMwLDY2MiA0MzgsNTI2IDQ3Niw4NDAiIGZpbGw9IiMxOTc3ZDUiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNzkwLDM2MCA2MDQsNTQ4IDQzOCw1MjYiIGZpbGw9IiNmZmYwYzgiLz48cG9seWdvbiBwb2ludHM9Ijc5MCwzNjAgNzcwLDY1MCA2MDQsNTQ4IiBmaWxsPSIjZmY4YzcyIi8+PHBvbHlnb24gcG9pbnRzPSI3NzAsNjUwIDQ3Niw4NDAgNjA0LDU0OCIgZmlsbD0iI2YyMzg2OCIvPjxwb2x5Z29uIHBvaW50cz0iNDM4LDUyNiA2MDQsNTQ4IDQ3Niw4NDAiIGZpbGw9IiM5MzM1N2QiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNjA0LDU0OCA0MzgsNTI2IiBmaWxsPSIjMjkyMTMyIi8+Cjwvc3ZnPgo=
+// @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
 // @tag          themes
 // @tag          customization
@@ -33,7 +33,7 @@
 'use strict';
 const EXP = Object.create(null);
 
-// Generated from the approved Dropper v3.2.18 install artifact. Do not edit.
+// Generated from the approved Dropper v3.2.19 install artifact. Do not edit.
 const DropperReference = (() => {
 const LAUNCHER_ORDER_KEY = "exp:v3:launcher-order";
 const LAUNCHER_GRID_DELTA_KEY = "exp:v3:launcher-grid-delta";
@@ -1012,7 +1012,7 @@ const ExtraPotionsDiagnostics = (() => {
   return Object.freeze({ createReport, registerProduct, compatibility, bindControls, createControls, dispose });
 })();
 
-/* exp-core 3.2.17: canonical ExtraPotions shared runtime. */
+/* exp-core 3.2.18: canonical ExtraPotions shared runtime. */
 function createProductLifecycle(shared) {
   const VERSION = shared.version;
   const PROTOCOL = 'exp-core-coordination-v1';
@@ -1411,8 +1411,8 @@ function createProductLifecycle(shared) {
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.2.17';
-  const sourceVersion = '3.2.18';
+  const version = '3.2.18';
+  const sourceVersion = '3.2.19';
   const protocol = 'exp-core-coordination-v1';
   const gridProtocol = 'exp-launcher-grid-v3';
   const GRID_ORDER = 'exp:v3:launcher-order';
@@ -3241,10 +3241,15 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.3.18';
+EXP.VERSION = '3.3.19';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+	'3.3.19': [
+	  'Uses the borderless SHIFT launcher artwork everywhere an icon is shown.',
+	  'References the SVG by URL instead of embedding image bytes in the userscript.',
+	  'Removes the superseded bordered SVG and raster badge files.',
+	],
 	'3.3.18': [
 	  'Keeps the rebuilt theme rendering and expanded Amazon coverage from 3.3.17.',
 	  'Aligns shared status and progress chrome with the rounded-rectangle suite preference.',
@@ -3539,7 +3544,7 @@ EXP.Updates = (() => {
 })();
 
 // Dropper 3.2.8 is the canonical shared UI; product-specific color stays declarative.
-EXP.MenuChrome = Object.freeze({ create: options => ExtraPotionsCore.create({ ...options, launcherSrc: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbGxlZGJ5PSJ0aXRsZSBkZXNjIj4KICA8dGl0bGUgaWQ9InRpdGxlIj5TSElGVCBMYXVuY2hlciBHZW08L3RpdGxlPjxkZXNjIGlkPSJkZXNjIj5BIGJvcmRlcmxlc3Mgb2Zmc2V0IGNyeXN0YWwgd2l0aCBjeWFuIGFuZCBjb3JhbCBwaGFzZXMgZGl2aWRlZCBieSBhIGRpYWdvbmFsIHNlYW0uPC9kZXNjPgogIDxwb2x5Z29uIHBvaW50cz0iNTQ4LDE4NCA3OTAsMzYwIDc3MCw2NTAgNDc2LDg0MCAyMzAsNjYyIDI1NCwzNjYiIGZpbGw9IiMxNTE1MWQiLz48cG9seWdvbiBwb2ludHM9IjU0OCwxODQgNTQ4LDQxNiAyNTQsMzY2IiBmaWxsPSIjYjlmZmY5Ii8+PHBvbHlnb24gcG9pbnRzPSI1NDgsMTg0IDc5MCwzNjAgNTQ4LDQxNiIgZmlsbD0iIzYyZjVlYyIvPjxwb2x5Z29uIHBvaW50cz0iMjU0LDM2NiA1NDgsNDE2IDQzOCw1MjYgMjMwLDY2MiIgZmlsbD0iIzFjZDVkMSIvPjxwb2x5Z29uIHBvaW50cz0iMjMwLDY2MiA0MzgsNTI2IDQ3Niw4NDAiIGZpbGw9IiMxOTc3ZDUiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNzkwLDM2MCA2MDQsNTQ4IDQzOCw1MjYiIGZpbGw9IiNmZmYwYzgiLz48cG9seWdvbiBwb2ludHM9Ijc5MCwzNjAgNzcwLDY1MCA2MDQsNTQ4IiBmaWxsPSIjZmY4YzcyIi8+PHBvbHlnb24gcG9pbnRzPSI3NzAsNjUwIDQ3Niw4NDAgNjA0LDU0OCIgZmlsbD0iI2YyMzg2OCIvPjxwb2x5Z29uIHBvaW50cz0iNDM4LDUyNiA2MDQsNTQ4IDQ3Niw4NDAiIGZpbGw9IiM5MzM1N2QiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNjA0LDU0OCA0MzgsNTI2IiBmaWxsPSIjMjkyMTMyIi8+Cjwvc3ZnPgo=', productTheme: {"id":"shift","name":"SHIFT gem","swatch":"linear-gradient(135deg,#b9fff9 0 34%,#20d9d3 34% 67%,#f23868 67%)","bg":"#101719","panel":"#182326","line":"#344442","text":"#f2f8f7","muted":"#b8c9c7","accent":"#26d9c7","accent2":"#f23868","skin":"linear-gradient(135deg,#b9fff9,#20d9d3,#f23868)","skinVertical":"linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)"} }) });
+EXP.MenuChrome = Object.freeze({ create: options => ExtraPotionsCore.create({ ...options, launcherSrc: 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg', productTheme: {"id":"shift","name":"SHIFT gem","swatch":"linear-gradient(135deg,#b9fff9 0 34%,#20d9d3 34% 67%,#f23868 67%)","bg":"#101719","panel":"#182326","line":"#344442","text":"#f2f8f7","muted":"#b8c9c7","accent":"#26d9c7","accent2":"#f23868","skin":"linear-gradient(135deg,#b9fff9,#20d9d3,#f23868)","skinVertical":"linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)"} }) });
 
 /* Diagnostics reports and controls follow Dropper's shared implementation. */
 EXP.Diagnostics = Object.freeze({
@@ -3549,8 +3554,9 @@ EXP.Diagnostics = Object.freeze({
 });
 
 EXP.UI = (() => {
-  const BADGE_DATA = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbGxlZGJ5PSJ0aXRsZSBkZXNjIj4KICA8dGl0bGUgaWQ9InRpdGxlIj5TSElGVCBJY29uPC90aXRsZT48ZGVzYyBpZD0iZGVzYyI+QSBjeWFuIGFuZCBjb3JhbCBwaGFzZS1jdXQgZmFjZXRlZCBnZW0gaW4gYSBtYXRjaGluZyBncmFkaWVudCBiYWRnZS48L2Rlc2M+CiAgPGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJiZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIHN0b3AtY29sb3I9IiMwNzE5MWMiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxNjBkMTgiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYm9yZGVyIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agc3RvcC1jb2xvcj0iI2I5ZmZmOSIvPjxzdG9wIG9mZnNldD0iLjQ4IiBzdG9wLWNvbG9yPSIjMjBkOWQzIi8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjZjIzODY4Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+CiAgPHJlY3QgeD0iMzIiIHk9IjMyIiB3aWR0aD0iOTYwIiBoZWlnaHQ9Ijk2MCIgcng9IjE4NSIgZmlsbD0idXJsKCNiZykiLz48cmVjdCB4PSI0MiIgeT0iNDIiIHdpZHRoPSI5NDAiIGhlaWdodD0iOTQwIiByeD0iMTc1IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjYm9yZGVyKSIgc3Ryb2tlLXdpZHRoPSIyOCIvPgogIDxwb2x5Z29uIHBvaW50cz0iNTQ4LDE4NCA3OTAsMzYwIDc3MCw2NTAgNDc2LDg0MCAyMzAsNjYyIDI1NCwzNjYiIGZpbGw9IiMxNTE1MWQiLz48cG9seWdvbiBwb2ludHM9IjU0OCwxODQgNTQ4LDQxNiAyNTQsMzY2IiBmaWxsPSIjYjlmZmY5Ii8+PHBvbHlnb24gcG9pbnRzPSI1NDgsMTg0IDc5MCwzNjAgNTQ4LDQxNiIgZmlsbD0iIzYyZjVlYyIvPjxwb2x5Z29uIHBvaW50cz0iMjU0LDM2NiA1NDgsNDE2IDQzOCw1MjYgMjMwLDY2MiIgZmlsbD0iIzFjZDVkMSIvPjxwb2x5Z29uIHBvaW50cz0iMjMwLDY2MiA0MzgsNTI2IDQ3Niw4NDAiIGZpbGw9IiMxOTc3ZDUiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNzkwLDM2MCA2MDQsNTQ4IDQzOCw1MjYiIGZpbGw9IiNmZmYwYzgiLz48cG9seWdvbiBwb2ludHM9Ijc5MCwzNjAgNzcwLDY1MCA2MDQsNTQ4IiBmaWxsPSIjZmY4YzcyIi8+PHBvbHlnb24gcG9pbnRzPSI3NzAsNjUwIDQ3Niw4NDAgNjA0LDU0OCIgZmlsbD0iI2YyMzg2OCIvPjxwb2x5Z29uIHBvaW50cz0iNDM4LDUyNiA2MDQsNTQ4IDQ3Niw4NDAiIGZpbGw9IiM5MzM1N2QiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNjA0LDU0OCA0MzgsNTI2IiBmaWxsPSIjMjkyMTMyIi8+Cjwvc3ZnPgo=';
-  const LAUNCHER_DATA = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDI0IiBoZWlnaHQ9IjEwMjQiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHJvbGU9ImltZyIgYXJpYS1sYWJlbGxlZGJ5PSJ0aXRsZSBkZXNjIj4KICA8dGl0bGUgaWQ9InRpdGxlIj5TSElGVCBMYXVuY2hlciBHZW08L3RpdGxlPjxkZXNjIGlkPSJkZXNjIj5BIGJvcmRlcmxlc3Mgb2Zmc2V0IGNyeXN0YWwgd2l0aCBjeWFuIGFuZCBjb3JhbCBwaGFzZXMgZGl2aWRlZCBieSBhIGRpYWdvbmFsIHNlYW0uPC9kZXNjPgogIDxwb2x5Z29uIHBvaW50cz0iNTQ4LDE4NCA3OTAsMzYwIDc3MCw2NTAgNDc2LDg0MCAyMzAsNjYyIDI1NCwzNjYiIGZpbGw9IiMxNTE1MWQiLz48cG9seWdvbiBwb2ludHM9IjU0OCwxODQgNTQ4LDQxNiAyNTQsMzY2IiBmaWxsPSIjYjlmZmY5Ii8+PHBvbHlnb24gcG9pbnRzPSI1NDgsMTg0IDc5MCwzNjAgNTQ4LDQxNiIgZmlsbD0iIzYyZjVlYyIvPjxwb2x5Z29uIHBvaW50cz0iMjU0LDM2NiA1NDgsNDE2IDQzOCw1MjYgMjMwLDY2MiIgZmlsbD0iIzFjZDVkMSIvPjxwb2x5Z29uIHBvaW50cz0iMjMwLDY2MiA0MzgsNTI2IDQ3Niw4NDAiIGZpbGw9IiMxOTc3ZDUiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNzkwLDM2MCA2MDQsNTQ4IDQzOCw1MjYiIGZpbGw9IiNmZmYwYzgiLz48cG9seWdvbiBwb2ludHM9Ijc5MCwzNjAgNzcwLDY1MCA2MDQsNTQ4IiBmaWxsPSIjZmY4YzcyIi8+PHBvbHlnb24gcG9pbnRzPSI3NzAsNjUwIDQ3Niw4NDAgNjA0LDU0OCIgZmlsbD0iI2YyMzg2OCIvPjxwb2x5Z29uIHBvaW50cz0iNDM4LDUyNiA2MDQsNTQ4IDQ3Niw4NDAiIGZpbGw9IiM5MzM1N2QiLz48cG9seWdvbiBwb2ludHM9IjU0OCw0MTYgNjA0LDU0OCA0MzgsNTI2IiBmaWxsPSIjMjkyMTMyIi8+Cjwvc3ZnPgo=';
+  const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
+  const BADGE_DATA = ICON_URL;
+  const LAUNCHER_DATA = ICON_URL;
   const routes = [
     ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['menu', 'Menu & Updates'], ['recovery', 'Recovery & Data']
   ];

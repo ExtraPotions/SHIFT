@@ -1,7 +1,6 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -17,7 +16,7 @@ test('userscript metadata and generated safety constraints', () => {
   assert.doesNotMatch(script, /\bGM_getResourceText\b/);
   assert.doesNotMatch(script, /\bexpPart\d+\b/);
   assert.match(script, /@namespace\s+https:\/\/github\.com\/ExtraPotions/);
-  assert.deepEqual(Buffer.from(script.match(/^\/\/ @icon\s+data:image\/svg\+xml;base64,(.+)$/m)[1], 'base64'), fs.readFileSync(path.join(root, 'assets', 'shift-badge.svg')));
+  assert.match(script, /^\/\/ @icon\s+https:\/\/raw\.githubusercontent\.com\/ExtraPotions\/SHIFT\/main\/assets\/shift-launcher\.svg$/m);
   assert.doesNotMatch(script, /@require\b/);
   assert.match(script, /@connect\s+api\.github\.com/);
   assert.match(script, /@updateURL\s+https:\/\/github\.com\/ExtraPotions\/SHIFT\/releases\/latest\/download\/shift\.user\.js/);
@@ -32,29 +31,21 @@ test('userscript metadata and generated safety constraints', () => {
   assert.doesNotMatch(script, /\.switch\[aria-checked="true"\],\[role="switch"\]\[aria-checked="true"\]\{border-color:transparent!important;background:\$\{edge\}!important\}/);
   assert.doesNotMatch(script, /background:#313b3d;cursor:pointer\}\.switch span\{display:block;width:16px/);
   assert.doesNotMatch(script, /localStorage\.(?:getItem|setItem)\(['"](?:colorshift|dpb)/i);
-  assert.match(script, /data:image\/svg\+xml;base64,/);
+  assert.doesNotMatch(script, /data:image\//u);
   assert.doesNotMatch(script, /__EXP_SHIFT_BADGE_DATA__/);
   assert.doesNotMatch(script, /__EXP_SHIFT_LAUNCHER_DATA__/);
   const launcher = fs.readFileSync(path.join(root, 'assets', 'shift-launcher.svg'), 'utf8');
-  const badge = fs.readFileSync(path.join(root, 'assets', 'shift-badge.svg'));
-  assert.equal(crypto.createHash('sha256').update(badge).digest('hex'), '905b36793533ce4ced6cff8650d98b0f022fa185a3938beabbdced3db8842fb5');
-  assert.equal(crypto.createHash('sha256').update(launcher).digest('hex'), 'ec77127e1645426a0494a768de07a65009ddfd49d7ea919c2ecba07521f60b64');
   assert.match(script, /\[data-exp-part="launcher"\]\{[^}]*width:48px!important;[^}]*height:48px!important/u);
   assert.match(script, /\[data-exp-part="launcher"\] \.launcher-icon\{width:40px!important;height:40px!important\}/u);
   assert.match(script, /\.header-icon \.menu-icon\{width:38px!important;height:38px!important\}/u);
-  assert.ok(script.includes(`data:image/svg+xml;base64,${badge.toString('base64')}`));
-  assert.ok(script.includes(`data:image/svg+xml;base64,${Buffer.from(launcher).toString('base64')}`));
+  assert.ok(script.includes('https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg'));
+  for (const removed of ['shift-badge.svg', 'shift-badge-128.png']) {
+    assert.equal(fs.existsSync(path.join(root, 'assets', removed)), false, removed);
+  }
   assert.doesNotMatch(launcher, /<rect x="32"|<rect x="42"|id="border"/u);
   assert.match(script, /createDiagnosticsReport\('SHIFT'/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'src', 'ui.js'), 'utf8'), /<svg class="launcher-ring"/u);
   assert.match(script, /launcher\.replaceChildren\(mark\)/u);
-});
-
-test('128 px source badge derivative has exact dimensions', () => {
-  const png = fs.readFileSync(path.join(root, 'assets', 'shift-badge-128.png'));
-  assert.equal(png.subarray(1, 4).toString(), 'PNG');
-  assert.equal(png.readUInt32BE(16), 128);
-  assert.equal(png.readUInt32BE(20), 128);
 });
 
 test('manifest and package versions agree', () => {

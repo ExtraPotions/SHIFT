@@ -1,3 +1,9 @@
+## 3.3.19 — 2026-09-25
+
+- Uses the borderless SHIFT launcher artwork everywhere an icon is shown.
+- References the SVG by URL instead of embedding image bytes in the userscript.
+- Removes the superseded bordered SVG and raster badge files.
+
 ## 3.3.18 — 2026-09-25
 
 - Keeps the rebuilt theme rendering and expanded Amazon coverage from 3.3.17.
