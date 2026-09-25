@@ -2076,7 +2076,7 @@ const ExtraPotionsCore = (() => {
     const onError = typeof options.onError === 'function' ? options.onError : () => {};
     if (!productId || !repository || !currentVersion) throw new Error('Incomplete update checker configuration');
 
-    const ENDPOINT = 'https://api.github.com/repos/' + repository + '/releases/latest';
+    const ENDPOINT = String(options.endpoint || ('https://api.github.com/repos/' + repository + '/releases/latest'));
     const CACHE_KEY = 'exp:v3:' + productId + ':update-cache';
     const CHECK_INTERVAL = 15 * 60 * 1000;
     const CHECK_LEASE = 30 * 1000;
@@ -3942,6 +3942,7 @@ EXP.ReleaseNotes = (() => {
 EXP.Updates = ExtraPotionsCore.createReleaseUpdateChecker({
   productId: 'shift',
   repository: 'ExtraPotions/SHIFT',
+  endpoint: 'https://api.github.com/repos/ExtraPotions/SHIFT/releases/latest',
   currentVersion: EXP.VERSION,
   enabled: () => EXP.Settings.snapshot().updateNotifications,
   onError: error => EXP.Core.safeError(error, 'shift-updates'),
@@ -4023,6 +4024,7 @@ EXP.UI = (() => {
     install.href = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js';
     updateNotice.hidden = false;
     updateNotice.style.display = 'block';
+    updateNotice.dataset.noticeKind = available ? 'available' : kicker === 'Update Complete' ? 'complete' : 'current';
     updateNotice.dataset.placement = 'menu';
     chrome?.layout();
     clearTimeout(updateTimer);
@@ -4332,7 +4334,7 @@ EXP.UI = (() => {
     const titleRow = el('div', { class: 'header-title-row' });
     titleRow.append(el('strong', { class: 'brand-copy menu-title' }, 'SHIFT'));
     const version = button(`v${EXP.VERSION}`, () => {
-      if (updateNotice?.hidden !== false) {
+      if (updateNotice?.hidden !== false || updateNotice.dataset.noticeKind !== 'current') {
         showUpdateNotice({
           kicker: 'Current Version',
           title: 'SHIFT Changelog',
