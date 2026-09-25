@@ -39,13 +39,29 @@ EXP.Settings = (() => {
   const listeners = new Set();
   const key = (name) => `${PREFIX}:${name}`;
   function rawRead(name) {
-    try { if (typeof GM_getValue === 'function') return GM_getValue(key(name), undefined); } catch {}
-    try { const value = localStorage.getItem(key(name)); return value === null ? undefined : JSON.parse(value); } catch { return memory.get(key(name)); }
+    const storageKey = key(name);
+    try {
+      if (typeof GM_getValue === 'function') {
+        const value = GM_getValue(storageKey, undefined);
+        if (value !== undefined) return value;
+      }
+    } catch {}
+    try {
+      const value = localStorage.getItem(storageKey);
+      if (value !== null) {
+        const parsed = JSON.parse(value);
+        memory.set(storageKey, parsed);
+        try { if (typeof GM_setValue === 'function') GM_setValue(storageKey, parsed); } catch {}
+        return parsed;
+      }
+    } catch {}
+    return memory.get(storageKey);
   }
   function rawWrite(name, value) {
-    memory.set(key(name), value);
-    try { if (typeof GM_setValue === 'function') { GM_setValue(key(name), value); return; } } catch {}
-    try { localStorage.setItem(key(name), JSON.stringify(value)); } catch {}
+    const storageKey = key(name);
+    memory.set(storageKey, value);
+    try { if (typeof GM_setValue === 'function') GM_setValue(storageKey, value); } catch {}
+    try { localStorage.setItem(storageKey, JSON.stringify(value)); } catch {}
   }
   const validTheme = (value) => typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value);
   function validate(candidate) {
@@ -82,7 +98,12 @@ EXP.Settings = (() => {
     if (typeof candidate.currentProfile === 'string' && result.profiles.some((profile) => profile.id === candidate.currentProfile)) result.currentProfile = candidate.currentProfile;
     return result;
   }
-  function load() { state = validate(rawRead('settings') || defaults); return snapshot(); }
+  function load() {
+    const stored = rawRead('settings');
+    state = validate(stored || defaults);
+    rawWrite('settings', state);
+    return snapshot();
+  }
   function snapshot() { return structuredClone(state || defaults); }
   function replace(next, reason = 'replace') { const valid = validate(next); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
