@@ -26,8 +26,6 @@ EXP.UI = (() => {
   let swatchStyle;
   let updateNotice;
   let updateTimer;
-  let noticeResize;
-  let noticeCleanups = [];
   let lastVersionKey = 'exp:v3:shift:last-version-v2';
 
   const el = (tag, attrs = {}, text) => {
@@ -52,17 +50,6 @@ EXP.UI = (() => {
     chrome?.update();
   }
 
-  function positionChangelog() {
-    const notice = shadow?.querySelector('.changelog');
-    if (!notice || notice.hidden) return;
-    EXP.Core.layoutFloatingNotices();
-    notice.dataset.placement = 'launcher-grid';
-  }
-
-  function queueChangelogPosition() {
-    requestAnimationFrame(() => requestAnimationFrame(positionChangelog));
-  }
-
   function showUpdateNotice({ kicker = "What's New", title = 'SHIFT Updated', version = EXP.VERSION, text = '', details = [], available = false } = {}) {
     if (!updateNotice) return;
     updateNotice.querySelector('.update-kicker').textContent = kicker;
@@ -78,11 +65,10 @@ EXP.UI = (() => {
     install.href = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js';
     updateNotice.hidden = false;
     updateNotice.style.display = 'block';
-    EXP.Core.layoutFloatingNotices();
-    chrome?.update();
+    updateNotice.dataset.placement = 'menu';
+    chrome?.layout();
     clearTimeout(updateTimer);
     updateTimer = setTimeout(hideUpdateNotice, 30000);
-    chrome?.update();
   }
 
   async function checkUpdateNotice(force = false) {
@@ -93,7 +79,7 @@ EXP.UI = (() => {
       title: 'New SHIFT Version Available',
       version: result.latest,
       text: `v${result.latest} is ready to install.`,
-      details: ['A newer SHIFT build is available.', 'Install the latest userscript for the newest fixes and improvements.'],
+      details: Array.isArray(result.details) && result.details.length ? result.details : ['A newer SHIFT build is available.', 'Install the latest userscript for the newest fixes and improvements.'],
       available: true,
     });
     return result;
@@ -388,13 +374,18 @@ EXP.UI = (() => {
     const titleRow = el('div', { class: 'header-title-row' });
     titleRow.append(el('strong', { class: 'brand-copy menu-title' }, 'SHIFT'));
     const version = button(`v${EXP.VERSION}`, () => {
-      const notice = shadow.querySelector('.changelog');
-      notice.hidden = !notice.hidden;
-      if (!notice.hidden) {
+      if (updateNotice?.hidden !== false) {
+        showUpdateNotice({
+          kicker: 'Current Version',
+          title: 'SHIFT Changelog',
+          version: EXP.VERSION,
+          text: `What's new in v${EXP.VERSION}.`,
+          details: EXP.ReleaseNotes.forVersion(EXP.VERSION),
+          available: false,
+        });
+      } else {
         hideUpdateNotice();
-        queueChangelogPosition();
       }
-      chrome?.update();
     }, 'version');
     version.setAttribute('aria-label', `View SHIFT v${EXP.VERSION} Changelog`);
     version.title = 'View Changelog';
@@ -403,12 +394,6 @@ EXP.UI = (() => {
     headerIcon.append(el('img', { src: BADGE_DATA, alt: '' }));
     identity.append(headerIcon, copy);
     header.append(identity, button('×', () => setOpen(false), 'close'));
-    const changelog = el('div', { class: 'changelog', hidden: true });
-    changelog.append(EXP.ReleaseNotes.renderChangelog(EXP.VERSION));
-    const changelogFooter = el('div', { class: 'update-footer changelog-footer' });
-    const changelogRelease = el('a', { class: 'update-release', href: 'https://github.com/ExtraPotions/SHIFT/releases', target: '_blank', rel: 'noopener noreferrer' }, 'GitHub Release');
-    changelogFooter.append(changelogRelease);
-    changelog.append(changelogFooter);
     updateNotice = el('div', { class: 'update-notice', hidden: true });
     updateNotice.innerHTML = '<button type="button" class="update-dismiss" aria-label="Dismiss Update Notice">×</button><div class="update-head"><div class="update-heading"><div class="update-kicker">What\'s New</div><div class="update-title"></div></div><div class="update-version"></div></div><div class="update-text"></div><ul class="update-list"></ul><div class="update-footer"><a class="update-release" href="https://github.com/ExtraPotions/SHIFT/releases" target="_blank" rel="noopener noreferrer">GitHub Release</a><a class="update-action" href="#" target="_blank" rel="noopener noreferrer">Install Update</a></div>';
     updateNotice.querySelector('.update-dismiss').addEventListener('click', hideUpdateNotice);
@@ -421,14 +406,9 @@ EXP.UI = (() => {
     }
     status = el('div', { class: 'status', role: 'status', 'aria-live': 'polite' }, 'Original appearance is active.');
     toast = el('div', { class: 'toast', role: 'status', 'aria-live': 'polite', hidden: true });
-    panel.append(header, el('div', { class: 'header-divider' }), status, nav); shadow.append(panel, updateNotice, changelog, launcher, toast);
+    panel.append(header, el('div', { class: 'header-divider' }), status, nav); shadow.append(panel, updateNotice, launcher, toast);
     chrome = EXP.MenuChrome.create({ id: 'shift', host, shadow, launcher, panel, getSettings: () => EXP.Settings.snapshot(), setOpen, shortcutKey: 's' });
     document.documentElement.append(host);
-    noticeCleanups = [EXP.Core.registerFloatingNotice(host, updateNotice), EXP.Core.registerFloatingNotice(host, changelog)];
-    noticeResize = new ResizeObserver(queueChangelogPosition);
-    noticeResize.observe(panel);
-    addEventListener('resize', queueChangelogPosition, { passive: true });
-    document.addEventListener('exp-core:coordination', queueChangelogPosition);
     applyMenuTheme(EXP.Settings.effective());
     launcherCleanup = EXP.Core.registerLauncher(host, { productId: 'shift', priority: 100 });
     try {
@@ -445,7 +425,7 @@ EXP.UI = (() => {
     return {
       update(next) { saved = structuredClone(next); applyPosition(next.launcherPosition); applyMenuTheme(EXP.Settings.effective()); if (open) renderRoute(); chrome?.update(); },
       toggle() { setOpen(!open); },
-      destroy() { clearTimeout(toastTimer); clearTimeout(updateTimer); noticeResize?.disconnect(); removeEventListener('resize', queueChangelogPosition); document.removeEventListener('exp-core:coordination', queueChangelogPosition); document.removeEventListener('pointerdown', outside, true); noticeCleanups.forEach(dispose=>dispose()); noticeCleanups=[]; chrome?.destroy(); launcherCleanup?.(); host.remove(); host = shadow = launcher = panel = content = nav = status = toast = chrome = menuThemeStyle = swatchStyle = noticeResize = null; },
+      destroy() { clearTimeout(toastTimer); clearTimeout(updateTimer); document.removeEventListener('pointerdown', outside, true); chrome?.destroy(); launcherCleanup?.(); host.remove(); host = shadow = launcher = panel = content = nav = status = toast = chrome = menuThemeStyle = swatchStyle = null; },
     };
   }
 
