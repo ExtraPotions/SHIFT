@@ -85,3 +85,15 @@ test('theme runtime has one owner for stylesheets and one owner for live DOM rep
   assert.match(dynamic, /style,link\[rel~=/);
   assert.match(live, /attributeFilter:\['class','style','hidden','aria-hidden','open'\]/);
 });
+
+test('SHIFT settings survive manager storage gaps and mirror to fallback storage', () => {
+  const settings = fs.readFileSync(path.join(root, 'src', 'settings.js'), 'utf8');
+  assert.match(settings, /const value = GM_getValue\(storageKey, undefined\);\s*if \(value !== undefined\) return value;/u);
+  assert.match(settings, /const value = localStorage\.getItem\(storageKey\);\s*if \(value !== null\) \{/u);
+  assert.match(settings, /if \(typeof GM_setValue === 'function'\) GM_setValue\(storageKey, parsed\);/u);
+  assert.match(settings, /if \(typeof GM_setValue === 'function'\) GM_setValue\(storageKey, value\);/u);
+  assert.match(settings, /localStorage\.setItem\(storageKey, JSON\.stringify\(value\)\);/u);
+  assert.match(settings, /function load\(\) \{\s*const stored = rawRead\('settings'\);\s*state = validate\(stored \|\| defaults\);\s*rawWrite\('settings', state\);/u);
+  assert.doesNotMatch(settings, /GM_setValue\(key\(name\), value\); return;/u);
+});
+
