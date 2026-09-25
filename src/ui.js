@@ -65,6 +65,7 @@ EXP.UI = (() => {
     install.href = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js';
     updateNotice.hidden = false;
     updateNotice.style.display = 'block';
+    updateNotice.dataset.noticeKind = available ? 'available' : kicker === 'Update Complete' ? 'complete' : 'current';
     updateNotice.dataset.placement = 'menu';
     chrome?.layout();
     clearTimeout(updateTimer);
@@ -374,7 +375,7 @@ EXP.UI = (() => {
     const titleRow = el('div', { class: 'header-title-row' });
     titleRow.append(el('strong', { class: 'brand-copy menu-title' }, 'SHIFT'));
     const version = button(`v${EXP.VERSION}`, () => {
-      if (updateNotice?.hidden !== false) {
+      if (updateNotice?.hidden !== false || updateNotice.dataset.noticeKind !== 'current') {
         showUpdateNotice({
           kicker: 'Current Version',
           title: 'SHIFT Changelog',
