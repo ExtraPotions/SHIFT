@@ -1,3 +1,8 @@
+## 3.3.22 — 2026-09-25
+
+- Preserves SHIFT settings across userscript updates by recovering from browser-local backup storage when manager storage is missing.
+- Mirrors validated settings to both manager storage and the local fallback so future updates can self-heal without resetting preferences.
+
 ## 3.3.21 — 2026-09-25
 
 - Shows each automatic update notice once for that version instead of on every page load.
