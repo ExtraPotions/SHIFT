@@ -243,12 +243,12 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.versionLabel, `v${pkg.version}`);
   assert.equal(facts.changelogHeading, `Version ${pkg.version}`);
   assert.ok(facts.changelogBullets.length >= 2 && facts.changelogBullets.length <= 4, JSON.stringify(facts.changelogBullets));
-  assert.ok(facts.changelogBullets.some((item) => /every launcher clickable/i.test(item)));
-  assert.equal(facts.changelogPlacement, 'launcher-side');
-  assert.ok(facts.changelogRight <= facts.panelLeft - 6, JSON.stringify(facts));
-  assert.ok(facts.changelogBottom > facts.launcherTop, JSON.stringify(facts));
+  assert.ok(facts.changelogBullets.some((item) => /automatic update notice once/i.test(item)));
+  assert.equal(facts.changelogPlacement, 'launcher-grid');
+  assert.ok(facts.changelogRight > 0, JSON.stringify(facts));
+  assert.ok(facts.changelogBottom <= facts.launcherTop, JSON.stringify(facts));
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].map((item) => item.querySelector('span')?.textContent));
-  assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'Recovery & Data']);
+  assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'System']);
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
     const title = shadow.querySelector('.menu-title');
@@ -557,7 +557,7 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-route="appearance"]').click(); });
   await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click(); });
   await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
-  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].find((item) => item.dataset.route === 'recovery').click());
+  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].find((item) => item.dataset.route === 'system').click());
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => !(document.querySelector('#exp-shift-page-style')?.textContent) && document.querySelectorAll('[data-exp-shift-live]').length === 0);
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
@@ -591,7 +591,7 @@ test('Profiles & Sites and Menu & Updates hold site and chrome controls', async 
   assert.ok(menuLabels.includes('Menu width'));
   assert.ok(menuLabels.includes('Quiet update notifications'));
   assert.equal(menuLabels.includes('Safe Mode'), false);
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-route="recovery"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-route="system"]').click());
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(recoveryLabels.includes('Safe Mode'));
   assert.ok(recoveryLabels.includes('Export SHIFT settings'));

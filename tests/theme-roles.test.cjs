@@ -21,7 +21,7 @@ test('component theme distinguishes table headings, state messages and controls 
 });
 test('Original and Safe Mode restore component role styling',async t=>{
   const page=await fixture(t);
-  await page.locator('#exp-shift-root [data-route="recovery"]').click();await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();
+  await page.locator('#exp-shift-root [data-route="system"]').click();await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
   await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();
   await page.locator('#exp-shift-root [data-route="appearance"]').click();
@@ -30,7 +30,7 @@ test('Original and Safe Mode restore component role styling',async t=>{
 });
 test('live contrast repair starts when leaving Original and resumes after Safe Mode',async t=>{
  const page=await fixture(t);
- await page.locator('#exp-shift-root [data-route="recovery"]').click();
+ await page.locator('#exp-shift-root [data-route="system"]').click();
  const active=async()=>{
   await page.locator('#exp-shift-root').getByRole('button',{name:'Show Diagnostics',exact:true}).click();
   const report=JSON.parse(await page.locator('#exp-shift-root .diag').textContent());

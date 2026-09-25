@@ -22,10 +22,10 @@
 ## Install
 
 <p>
-  <a href="https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js?v=3.3.20">
+  <a href="https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js?v=3.3.21">
     <img alt="Install SHIFT" src="https://img.shields.io/badge/Install-SHIFT-24476B?style=flat-square">
   </a>
-  <img alt="Version 3.3.20" src="https://img.shields.io/badge/version-3.3.20-22C55E?style=flat-square">
+  <img alt="Version 3.3.21" src="https://img.shields.io/badge/version-3.3.21-22C55E?style=flat-square">
   <a href="https://github.com/ExtraPotions/SHIFT/releases">
     <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/ExtraPotions/SHIFT/total?style=flat-square&label=Downloads">
   </a>

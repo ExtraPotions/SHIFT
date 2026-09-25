@@ -1,7 +1,12 @@
-EXP.VERSION = '3.3.20';
+EXP.VERSION = '3.3.21';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+	'3.3.21': [
+	  'Shows each automatic update notice once for that version instead of on every page load.',
+	  'Stacks simultaneous notices beside the complete launcher grid.',
+	  'Moves diagnostics and recovery actions under the final System menu.',
+	],
 	'3.3.20': [
 	  'Keeps every launcher clickable when Dropper and multiple ExtraPotions products share the page.',
 	  'Uses exp-core 3.2.19 to prevent transparent launcher containers from intercepting pointer input.',

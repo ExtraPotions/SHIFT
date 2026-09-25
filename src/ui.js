@@ -3,7 +3,7 @@ EXP.UI = (() => {
   const BADGE_DATA = ICON_URL;
   const LAUNCHER_DATA = ICON_URL;
   const routes = [
-    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['menu', 'Menu & Updates'], ['recovery', 'Recovery & Data']
+    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['menu', 'Menu & Updates'], ['system', 'System']
   ];
   let host;
   let shadow;
@@ -27,6 +27,7 @@ EXP.UI = (() => {
   let updateNotice;
   let updateTimer;
   let noticeResize;
+  let noticeCleanups = [];
   let lastVersionKey = 'exp:v3:shift:last-version-v2';
 
   const el = (tag, attrs = {}, text) => {
@@ -53,27 +54,9 @@ EXP.UI = (() => {
 
   function positionChangelog() {
     const notice = shadow?.querySelector('.changelog');
-    if (!notice || notice.hidden || !panel || !launcher) return;
-    const panelRect = panel.getBoundingClientRect();
-    const launcherRect = launcher.getBoundingClientRect();
-    if (!panelRect.width || !launcherRect.width) return;
-    const width = Math.min(panelRect.width, innerWidth - 24);
-    const height = notice.offsetHeight || notice.scrollHeight || 180;
-    const opensUp = host?.dataset.openDirection === 'up' || panelRect.bottom <= launcherRect.top;
-    const sideFits = opensUp && panelRect.left >= width + 16;
-    notice.style.width = `${width}px`;
-    notice.style.right = 'auto';
-    notice.style.bottom = 'auto';
-    if (sideFits) {
-      notice.style.left = `${Math.max(8, panelRect.left - width - 8)}px`;
-      notice.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, launcherRect.bottom - height))}px`;
-      notice.dataset.placement = 'launcher-side';
-      return;
-    }
-    notice.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, panelRect.right - width))}px`;
-    const above = panelRect.top - height - 8;
-    notice.style.top = `${above >= 8 ? above : Math.min(innerHeight - height - 8, panelRect.bottom + 8)}px`;
-    notice.dataset.placement = above >= 8 ? 'menu-above' : 'menu-below';
+    if (!notice || notice.hidden) return;
+    EXP.Core.layoutFloatingNotices();
+    notice.dataset.placement = 'launcher-grid';
   }
 
   function queueChangelogPosition() {
@@ -95,13 +78,7 @@ EXP.UI = (() => {
     install.href = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js';
     updateNotice.hidden = false;
     updateNotice.style.display = 'block';
-    updateNotice.style.right = launcher?.style.right || '12px';
-    const top = parseFloat(launcher?.style.top);
-    if (Number.isFinite(top)) {
-      const estimated = updateNotice.offsetHeight || 190;
-      updateNotice.style.top = Math.max(8, Math.min(innerHeight - estimated - 8, top - estimated - 8)) + 'px';
-      updateNotice.style.bottom = 'auto';
-    }
+    EXP.Core.layoutFloatingNotices();
     chrome?.update();
     clearTimeout(updateTimer);
     updateTimer = setTimeout(hideUpdateNotice, 30000);
@@ -111,7 +88,7 @@ EXP.UI = (() => {
   async function checkUpdateNotice(force = false) {
     const result = await EXP.Updates.check(force);
     launcher?.classList.toggle('update-available', Boolean(result.available));
-    if (result.available) showUpdateNotice({
+    if (result.available && EXP.Core.claimNotice('shift',`available:${result.latest}`)) showUpdateNotice({
       kicker: 'Update Available',
       title: 'New SHIFT Version Available',
       version: result.latest,
@@ -371,7 +348,7 @@ EXP.UI = (() => {
   function renderRoute() {
     if (!nav) return;
     applyMenuTheme(EXP.Settings.effective());
-    const renderers = { appearance: renderAppearance, readability: renderReadability, effects: renderEffects, profiles: renderProfilesSites, menu: renderMenuUpdates, recovery: renderRecoveryData };
+    const renderers = { appearance: renderAppearance, readability: renderReadability, effects: renderEffects, profiles: renderProfilesSites, menu: renderMenuUpdates, system: renderRecoveryData };
     for (const item of nav.querySelectorAll('[data-route]')) {
       const active = item.dataset.route === currentRoute;
       if (active) lastRoute = currentRoute;
@@ -447,6 +424,7 @@ EXP.UI = (() => {
     panel.append(header, el('div', { class: 'header-divider' }), status, nav); shadow.append(panel, updateNotice, changelog, launcher, toast);
     chrome = EXP.MenuChrome.create({ id: 'shift', host, shadow, launcher, panel, getSettings: () => EXP.Settings.snapshot(), setOpen, shortcutKey: 's' });
     document.documentElement.append(host);
+    noticeCleanups = [EXP.Core.registerFloatingNotice(host, updateNotice), EXP.Core.registerFloatingNotice(host, changelog)];
     noticeResize = new ResizeObserver(queueChangelogPosition);
     noticeResize.observe(panel);
     addEventListener('resize', queueChangelogPosition, { passive: true });
@@ -454,9 +432,8 @@ EXP.UI = (() => {
     applyMenuTheme(EXP.Settings.effective());
     launcherCleanup = EXP.Core.registerLauncher(host, { productId: 'shift', priority: 100 });
     try {
-      const previous = localStorage.getItem(lastVersionKey);
-      if (previous && previous !== EXP.VERSION) showUpdateNotice({ kicker:'Update Complete', title:'SHIFT Updated', version:EXP.VERSION, text:`Updated from v${previous} to v${EXP.VERSION}.`, details:EXP.ReleaseNotes.forVersion(EXP.VERSION) });
-      localStorage.setItem(lastVersionKey, EXP.VERSION);
+      const previous = EXP.Core.consumeVersionChange('shift', EXP.VERSION, lastVersionKey);
+      if (previous) showUpdateNotice({ kicker:'Update Complete', title:'SHIFT Updated', version:EXP.VERSION, text:`Updated from v${previous} to v${EXP.VERSION}.`, details:EXP.ReleaseNotes.forVersion(EXP.VERSION) });
     } catch {}
     if (initial.updateNotifications) checkUpdateNotice(false).catch((error) => EXP.Core.safeError(error, 'shift-update-ui'));
     const outside = (event) => { if (open && !event.composedPath().includes(host)) setOpen(false, false); };
@@ -468,7 +445,7 @@ EXP.UI = (() => {
     return {
       update(next) { saved = structuredClone(next); applyPosition(next.launcherPosition); applyMenuTheme(EXP.Settings.effective()); if (open) renderRoute(); chrome?.update(); },
       toggle() { setOpen(!open); },
-      destroy() { clearTimeout(toastTimer); clearTimeout(updateTimer); noticeResize?.disconnect(); removeEventListener('resize', queueChangelogPosition); document.removeEventListener('exp-core:coordination', queueChangelogPosition); document.removeEventListener('pointerdown', outside, true); chrome?.destroy(); launcherCleanup?.(); host.remove(); host = shadow = launcher = panel = content = nav = status = toast = chrome = menuThemeStyle = swatchStyle = noticeResize = null; },
+      destroy() { clearTimeout(toastTimer); clearTimeout(updateTimer); noticeResize?.disconnect(); removeEventListener('resize', queueChangelogPosition); document.removeEventListener('exp-core:coordination', queueChangelogPosition); document.removeEventListener('pointerdown', outside, true); noticeCleanups.forEach(dispose=>dispose()); noticeCleanups=[]; chrome?.destroy(); launcherCleanup?.(); host.remove(); host = shadow = launcher = panel = content = nav = status = toast = chrome = menuThemeStyle = swatchStyle = noticeResize = null; },
     };
   }
 

@@ -39,8 +39,8 @@ test('updates and manifest read the shared product version', () => {
   assert.match(script, new RegExp(`@version\\s+${pkg.version.replaceAll('.', '\\.')}`));
 });
 
-test('bottom-launcher changelog has a side-placement fallback', () => {
+test('changelog delegates placement to the shared launcher-grid stack', () => {
   assert.match(script, /function positionChangelog\(\)/);
-  assert.match(script, /notice\.dataset\.placement = 'launcher-side'/);
-  assert.match(script, /host\?\.dataset\.openDirection === 'up'/);
+  assert.match(script, /notice\.dataset\.placement = 'launcher-grid'/);
+  assert.match(script, /EXP\.Core\.layoutFloatingNotices\(\)/);
 });
