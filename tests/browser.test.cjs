@@ -243,7 +243,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.versionLabel, `v${pkg.version}`);
   assert.equal(facts.changelogHeading, `Version ${pkg.version}`);
   assert.ok(facts.changelogBullets.length >= 2 && facts.changelogBullets.length <= 4, JSON.stringify(facts.changelogBullets));
-  assert.ok(facts.changelogBullets.some((item) => /automatic update notice once/i.test(item)));
+  assert.ok(facts.changelogBullets.some((item) => /settings across userscript updates/i.test(item)));
   assert.equal(facts.changelogPlacement, 'launcher-grid');
   assert.ok(facts.changelogRight > 0, JSON.stringify(facts));
   assert.ok(facts.changelogBottom <= facts.launcherTop, JSON.stringify(facts));
