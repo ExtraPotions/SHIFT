@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.3.21
+// @version      3.3.22
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3334,10 +3334,14 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.3.21';
+EXP.VERSION = '3.3.22';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+	'3.3.22': [
+	  'Preserves SHIFT settings across userscript updates by recovering from browser-local backup storage when manager storage is missing.',
+	  'Mirrors validated settings to both manager storage and the local fallback so future updates can self-heal without resetting preferences.',
+	],
 	'3.3.21': [
 	  'Shows each automatic update notice once for that version instead of on every page load.',
 	  'Stacks simultaneous notices beside the complete launcher grid.',
