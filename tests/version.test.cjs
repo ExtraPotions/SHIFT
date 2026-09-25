@@ -20,13 +20,14 @@ test('legacy release-note files and screenshots are removed', () => {
 });
 
 test('CHANGELOG and in-app release notes use Dropper-style version headers and bullets', () => {
-  const header = new RegExp(`^## ${pkg.version.replaceAll('.', '\\.') } — \\d{4}-\\d{2}-\\d{2}$`, 'm');
+  const escapedVersion = pkg.version.replaceAll('.', '\\.');
+  const header = new RegExp(`^## ${escapedVersion} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
   assert.match(changelog, header);
   const section = changelog.slice(changelog.search(header)).split(/\n## /)[0];
   const bullets = [...section.matchAll(/^- (.+)$/gm)].map((match) => match[1]);
   assert.ok(bullets.length >= 2 && bullets.length <= 4, JSON.stringify(bullets));
-  assert.match(releaseNotes, new RegExp(`'${pkg.version.replaceAll('.', '\\.)}': \\[`));
-  assert.match(script, new RegExp(`EXP\\.VERSION = '${pkg.version.replaceAll('.', '\\.)}'`));
+  assert.ok(releaseNotes.includes(`'${pkg.version}': [`), 'Current version must have an in-app release-note entry.');
+  assert.ok(script.includes(`EXP.VERSION = '${pkg.version}'`), 'Built product version must match package.json.');
   const normalizedNotes = releaseNotes.replaceAll("\\'", "'");
   for (const bullet of bullets) assert.ok(normalizedNotes.includes(bullet), bullet);
   assert.match(script, /title: 'SHIFT Changelog'/);
@@ -38,7 +39,8 @@ test('updates and manifest read the shared product version', () => {
   assert.match(script, /currentVersion:\s*EXP\.VERSION/);
   assert.match(script, /endpoint:\s*'https:\/\/api\.github\.com\/repos\/ExtraPotions\/SHIFT\/releases\/latest'/);
   assert.match(script, /version:\s*EXP\.VERSION/);
-  assert.match(script, new RegExp(`@version\\s+${pkg.version.replaceAll('.', '\\.)}`));
+  const metadataVersion = script.match(/^\/\/ @version\s+(\S+)$/m)?.[1];
+  assert.equal(metadataVersion, pkg.version);
 });
 
 test('changelog uses the shared Dropper menu-width notice controller', () => {
