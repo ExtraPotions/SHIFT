@@ -106,7 +106,11 @@ EXP.Engine = (() => {
     const reduceMotion=state.reduceMotion==='on'||(state.reduceMotion==='system'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
     const motion=reduceMotion?'html[data-exp-shift] :is([data-exp-shift-live],main,header,footer,nav,aside,section,article,button,input,select,textarea){animation:none!important;transition:none!important;scroll-behavior:auto!important}':'';
     const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a:not([role="button"]):not([data-exp-owned="1"]){color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
-    const forms=state.formReadability?`html[${HOST_ATTR}] :is(input,select,textarea):not([data-exp-owned="1"]){background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`:'';
+    const forms=state.formReadability
+      ? (nativeDark
+        ? `html[${HOST_ATTR}] :is(input,select,textarea):not([data-exp-owned="1"]){color:var(--exp-shift-text)!important;border-color:color-mix(in srgb,var(--exp-shift-accent) 55%,currentColor)!important}`
+        : `html[${HOST_ATTR}] :is(input,select,textarea):not([data-exp-owned="1"]){background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`)
+      : '';
     const muted=state.mutedRecovery?`html[${HOST_ATTR}] :is(.muted,.text-muted,[class*="muted" i],[class*="secondary" i],[class*="subtle" i],figcaption,small,caption):not([data-exp-owned="1"]){color:color-mix(in srgb,var(--exp-shift-muted) 80%,var(--exp-shift-text))!important}`:'';
     const focus=state.focusVisibility==='site'?'':`html[${HOST_ATTR}] :focus-visible{outline:${state.focusVisibility==='high'?3:2}px solid var(--exp-shift-accent)!important;outline-offset:2px!important}`;
     const structural=nativeDark?'':`
