@@ -9,6 +9,14 @@ let unsubscribe;
 let navigationCleanup;
 let processorCleanup;
 let shortcutCleanup;
+let engineStarted = false;
+const initialPageReady = () => document.readyState === 'complete'
+  ? Promise.resolve()
+  : new Promise((resolve) => addEventListener('load', resolve, { once: true }));
+const applyEngine = () => {
+  if (!engineStarted) return null;
+  return EXP.Engine.apply(EXP.Settings.effective());
+};
 const hooks = {
   async initialize() {
     const settings = EXP.Settings.load();
@@ -16,16 +24,15 @@ const hooks = {
     // Launcher/menu are the recovery surface. Mount them before any page transformation so
     // an engine failure or aggressive site rewrite can never prevent access to SHIFT controls.
     ui = EXP.UI.build(settings, {
-      apply: (next) => EXP.Engine.apply({ ...EXP.Settings.effective(), ...next }),
+      apply: (next) => engineStarted ? EXP.Engine.apply({ ...EXP.Settings.effective(), ...next }) : null,
       settings: (next, reason) => {
         const valid = EXP.Settings.replace(next, reason);
-        EXP.Engine.apply(EXP.Settings.effective());
+        applyEngine();
         EXP.Adapters.apply();
         return valid;
       }
     });
     try {
-      EXP.Engine.start(EXP.Settings.effective());
       processorCleanup = EXP.Engine.addProcessor(EXP.Adapters.process);
     } catch (error) { EXP.Core.safeError(error, 'shift-engine-init'); }
     /* UI already mounted above. */
@@ -39,18 +46,24 @@ const hooks = {
     shortcutCleanup = () => removeEventListener('keydown', onShortcut);
     if (settings.updateNotifications) EXP.Updates.check().catch((error) => EXP.Core.safeError(error, 'shift-updates'));
     unsubscribe = EXP.Settings.subscribe((next) => {
-      EXP.Engine.apply(EXP.Settings.effective());
+      applyEngine();
       EXP.Adapters.apply();
       ui?.update(next);
     });
     navigationCleanup = EXP.Core.onNavigation(() => {
       EXP.Adapters.initialize();
-      EXP.Engine.apply(EXP.Settings.effective());
+      applyEngine();
     });
   },
-  async enable() { EXP.Engine.apply(EXP.Settings.effective()); },
-  async disable() { EXP.Engine.stop(); EXP.Adapters.disable(); },
-  async cleanup() { unsubscribe?.(); navigationCleanup?.(); processorCleanup?.(); shortcutCleanup?.(); EXP.Engine.stop(); EXP.Adapters.disable(); ui?.destroy(); }
+  async enable() {
+    await initialPageReady();
+    if (!engineStarted) {
+      engineStarted = true;
+      EXP.Engine.start(EXP.Settings.effective());
+    } else EXP.Engine.apply(EXP.Settings.effective());
+  },
+  async disable() { engineStarted = false; EXP.Engine.stop(); EXP.Adapters.disable(); },
+  async cleanup() { engineStarted = false; unsubscribe?.(); navigationCleanup?.(); processorCleanup?.(); shortcutCleanup?.(); EXP.Engine.stop(); EXP.Adapters.disable(); ui?.destroy(); }
 };
 
 const product = EXP.Core.register(SHIFT_MANIFEST, hooks);
