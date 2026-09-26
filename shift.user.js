@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.4
+// @version      3.4.0-dev.5
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3056,10 +3056,13 @@ EXP.SiteFixes = (() => {
         :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal,.a-size-base-plus,.a-size-medium,.a-size-large,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol,.s-title-instructions-style){
           color:var(--exp-shift-text)!important
         }
-        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img,[class*="asin-image" i]){
           filter:none!important;opacity:1!important;mix-blend-mode:normal!important
         }
-        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i]){
+        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i],[class*="asin-image-wrapper" i],[class*="asin-image-container" i]){
+          opacity:1!important;filter:none!important;mix-blend-mode:normal!important
+        }
+        :is([class*="asin-metadata" i],[class*="asin-title" i],[class*="asin-price" i]){
           opacity:1!important;filter:none!important;mix-blend-mode:normal!important
         }
       `,
@@ -3955,10 +3958,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.4';
+EXP.VERSION = '3.4.0-dev.5';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.5': [
+      'Neutralizes Amazon multiply blend modes on product metadata so repaired titles and prices render at their intended light color.',
+      'Neutralizes multiply blending and reduced opacity on Amazon product images and image wrappers while keeping native media wells intact.',
+      'Uses the uploaded Amazon page structure to cover hashed asin metadata, title, price, image-wrapper, and image class families without hard-coding build hashes.',
+      'Adds a regression proving Amazon product text and images remain visible when Amazon applies multiply blending.',
+    ],
     '3.4.0-dev.4': [
       'Adds a final Amazon product-text repair pass so recovered stylesheet rules cannot push recommendation titles and prices back to near-black.',
       'Keeps the successful remote stylesheet recovery path unchanged while applying Amazon title and price corrections after it.',
