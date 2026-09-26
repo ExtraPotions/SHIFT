@@ -1,0 +1,34 @@
+name: Verify SHIFT
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify vendored Core
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'),crypto=require('crypto');const m=JSON.parse(fs.readFileSync('vendor/exp-core/manifest.json','utf8'));const b=fs.readFileSync('vendor/exp-core/exp-core.js');if(m.coreVersion!=='3.3.2'||m.source.sourceVersion!=='3.3.2')throw Error('Unexpected Core baseline');if(crypto.createHash('sha256').update(b).digest('hex')!==m.bundleSha256)throw Error('Core bundle hash mismatch');"
+      - name: Build userscript
+        run: npm run build
+      - name: Run regression suite
+        run: node --test tests/*.test.cjs
+      - name: Verify reproducible build
+        run: npm run build:check
