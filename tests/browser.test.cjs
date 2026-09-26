@@ -266,13 +266,13 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
 
-  const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.querySelector('span')?.textContent));
+  const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
   assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'System']);
 
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
-    const title = shadow.querySelector('.menu-title');
-    const subtitleNode = shadow.querySelector('.menu-subtitle');
+    const title = shadow.querySelector('[data-exp-part="title"]');
+    const subtitleNode = shadow.querySelector('[data-exp-part="subtitle"]');
     const style = getComputedStyle(subtitleNode);
     return {
       text: subtitleNode.textContent,
@@ -309,7 +309,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
     shadow.querySelector('.launcher').click();
     return {
       visibleBodies: [...shadow.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
-      marker: shadow.querySelector('.fl-tool-header.last-opened span')?.textContent,
+      marker: shadow.querySelector('.fl-tool-header.last-opened')?.textContent.replace(/[▸▾]/g, '').trim(),
     };
   });
   assert.deepEqual(reopened, { visibleBodies: 0, marker: 'Readability' });
