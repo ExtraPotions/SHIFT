@@ -260,3 +260,59 @@ test('deep native-dark ancestry keeps contrast accurate without repainting nativ
   assert.notEqual(result.copy2, 'rgb(37, 42, 49)');
   assert.equal(result.light, 'rgb(255, 255, 255)');
 });
+
+
+test('dark major-surface majority enables inferred native-dark mode without an explicit scheme', async (t) => {
+  const page = await fixture(t, 'inferred-native-dark.test', [
+    '<style>',
+      'html,body{background:#101318;color:#d7dce2}',
+      'header,main,section,article,nav{background:#171b22;color:#d7dce2}',
+      '.dim{color:#252a31}',
+    '</style>',
+    '<header style="height:90px">Header</header>',
+    '<nav style="height:64px">Navigation</nav>',
+    '<main style="min-height:900px">',
+      '<section style="height:280px"><span class="dim" id="dim-copy">Dim text</span></section>',
+      '<article style="height:320px">Article</article>',
+      '<section style="height:280px">Section</section>',
+    '</main>'
+  ].join(''));
+  const result = await page.evaluate(() => {
+    const host = document.querySelector('#exp-shift-root');
+    host.shadowRoot.querySelector('.launcher').click();
+    host.shadowRoot.querySelector('[data-section="system"]').click();
+    return {
+      main: getComputedStyle(document.querySelector('main')).backgroundColor,
+      section: getComputedStyle(document.querySelector('section')).backgroundColor,
+      dim: getComputedStyle(document.querySelector('#dim-copy')).color,
+      text: host.shadowRoot.textContent,
+    };
+  });
+  assert.equal(result.main, 'rgb(23, 27, 34)');
+  assert.equal(result.section, 'rgb(23, 27, 34)');
+  assert.notEqual(result.dim, 'rgb(37, 42, 49)');
+  assert.match(result.text, /inferred-dark-surface-majority|nativeDark/i);
+});
+
+test('dark canvas with light major surfaces does not infer native-dark mode', async (t) => {
+  const page = await fixture(t, 'mixed-surface.test', [
+    '<style>',
+      'html,body{background:#101318;color:#d7dce2}',
+      'header{background:#171b22;color:#d7dce2}',
+      'main,section,article{background:#fff;color:#111}',
+    '</style>',
+    '<header style="height:90px">Header</header>',
+    '<main style="min-height:900px">',
+      '<section style="height:300px">Light section</section>',
+      '<article style="height:320px">Light article</article>',
+      '<section style="height:300px">Another light section</section>',
+    '</main>'
+  ].join(''));
+  await page.waitForTimeout(150);
+  const result = await page.evaluate(() => ({
+    main: getComputedStyle(document.querySelector('main')).backgroundColor,
+    section: getComputedStyle(document.querySelector('section')).backgroundColor,
+  }));
+  assert.notEqual(result.main, 'rgb(255, 255, 255)');
+  assert.notEqual(result.section, 'rgb(255, 255, 255)');
+});
