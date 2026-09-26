@@ -102,7 +102,9 @@ test('theme runtime has one owner for stylesheets and one owner for live DOM rep
   assert.match(controller, /nativeDarkEvidence/u);
   assert.match(controller, /lightSurfaceCount<=Math\.max\(1,Math\.floor\(samples\.length\*\.12\)\)/u);
   assert.match(controller, /contradictoryLightMajority/u);
-  assert.match(controller, /explicitConfirmed=explicit&&darkCanvas&&!contradictoryLightMajority/u);
+  assert.match(controller, /dominantLightContent/u);
+  assert.match(controller, /const lightVeto=dominantLightContent\|\|contradictoryLightMajority/u);
+  assert.match(controller, /explicitConfirmed=explicit&&darkCanvas&&!lightVeto/u);
   assert.match(controller, /lightSurfaceRatio>=\.5/u);
   assert.match(controller, /EXP\.DynamicEngine\?\.stop\(\);\s*EXP\.LiveResolver\?\.stop\(\);\s*unlockHost\(\);\s*const nativeDark=detectNativeDark\(\);/u);
 });
