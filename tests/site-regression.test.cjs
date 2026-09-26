@@ -25,10 +25,10 @@ async function fixture(t, host, body) {
 }
 
 
-async function delayedStylesheetFixture(t, host, body, css, delayMs = 220) {
+async function delayedStylesheetFixture(t, host, body, css, delayMs = 220, pageOptions = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
-  const page = await browser.newPage();
+  const page = await browser.newPage(pageOptions);
   await page.addInitScript(() => {
     const saved = new Map([['exp:v3:shift:settings', { theme: 'ember', accent: 'ember-default', surfaceLevel: 'conservative', repairSurfaces: true }]]);
     window.GM_getValue = (key, fallback) => saved.has(key) ? saved.get(key) : fallback;
@@ -269,8 +269,7 @@ test('late native dark stylesheet reclassifies before dynamic rewriting persists
     'section{height:300px;background:light-dark(#ffffff,#171b22);color:light-dark(#111111,#d7dce2)}'
   ].join('');
   const body = '<main><section id="native-panel">Native dark content</section><section>More content</section><section>More content</section></main>';
-  const page = await delayedStylesheetFixture(t, 'late-native-dark.test', body, css);
-  await page.emulateMedia({ colorScheme: 'dark' });
+  const page = await delayedStylesheetFixture(t, 'late-native-dark.test', body, css, 220, { colorScheme: 'dark' });
   await page.waitForTimeout(650);
   const result = await page.evaluate(() => ({
     panel: getComputedStyle(document.querySelector('#native-panel')).backgroundColor,
