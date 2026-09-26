@@ -1,3 +1,10 @@
+## 3.4.0-dev.7 — 2026-09-26
+
+- Adds a native-dark fast path that scans only interactive/accessibility surfaces instead of the full structural surface set.
+- Caches effective backgrounds within each resolver pass and caps native-dark ancestor reconstruction at eight levels.
+- Avoids duplicate effective-background work before native-dark repairs while keeping text, forms, dialogs, focus, and contrast correction active.
+- Adds native-dark performance telemetry and a generic native-dark regression while leaving Amazon full-transformation behavior unchanged.
+
 ## 3.4.0-dev.6 — 2026-09-26
 
 - Suppresses resolver feedback from Shift-owned inline style writes so generic repairs do not immediately schedule redundant mutation passes.
