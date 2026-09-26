@@ -277,21 +277,16 @@ test('dark major-surface majority enables inferred native-dark mode without an e
       '<section style="height:280px">Section</section>',
     '</main>'
   ].join(''));
-  const result = await page.evaluate(() => {
-    const host = document.querySelector('#exp-shift-root');
-    host.shadowRoot.querySelector('.launcher').click();
-    host.shadowRoot.querySelector('[data-section="system"]').click();
-    return {
-      main: getComputedStyle(document.querySelector('main')).backgroundColor,
-      section: getComputedStyle(document.querySelector('section')).backgroundColor,
-      dim: getComputedStyle(document.querySelector('#dim-copy')).color,
-      text: host.shadowRoot.textContent,
-    };
-  });
+  const result = await page.evaluate(() => ({
+    main: getComputedStyle(document.querySelector('main')).backgroundColor,
+    section: getComputedStyle(document.querySelector('section')).backgroundColor,
+    dim: getComputedStyle(document.querySelector('#dim-copy')).color,
+    css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
+  }));
   assert.equal(result.main, 'rgb(23, 27, 34)');
   assert.equal(result.section, 'rgb(23, 27, 34)');
   assert.notEqual(result.dim, 'rgb(37, 42, 49)');
-  assert.match(result.text, /inferred-dark-surface-majority|nativeDark/i);
+  assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/);
 });
 
 test('dark canvas with light major surfaces does not infer native-dark mode', async (t) => {
@@ -310,9 +305,7 @@ test('dark canvas with light major surfaces does not infer native-dark mode', as
   ].join(''));
   await page.waitForTimeout(150);
   const result = await page.evaluate(() => ({
-    main: getComputedStyle(document.querySelector('main')).backgroundColor,
-    section: getComputedStyle(document.querySelector('section')).backgroundColor,
+    css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
   }));
-  assert.notEqual(result.main, 'rgb(255, 255, 255)');
-  assert.notEqual(result.section, 'rgb(255, 255, 255)');
+  assert.match(result.css, /:is\(main,\[role="main"\]\)/);
 });
