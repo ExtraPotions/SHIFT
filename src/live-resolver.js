@@ -41,7 +41,7 @@ EXP.LiveResolver = (() => {
     passes:0,scanned:0,unresolved:0,resolved:0,siteFixes:0,contrast:0,brightSurfaces:0,forms:0,
     inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0,
     selfMutationsIgnored:0,rootsCollapsed:0,lastExamined:0,lastChanged:0,lastRoots:0,lastDurationMs:0,maxDurationMs:0,
-    backgroundCacheHits:0,backgroundParentCacheHits:0,backgroundWalkSteps:0,nativeDarkDepthStops:0,nativeDarkExtendedWalks:0,nativeDarkFastPathPasses:0,lastSurfaceLimit:0,lastTextLimit:0
+    backgroundCacheHits:0,backgroundParentCacheHits:0,backgroundWalkSteps:0,nativeDarkDepthStops:0,nativeDarkExtendedWalks:0,nativeDarkFastPathPasses:0,lastSurfaceLimit:0,lastTextLimit:0,stylesheetLoads:0
   };
 
   function parse(value){ return EXP.ColorEngine.parse(value); }
@@ -388,10 +388,21 @@ EXP.LiveResolver = (() => {
     clearTimeout(timer);timer=setTimeout(flush,90);
   }
   const onScroll = () => { if(active)schedule(document.documentElement); };
+  const onStylesheetLoad = (event) => {
+    const target=event?.target;
+    if(!active||target?.nodeType!==1||!target.matches?.('link[rel~="stylesheet"]'))return;
+    stats.stylesheetLoads++;
+    schedule(document.documentElement);
+  };
+  const onWindowLoad = () => { if(active)schedule(document.documentElement); };
   function start(nextTheme,nextOptions={}){
     if(!nextTheme||nextTheme.original){stop();return;}
     if(active){refresh(nextTheme,nextOptions);return;}
-    theme=nextTheme;options={...options,...nextOptions};fix=EXP.SiteFixes.active();active=true;pass();
+    theme=nextTheme;options={...options,...nextOptions};fix=EXP.SiteFixes.active();active=true;
+    document.addEventListener('load',onStylesheetLoad,true);
+    if(document.readyState==='complete')queueMicrotask(onWindowLoad);
+    else addEventListener('load',onWindowLoad,{once:true});
+    pass();
     observer?.disconnect();
     observer=new MutationObserver(mutations=>{
       for(const mutation of mutations){
@@ -428,6 +439,8 @@ EXP.LiveResolver = (() => {
   }
   function stop(){
     document.removeEventListener('scroll',onScroll,true);
+    document.removeEventListener('load',onStylesheetLoad,true);
+    removeEventListener('load',onWindowLoad);
     active=false;clearTimeout(timer);timer=0;queuedRoots.clear();observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
     EXP.ColorEngine.clear();
   }
