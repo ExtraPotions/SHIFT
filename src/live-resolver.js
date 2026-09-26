@@ -361,9 +361,11 @@ EXP.LiveResolver = (() => {
         pseudoRepair(el,'pseudo');
       }
     }
-    for(const el of textTargets){
-      if(seen.has(el)||!visible(el))continue;
-      stats.scanned++;examined++;repairText(el,'text');
+    if(!options.nativeDark){
+      for(const el of textTargets){
+        if(seen.has(el)||!visible(el))continue;
+        stats.scanned++;examined++;repairText(el,'text');
+      }
     }
     for(const processor of processors){try{processor(sourceRoots);}catch(error){EXP.Core.safeError(error,'shift-processor');}}
     stats.lastExamined=examined;
