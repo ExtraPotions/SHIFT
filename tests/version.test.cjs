@@ -46,7 +46,8 @@ test('updates and manifest read the shared product version', () => {
 test('changelog uses the shared Dropper menu-width notice controller', () => {
   assert.match(script, /function createMenuNotice\(/);
   assert.match(script, /notice\.dataset\.placement = 'menu'/);
-  assert.match(script, /updateNotice\.dataset\.placement = 'menu'/);
+  assert.match(script, /ExtraPotionsCore\.createProductNotice\(/);
+  assert.match(script, /notice\.dataset\.placement = 'menu'/);
   assert.doesNotMatch(script, /function positionChangelog\(\)/);
   assert.doesNotMatch(script, /EXP\.Core\.registerFloatingNotice\(host, updateNotice\)/);
 });
