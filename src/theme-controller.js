@@ -87,15 +87,25 @@ EXP.Engine = (() => {
     const midSurfaceCount=samples.length-darkSurfaceCount-lightSurfaceCount;
     const darkSurfaceRatio=samples.length?darkSurfaceCount/samples.length:0;
     const lightSurfaceRatio=samples.length?lightSurfaceCount/samples.length:0;
+    let dominantLightContent=false;
+    try{
+      dominantLightContent=[...document.querySelectorAll('main,[role="main"]')].some(el=>{
+        if(el.closest?.('[data-exp-owned="1"]'))return false;
+        const rect=el.getBoundingClientRect();
+        if(rect.width<Math.max(240,innerWidth*.55)||rect.height<Math.max(180,innerHeight*.25)||rect.bottom<0||rect.top>innerHeight*1.5)return false;
+        return tone(parseColor(getComputedStyle(el).backgroundColor))==='light';
+      });
+    }catch{}
     const contradictoryLightMajority=samples.length>=3&&lightSurfaceCount>=2&&lightSurfaceCount>darkSurfaceCount&&lightSurfaceRatio>=.5;
-    const inferred=darkCanvas&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
-    const explicitConfirmed=explicit&&darkCanvas&&!contradictoryLightMajority;
+    const lightVeto=dominantLightContent||contradictoryLightMajority;
+    const inferred=darkCanvas&&!lightVeto&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
+    const explicitConfirmed=explicit&&darkCanvas&&!lightVeto;
     metrics.nativeDark=Boolean(explicitConfirmed||(!explicit&&inferred));
     metrics.nativeDarkReason=metrics.nativeDark?(explicitConfirmed?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
     metrics.nativeDarkEvidence={
       explicitDarkScheme:explicit,explicitConfirmed,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
       darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,lightSurfaceRatio:Math.round(lightSurfaceRatio*1000)/1000,
-      contradictoryLightMajority,inferred
+      dominantLightContent,contradictoryLightMajority,lightVeto,inferred
     };
     return metrics.nativeDark;
   }
