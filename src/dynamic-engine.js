@@ -3,10 +3,11 @@ EXP.DynamicEngine = (() => {
   const remoteHandles = new Map();
   const remoteCache = new Map();
   const cache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0;
   const pendingRemote = new Map();
+  const watchedLinks = new WeakSet();
 
   const signature = (sheet) => {
     try {
@@ -212,6 +213,19 @@ EXP.DynamicEngine = (() => {
     if(handle.textContent!==css)handle.textContent=css;stats.remoteSheets++;
   }
 
+  function watchStylesheetLink(link){
+    if(!link||watchedLinks.has(link)||!link.matches?.('link[rel~="stylesheet"]'))return;
+    watchedLinks.add(link);
+    link.addEventListener('load',()=>{
+      stats.stylesheetLoads++;
+      if(active)schedule();
+    },{once:true});
+  }
+  function watchStylesheetLinks(root=document){
+    if(root?.nodeType===1)watchStylesheetLink(root);
+    try{root?.querySelectorAll?.('link[rel~="stylesheet"]').forEach(watchStylesheetLink);}catch{}
+  }
+
   function refresh(nextTheme){
     if(!nextTheme)return;
     if(!active){start(nextTheme);return;}
@@ -233,6 +247,7 @@ EXP.DynamicEngine = (() => {
     stats.shadowRoots=Math.max(0,roots.length-1);
     const live=new Set();
     for(const root of roots){
+      watchStylesheetLinks(root);
       const normalSheets=[...(root.styleSheets||[])];
       let adopted=[];try{adopted=[...(root.adoptedStyleSheets||[])];}catch{}
       stats.adoptedSheets+=adopted.length;
@@ -244,7 +259,23 @@ EXP.DynamicEngine = (() => {
     for(const [sheet,handle] of [...handles])if(!live.has(sheet)){handle.remove();handles.delete(sheet);}
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
-  function start(nextTheme){if(active){refresh(nextTheme);return;}theme=nextTheme;active=true;refresh(theme);observer?.disconnect();observer=new MutationObserver(ms=>{if(ms.some(m=>[...m.addedNodes].some(n=>n?.nodeType===1&&(n.matches?.('style,link[rel~="stylesheet"]')||n.querySelector?.('style,link[rel~="stylesheet"]'))) || m.target?.nodeName==='STYLE'))schedule();});observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
+  function start(nextTheme){
+    if(active){refresh(nextTheme);return;}
+    theme=nextTheme;active=true;refresh(theme);observer?.disconnect();
+    observer=new MutationObserver(ms=>{
+      let shouldSchedule=false;
+      for(const mutation of ms){
+        if(mutation.target?.nodeName==='STYLE')shouldSchedule=true;
+        for(const node of mutation.addedNodes){
+          if(node?.nodeType!==1)continue;
+          watchStylesheetLinks(node);
+          if(node.matches?.('style,link[rel~="stylesheet"]')||node.querySelector?.('style,link[rel~="stylesheet"]'))shouldSchedule=true;
+        }
+      }
+      if(shouldSchedule)schedule();
+    });
+    observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+  }
   function stop(){active=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
   function health(){return {...stats,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
