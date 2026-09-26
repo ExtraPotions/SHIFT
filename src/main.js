@@ -1,6 +1,6 @@
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);
 const SHIFT_MANIFEST = Object.freeze({
-  id: 'shift', version: EXP.VERSION, coreRange: '^3.0.1',
+  id: 'shift', version: EXP.VERSION, coreRange: '^3.3.2',
   capabilities: ['lifecycle', 'settings', 'diagnostics', 'dom-scheduler', 'navigation', 'launcher', 'ui']
 });
 
