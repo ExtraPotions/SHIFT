@@ -22,8 +22,10 @@ EXP.Engine = (() => {
   let parseContext;
   let nativeBaseline = null;
   let writing = false;
+  let reclassifyTimer = 0;
+  let lifecycleBound = false;
   const hostPaint = new WeakMap();
-  const metrics = { mode:'Original', reattaches:0, nativeDark:false, nativeDarkReason:null, nativeDarkEvidence:null, applies:0 };
+  const metrics = { mode:'Original', reattaches:0, nativeDark:false, nativeDarkReason:null, nativeDarkEvidence:null, applies:0, nativeRechecks:0 };
 
   function parseColor(value) {
     const raw=String(value||'').trim();
@@ -58,8 +60,19 @@ EXP.Engine = (() => {
       return 'mid';
     };
     const darkOnlyScheme=value=>/\bdark\b/i.test(String(value||''))&&!/\blight\s+dark\b|\bdark\s+light\b/i.test(String(value||''));
-    const explicit=darkOnlyScheme(baseline.rootScheme)||darkOnlyScheme(baseline.bodyScheme)||darkOnlyScheme(baseline.meta);
-    const darkCanvas=tone(baseline.rootBg)==='dark'||tone(baseline.bodyBg)==='dark';
+    const dualScheme=value=>/\blight\s+dark\b|\bdark\s+light\b/i.test(String(value||''));
+    let currentRootScheme='',currentBodyScheme='',currentRootBg=null,currentBodyBg=null;
+    try{
+      const rootStyle=getComputedStyle(document.documentElement),bodyStyle=document.body?getComputedStyle(document.body):null;
+      currentRootScheme=rootStyle.colorScheme||'';currentBodyScheme=bodyStyle?.colorScheme||'';
+      currentRootBg=parseColor(rootStyle.backgroundColor);currentBodyBg=parseColor(bodyStyle?.backgroundColor||'');
+    }catch{}
+    const explicit=darkOnlyScheme(currentRootScheme)||darkOnlyScheme(currentBodyScheme)||darkOnlyScheme(baseline.rootScheme)||darkOnlyScheme(baseline.bodyScheme)||darkOnlyScheme(baseline.meta);
+    const darkCanvas=[baseline.rootBg,baseline.bodyBg,currentRootBg,currentBodyBg].some(color=>tone(color)==='dark');
+    const dualDarkCapable=dualScheme(currentRootScheme)||dualScheme(currentBodyScheme)||dualScheme(baseline.rootScheme)||dualScheme(baseline.bodyScheme)||dualScheme(baseline.meta);
+    let prefersDark=false;try{prefersDark=matchMedia('(prefers-color-scheme: dark)').matches;}catch{}
+    const root=document.documentElement;
+    const darkClassHint=Boolean(root?.classList?.contains('dark')||/^(?:dark|night)$/i.test(root?.getAttribute?.('data-theme')||'')||/^(?:dark|night)$/i.test(root?.getAttribute?.('data-color-scheme')||''));
     const sampleSelectors=[
       'main','[role="main"]','header','nav','aside','section','article','form',
       '[role="banner"]','[role="navigation"]','[role="contentinfo"]','[role="dialog"]',
@@ -99,11 +112,15 @@ EXP.Engine = (() => {
     const contradictoryLightMajority=samples.length>=3&&lightSurfaceCount>=2&&lightSurfaceCount>darkSurfaceCount&&lightSurfaceRatio>=.5;
     const lightVeto=dominantLightContent||contradictoryLightMajority;
     const inferred=darkCanvas&&!lightVeto&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
+    const hinted=darkCanvas&&!lightVeto&&(darkClassHint||(dualDarkCapable&&prefersDark));
     const explicitConfirmed=explicit&&darkCanvas&&!lightVeto;
-    metrics.nativeDark=Boolean(explicitConfirmed||(!explicit&&inferred));
-    metrics.nativeDarkReason=metrics.nativeDark?(explicitConfirmed?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
+    metrics.nativeDark=Boolean(explicitConfirmed||hinted||(!explicit&&inferred));
+    metrics.nativeDarkReason=metrics.nativeDark
+      ? (explicitConfirmed?'explicit-dark-scheme-with-dark-canvas':hinted?'native-theme-hint-with-dark-canvas':'inferred-dark-surface-majority')
+      : null;
     metrics.nativeDarkEvidence={
-      explicitDarkScheme:explicit,explicitConfirmed,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
+      explicitDarkScheme:explicit,explicitConfirmed,darkCanvas,dualDarkCapable,prefersDark,darkClassHint,hinted,
+      currentRootScheme,currentBodyScheme,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
       darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,lightSurfaceRatio:Math.round(lightSurfaceRatio*1000)/1000,
       dominantLightContent,contradictoryLightMajority,lightVeto,inferred
     };
@@ -193,6 +210,34 @@ EXP.Engine = (() => {
     style?.remove();style=null;lastCss='';unlockHost();
     try{document.querySelectorAll(`#${STYLE_ID},style[data-exp-shift-page-style],style[data-exp-shift-adapter-style]`).forEach(node=>node.remove());}catch{}
   }
+  function scheduleNativeRecheck(){
+    if(!active||!settings)return;
+    clearTimeout(reclassifyTimer);
+    reclassifyTimer=setTimeout(()=>{
+      reclassifyTimer=0;
+      if(!active||!settings)return;
+      metrics.nativeRechecks++;
+      apply(settings);
+    },160);
+  }
+  const onLifecycleLoad=(event)=>{
+    const target=event?.target;
+    if(target?.nodeType===1&&target.matches?.('link[rel~="stylesheet"]')&&!target.dataset?.expOwned)scheduleNativeRecheck();
+  };
+  const onWindowLoad=()=>scheduleNativeRecheck();
+  function bindLifecycle(){
+    if(lifecycleBound)return;
+    lifecycleBound=true;
+    document.addEventListener('load',onLifecycleLoad,true);
+    addEventListener('load',onWindowLoad);
+  }
+  function unbindLifecycle(){
+    if(!lifecycleBound)return;
+    lifecycleBound=false;
+    document.removeEventListener('load',onLifecycleLoad,true);
+    removeEventListener('load',onWindowLoad);
+    clearTimeout(reclassifyTimer);reclassifyTimer=0;
+  }
   function apply(next){
     settings=next;metrics.applies++;
     const theme=EXP.Themes.resolve(next.theme,next.accent,next);
@@ -202,15 +247,16 @@ EXP.Engine = (() => {
     EXP.DynamicEngine?.stop();
     EXP.LiveResolver?.stop();
     unlockHost();
+    EXP.Preload?.finish();
     const nativeDark=detectNativeDark();
     lockHost(theme,!nativeDark);
-    ensureStyle(css(theme,next,nativeDark));EXP.Preload?.finish();
+    ensureStyle(css(theme,next,nativeDark));
     if(nativeDark)EXP.DynamicEngine?.stop();else EXP.DynamicEngine?.start(theme);
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
     return{theme,mode:metrics.mode};
   }
-  function start(initial){if(active)return;active=true;settings=initial;captureNativeBaseline();apply(initial);}
-  function stop(){active=false;guard?.disconnect();guard=null;restore();}
+  function start(initial){if(active)return;active=true;settings=initial;captureNativeBaseline();bindLifecycle();apply(initial);}
+  function stop(){active=false;unbindLifecycle();guard?.disconnect();guard=null;restore();}
   function holdOriginal(held){originalHeld=Boolean(held);if(settings)apply(settings);}
   function health(){
     const live=EXP.LiveResolver?.health?.()||{};
