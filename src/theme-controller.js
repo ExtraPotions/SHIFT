@@ -86,12 +86,16 @@ EXP.Engine = (() => {
     const lightSurfaceCount=samples.filter(item=>item.kind==='light').length;
     const midSurfaceCount=samples.length-darkSurfaceCount-lightSurfaceCount;
     const darkSurfaceRatio=samples.length?darkSurfaceCount/samples.length:0;
+    const lightSurfaceRatio=samples.length?lightSurfaceCount/samples.length:0;
+    const contradictoryLightMajority=samples.length>=3&&lightSurfaceCount>=2&&lightSurfaceCount>darkSurfaceCount&&lightSurfaceRatio>=.5;
     const inferred=darkCanvas&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
-    metrics.nativeDark=Boolean((explicit&&darkCanvas)||(!explicit&&inferred));
-    metrics.nativeDarkReason=metrics.nativeDark?(explicit?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
+    const explicitConfirmed=explicit&&darkCanvas&&!contradictoryLightMajority;
+    metrics.nativeDark=Boolean(explicitConfirmed||(!explicit&&inferred));
+    metrics.nativeDarkReason=metrics.nativeDark?(explicitConfirmed?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
     metrics.nativeDarkEvidence={
-      explicitDarkScheme:explicit,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
-      darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,inferred
+      explicitDarkScheme:explicit,explicitConfirmed,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
+      darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,lightSurfaceRatio:Math.round(lightSurfaceRatio*1000)/1000,
+      contradictoryLightMajority,inferred
     };
     return metrics.nativeDark;
   }
