@@ -227,3 +227,36 @@ test('native-dark generic fast path repairs contrast without repainting native s
   assert.notEqual(result.input.color, 'rgb(31, 41, 51)');
   assert.equal(result.light.background, 'rgb(255, 255, 255)');
 });
+
+
+test('deep native-dark ancestry keeps contrast accurate without repainting native structure', async (t) => {
+  const depth = 14;
+  const nestedOpen = Array.from({ length: depth }, (_, i) => `<div class="layer layer-${i}">`).join('');
+  const nestedClose = '</div>'.repeat(depth);
+  const page = await fixture(t, 'deep-native-dark.test', [
+    '<style>',
+      'html,body{color-scheme:dark;background:#101318;color:#d7dce2}',
+      '.native-panel{background:#171b22;color:#d7dce2}',
+      '.layer{background:transparent}',
+      '.too-dim{color:#252a31}',
+      '.intentional-light{background:#fff;color:#111}',
+    '</style>',
+    '<main class="native-panel">',
+      nestedOpen,
+        '<span class="too-dim" id="deep-copy">Deep text</span>',
+        '<span class="too-dim" id="deep-copy-2">Sibling text</span>',
+      nestedClose,
+      '<div class="intentional-light" id="intentional-light">Light surface</div>',
+    '</main>'
+  ].join(''));
+  const result = await page.evaluate(() => ({
+    panel: getComputedStyle(document.querySelector('.native-panel')).backgroundColor,
+    copy: getComputedStyle(document.querySelector('#deep-copy')).color,
+    copy2: getComputedStyle(document.querySelector('#deep-copy-2')).color,
+    light: getComputedStyle(document.querySelector('#intentional-light')).backgroundColor,
+  }));
+  assert.equal(result.panel, 'rgb(23, 27, 34)');
+  assert.notEqual(result.copy, 'rgb(37, 42, 49)');
+  assert.notEqual(result.copy2, 'rgb(37, 42, 49)');
+  assert.equal(result.light, 'rgb(255, 255, 255)');
+});
