@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.3
+// @version      3.4.0-dev.4
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3025,6 +3025,16 @@ EXP.SiteFixes = (() => {
         '.a-price','.a-price-whole','.a-price-fraction','.a-price-symbol',
         '.s-title-instructions-style','.a-link-normal:not(:has(img))'
       ],
+      forceText: [
+        '.a-cardui :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.s-card-container :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.s-widget-container :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.a-carousel-card :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.a-cardui a.a-link-normal:not(:has(img))',
+        '.s-card-container a.a-link-normal:not(:has(img))',
+        '.s-widget-container a.a-link-normal:not(:has(img))',
+        '.a-carousel-card a.a-link-normal:not(:has(img))'
+      ],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
       css: `
         :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
@@ -3512,6 +3522,10 @@ EXP.LiveResolver = (() => {
       if(fix.preserveSurfaces?.length)scope.querySelectorAll(fix.preserveSurfaces.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
       if(options.repairSurfaces&&!options.nativeDark&&fix.surfaces?.length)scope.querySelectorAll(fix.surfaces.join(',')).forEach(el=>{if(repair(el,`site:${fix.id}`,options))stats.siteFixes++;});
       if(fix.text?.length)scope.querySelectorAll(fix.text.join(',')).forEach(el=>{if(repairText(el,`site-text:${fix.id}`))stats.siteFixes++;});
+      if(fix.forceText?.length)scope.querySelectorAll(fix.forceText.join(',')).forEach(el=>{
+        if(isProtected(el)||!visible(el))return;
+        if(write(el,'color',theme.text)){el.setAttribute(ATTR,`site-force-text:${fix.id}`);stats.siteFixes++;stats.textRepairs++;stats.resolved++;}
+      });
     }catch{}
   }
   function syncPseudoStyle(){
@@ -3941,10 +3955,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.3';
+EXP.VERSION = '3.4.0-dev.4';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.4': [
+      'Adds a final Amazon product-text repair pass so recovered stylesheet rules cannot push recommendation titles and prices back to near-black.',
+      'Keeps the successful remote stylesheet recovery path unchanged while applying Amazon title and price corrections after it.',
+      'Preserves the dev.3 product-media well treatment and native artwork handling.',
+      'Adds a regression proving Amazon product text remains readable even when a recovered stylesheet uses important dark colors.',
+    ],
     '3.4.0-dev.3': [
       'Preserves Amazon product-media wells so dark cards do not swallow dark or transparent product artwork.',
       'Repairs Amazon product titles and prices explicitly while keeping product images unfiltered and fully opaque.',
