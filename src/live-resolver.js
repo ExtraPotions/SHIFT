@@ -23,6 +23,11 @@ EXP.LiveResolver = (() => {
     'p','span','a','label','li','dt','dd','small','figcaption','legend','caption',
     'h1','h2','h3','h4','h5','h6','button','input','textarea','select','[role="button"]','[role="option"]'
   ].join(',');
+  const NATIVE_DARK_CANDIDATES = [
+    'input','textarea','select','button','details','summary','dialog','[popover]',
+    '[role="dialog"]','[role="menu"]','[role="listbox"]','[role="option"]','[role="button"]',
+    '[role="textbox"]','[role="combobox"]','[role="searchbox"]','[role="tooltip"]','[role="alert"]','[role="status"]'
+  ].join(',');
 
   const ledger = new Map();
   const processors = new Set();
@@ -31,10 +36,12 @@ EXP.LiveResolver = (() => {
   const pseudoRules = new Map();
   let pseudoStyle = null;
   let pseudoSequence = 0;
+  let backgroundCache = new WeakMap();
   const stats = {
     passes:0,scanned:0,unresolved:0,resolved:0,siteFixes:0,contrast:0,brightSurfaces:0,forms:0,
     inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0,
-    selfMutationsIgnored:0,rootsCollapsed:0,lastExamined:0,lastChanged:0,lastRoots:0,lastDurationMs:0,maxDurationMs:0
+    selfMutationsIgnored:0,rootsCollapsed:0,lastExamined:0,lastChanged:0,lastRoots:0,lastDurationMs:0,maxDurationMs:0,
+    backgroundCacheHits:0,backgroundWalkSteps:0,nativeDarkDepthStops:0,nativeDarkFastPathPasses:0,lastSurfaceLimit:0,lastTextLimit:0
   };
 
   function parse(value){ return EXP.ColorEngine.parse(value); }
@@ -87,28 +94,37 @@ EXP.LiveResolver = (() => {
     if(el.style.getPropertyValue(property)===value&&el.style.getPropertyPriority(property)==='important')return false;
     selfMutations.add(el);
     el.style.setProperty(property,value,'important');
+    if(property==='background'||property==='background-color'||property==='background-image')backgroundCache=new WeakMap();
     setTimeout(()=>selfMutations.delete(el),0);
     return true;
   }
   function effectiveBackground(el){
-    let node=el,accumulated=null,inherited=false,depth=0;
-    while(node&&depth<24){
-      depth++;
+    const cached=backgroundCache.get(el);
+    if(cached){stats.backgroundCacheHits++;return cached;}
+    const maxDepth=options.nativeDark?8:24;
+    let node=el,accumulated=null,inherited=false,depth=0,result='';
+    while(node&&depth<maxDepth){
+      depth++;stats.backgroundWalkSteps++;
       try{
         const cs=getComputedStyle(node),color=parse(cs.backgroundColor);
         if(color&&(color.a??1)>.001){
           accumulated=accumulated?composite(accumulated,color):color;
           if((accumulated.a??1)>=.985){
             if(inherited)stats.inheritedBackgrounds++;
-            return rgba(accumulated);
+            result=rgba(accumulated);
+            backgroundCache.set(el,result);
+            return result;
           }
         }else stats.transparentSurfaces++;
       }catch{}
       inherited=true;
       node=node.parentElement||node.getRootNode?.()?.host||null;
     }
+    if(options.nativeDark&&node)stats.nativeDarkDepthStops++;
     const fallback=parse(theme?.page)||{r:0,g:0,b:0,a:1};
-    return accumulated?rgba(composite(accumulated,fallback)):(theme?.page||'#000');
+    result=accumulated?rgba(composite(accumulated,fallback)):(theme?.page||'#000');
+    backgroundCache.set(el,result);
+    return result;
   }
   function minimumContrast(el){
     try{
@@ -302,26 +318,38 @@ EXP.LiveResolver = (() => {
     if(!active||!theme)return;
     const started=performance.now(),resolvedBefore=stats.resolved;
     let examined=0;
-    stats.passes++;if(mutation)stats.mutationPasses++;ensureGlobalRepairs();
+    backgroundCache=new WeakMap();
+    stats.passes++;if(mutation)stats.mutationPasses++;if(options.nativeDark)stats.nativeDarkFastPathPasses++;ensureGlobalRepairs();
     const targets=[],textTargets=[],sourceRoots=roots?.length?roots:[document.documentElement];
     stats.lastRoots=sourceRoots.length;
     // Site preservation must run before the generic scan so artwork/media wells
     // are protected before any bright-surface repair can rewrite them.
     for(const root of sourceRoots)applySiteFixes(root);
     const levelLimit={off:0,conservative:700,balanced:1800,aggressive:5000}[options.surfaceLevel]??700;
-    const surfaceLimit=roots?.length?Math.min(levelLimit,1200):levelLimit,textLimit=roots?.length?1200:2600;
+    const candidateSelector=options.nativeDark?NATIVE_DARK_CANDIDATES:CANDIDATES;
+    const surfaceLimit=options.nativeDark
+      ? (roots?.length?Math.min(levelLimit,360):Math.min(levelLimit,700))
+      : (roots?.length?Math.min(levelLimit,1200):levelLimit);
+    const textLimit=options.nativeDark
+      ? (roots?.length?700:1600)
+      : (roots?.length?1200:2600);
+    stats.lastSurfaceLimit=surfaceLimit;stats.lastTextLimit=textLimit;
     for(const root of sourceRoots){
-      collect(root,CANDIDATES,targets,surfaceLimit);collect(root,TEXT_CANDIDATES,textTargets,textLimit);
+      collect(root,candidateSelector,targets,surfaceLimit);collect(root,TEXT_CANDIDATES,textTargets,textLimit);
       if(targets.length>=surfaceLimit&&textTargets.length>=textLimit)break;
     }
     const seen=new Set();
     for(const el of targets){
       if(seen.has(el)||!visible(el))continue;
       seen.add(el);stats.scanned++;examined++;
-      const bg=effectiveBackground(el);
-      if(bright(bg)){stats.unresolved++;repair(el,'visual',options);}
-      else repair(el,'contrast',{...options,surface:false});
-      pseudoRepair(el,'pseudo');
+      if(options.nativeDark){
+        repair(el,'native-dark',{...options,surface:false});
+      }else{
+        const bg=effectiveBackground(el);
+        if(bright(bg)){stats.unresolved++;repair(el,'visual',options);}
+        else repair(el,'contrast',{...options,surface:false});
+        pseudoRepair(el,'pseudo');
+      }
     }
     for(const el of textTargets){
       if(seen.has(el)||!visible(el))continue;
@@ -390,7 +418,7 @@ EXP.LiveResolver = (() => {
   }
   function stop(){
     document.removeEventListener('scroll',onScroll,true);
-    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();observer?.disconnect();observer=null;restore();
+    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
     EXP.ColorEngine.clear();
   }
   function health(){
