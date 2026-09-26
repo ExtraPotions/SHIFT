@@ -73,13 +73,19 @@ EXP.SiteFixes = (() => {
       hosts: ['steamgifts.com'],
       // SteamGifts uses pale gradient heading/notice strips over an otherwise dark layout.
       // Keep those strips and their controls together instead of darkening only their text.
+      // ESGST owns the semantic colors of its category panels, highlighted levels and custom entry controls.
+      preserve: [
+        '.esgst-gc-panel','.esgst-gc','.esgst-glh-highlight','.esgst-elgb-button',
+        '.giveaway__quick-entry-btn--insert[title^="ESGST "]',
+        '[class*="esgst-"][style*="color" i]','[class*="esgst-"][style*="background" i]'
+      ],
       css: `:is(.page__heading,.page__heading__breadcrumbs,.table__heading,.table__column__heading){background-color:var(--exp-shift-raised)!important;background-image:none!important;color:var(--exp-shift-text)!important}
         .notification{background-color:color-mix(in srgb,#b88718 30%,var(--exp-shift-surface))!important;background-image:none!important;color:#fff3c4!important;border-color:#b88718!important}
         :is(.page__heading,.page__heading__breadcrumbs,.notification,.table__heading,.table__column__heading) :is(a,span,small,button){color:var(--exp-shift-text)!important}
         .notification :is(a,span,small,button){color:#fff3c4!important}
         .table__row-outer-wrap :is(.table__column__heading,.table__column__secondary-link){color:var(--exp-shift-text)!important}
-        :is(.giveaway__row-outer-wrap,.featured__container) :is(.giveaway__heading__thin,.giveaway__heading__name,.giveaway__column--contributor-level){color:var(--exp-shift-text)!important;text-shadow:none!important}
-        :is(.giveaway__row-outer-wrap,.featured__container) .giveaway__column--contributor-level{background-image:none!important;background-color:var(--exp-shift-raised)!important;border-color:var(--exp-shift-muted)!important}`,
+        :is(.giveaway__row-outer-wrap,.featured__container) :is(.giveaway__heading__thin,.giveaway__heading__name,.giveaway__column--contributor-level):not([data-exp-shift-preserve]){color:var(--exp-shift-text)!important;text-shadow:none!important}
+        :is(.giveaway__row-outer-wrap,.featured__container) .giveaway__column--contributor-level:not([data-exp-shift-preserve]){background-image:none!important;background-color:var(--exp-shift-raised)!important;border-color:var(--exp-shift-muted)!important}`,
     }
   });
   function match(host=location.hostname){
