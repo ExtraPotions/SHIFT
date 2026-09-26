@@ -51,24 +51,32 @@ test('ManaPool is recognized as a site integration', async (t) => {
 });
 
 
-test('Amazon navigation, cards, forms, and product art use the strengthened site contract', async (t) => {
+test('Amazon navigation, cards, forms, text, and product media wells keep usable contrast', async (t) => {
   const page = await fixture(t, 'www.amazon.com', [
     '<div id="nav-main" style="background:#fff;color:#fff">Nav</div>',
     '<div class="a-cardui" style="background:#fff;color:#fff;border:1px solid #fff">Card</div>',
-    '<div class="s-card-container" style="background:#fff;color:#fff">Result</div>',
-    '<input class="a-input-text" value="query" style="background:#fff;color:#fff;border-color:#fff">',
-    '<img class="s-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="filter:brightness(.2)" alt="Product">'
+    '<div class="s-card-container" style="background:#fff;color:#fff">',
+      '<span class="a-size-base-plus" style="color:#111">Product title</span>',
+      '<span class="a-price" style="color:#111">$1299</span>',
+      '<div class="s-product-image-container" style="background:#fff">',
+        '<img class="s-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="filter:brightness(.2);opacity:.45" alt="Product">',
+      '</div>',
+    '</div>',
+    '<input class="a-input-text" value="query" style="background:#fff;color:#fff;border-color:#fff">'
   ].join(''));
   const result = await page.evaluate(() => {
     const pick = (selector) => {
       const node = document.querySelector(selector);
       const style = getComputedStyle(node);
-      return { background: style.backgroundColor, color: style.color, border: style.borderColor, filter: style.filter };
+      return { background: style.backgroundColor, color: style.color, border: style.borderColor, filter: style.filter, opacity: style.opacity };
     };
     return {
       nav: pick('#nav-main'),
       card: pick('.a-cardui'),
       result: pick('.s-card-container'),
+      title: pick('.a-size-base-plus'),
+      price: pick('.a-price'),
+      media: pick('.s-product-image-container'),
       input: pick('.a-input-text'),
       image: pick('.s-image'),
     };
@@ -77,7 +85,11 @@ test('Amazon navigation, cards, forms, and product art use the strengthened site
   assert.notEqual(result.card.background, 'rgb(255, 255, 255)');
   assert.notEqual(result.result.background, 'rgb(255, 255, 255)');
   assert.notEqual(result.input.background, 'rgb(255, 255, 255)');
+  assert.equal(result.media.background, 'rgb(255, 255, 255)');
   assert.equal(result.image.filter, 'none');
+  assert.equal(result.image.opacity, '1');
+  assert.notEqual(result.title.color, 'rgb(17, 17, 17)');
+  assert.notEqual(result.price.color, 'rgb(17, 17, 17)');
   assert.notEqual(result.card.color, result.card.background);
   assert.notEqual(result.input.color, result.input.background);
 });
