@@ -27,6 +27,16 @@ EXP.SiteFixes = (() => {
         '.a-price','.a-price-whole','.a-price-fraction','.a-price-symbol',
         '.s-title-instructions-style','.a-link-normal:not(:has(img))'
       ],
+      forceText: [
+        '.a-cardui :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.s-card-container :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.s-widget-container :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.a-carousel-card :is(.a-size-base,.a-size-base-plus,.a-size-medium,.a-size-large,.a-text-normal,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol)',
+        '.a-cardui a.a-link-normal:not(:has(img))',
+        '.s-card-container a.a-link-normal:not(:has(img))',
+        '.s-widget-container a.a-link-normal:not(:has(img))',
+        '.a-carousel-card a.a-link-normal:not(:has(img))'
+      ],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
       css: `
         :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
