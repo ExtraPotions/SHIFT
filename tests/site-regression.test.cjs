@@ -308,6 +308,7 @@ test('dark canvas with light major surfaces does not infer native-dark mode', as
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
     rootScheme: getComputedStyle(document.documentElement).colorScheme,
     bodyScheme: getComputedStyle(document.body).colorScheme,
+    nativeBaseline: document.documentElement.dataset.expShiftNativeBaseline || '',
     samples: [...document.querySelectorAll('main,[role="main"],header,nav,aside,section,article,form,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],.card,.panel,[class*="card" i],[class*="panel" i]')].slice(0,20).map(el => ({
       tag: el.tagName,
       cls: el.className,
