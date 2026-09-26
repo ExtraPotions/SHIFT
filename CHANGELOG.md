@@ -1,3 +1,10 @@
+## 3.4.0-dev.10 — 2026-09-26
+
+- Respects ESGST semantic color ownership on SteamGifts category chips, highlighted contributor levels, and ESGST-colored entry controls.
+- Marks supported third-party semantic components as preserved before generic live repair so extension-owned state colors are not rewritten.
+- Makes global link, form, and muted-text readability rules honor preserved subtrees consistently.
+- Keeps native SteamGifts headings, notices, and unowned contributor-level surfaces under Shift styling.
+
 ## 3.4.0-dev.9 — 2026-09-26
 
 - Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.
