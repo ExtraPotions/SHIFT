@@ -1,3 +1,10 @@
+## 3.4.0-dev.5 — 2026-09-26
+
+- Neutralizes Amazon multiply blend modes on product metadata so repaired titles and prices render at their intended light color.
+- Neutralizes multiply blending and reduced opacity on Amazon product images and image wrappers while keeping native media wells intact.
+- Uses the uploaded Amazon page structure to cover hashed asin metadata, title, price, image-wrapper, and image class families without hard-coding build hashes.
+- Adds a regression proving Amazon product text and images remain visible when Amazon applies multiply blending.
+
 ## 3.4.0-dev.4 — 2026-09-26
 
 - Adds a final Amazon product-text repair pass so recovered stylesheet rules cannot push recommendation titles and prices back to near-black.
