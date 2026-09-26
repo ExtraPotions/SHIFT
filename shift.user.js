@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.2
+// @version      3.4.0-dev.3
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3005,6 +3005,12 @@ EXP.SiteFixes = (() => {
         '#imgTagWrapperId img','.a-dynamic-image','.s-image','img.a-lazy-loaded',
         '[class*="image"] img','video','canvas'
       ],
+      preserveSurfaces: [
+        '#imgTagWrapperId','.s-product-image-container',
+        '[class*="product-image" i]','[class*="image-container" i]',
+        '.a-cardui :is(.a-section,.a-row):has(> img)',
+        '.a-carousel-card :is(.a-section,.a-row):has(> img)'
+      ],
       surfaces: [
         '#nav-main','#navbar','#nav-belt','#nav-subnav','.nav-search','.nav-search-field',
         '.nav-flyout','.nav-flyout-content','.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
@@ -3013,7 +3019,12 @@ EXP.SiteFixes = (() => {
         '.a-dropdown-container select','.a-dropdown-prompt','.a-menu-item','.a-button','.a-button-inner',
         '.a-input-text','.nav-input','input:not([type="checkbox"]):not([type="radio"])','textarea'
       ],
-      text: ['.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal'],
+      text: [
+        '.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal',
+        '.a-size-base-plus','.a-size-medium','.a-size-large',
+        '.a-price','.a-price-whole','.a-price-fraction','.a-price-symbol',
+        '.s-title-instructions-style','.a-link-normal:not(:has(img))'
+      ],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
       css: `
         :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
@@ -3032,8 +3043,15 @@ EXP.SiteFixes = (() => {
           background-color:var(--exp-shift-interactive)!important;color:var(--exp-shift-text)!important;
           border-color:color-mix(in srgb,var(--exp-shift-muted) 45%,transparent)!important
         }
-        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal){color:var(--exp-shift-text)!important}
-        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){filter:none!important}
+        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal,.a-size-base-plus,.a-size-medium,.a-size-large,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol,.s-title-instructions-style){
+          color:var(--exp-shift-text)!important
+        }
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){
+          filter:none!important;opacity:1!important;mix-blend-mode:normal!important
+        }
+        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i]){
+          opacity:1!important;filter:none!important;mix-blend-mode:normal!important
+        }
       `,
     },
     steamgifts: {
@@ -3063,7 +3081,7 @@ EXP.DynamicEngine = (() => {
   const remoteCache = new Map();
   const cache = new Map();
   const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0 };
-  const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null };
+  const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0;
   const pendingRemote = new Map();
 
@@ -3161,7 +3179,28 @@ EXP.DynamicEngine = (() => {
   function requestText(url){
     return new Promise((resolve,reject)=>{
       if(typeof GM_xmlhttpRequest!=='function')return reject(new Error('Remote stylesheet transport unavailable'));
-      GM_xmlhttpRequest({method:'GET',url,timeout:12000,onload:r=>r.status>=200&&r.status<300?resolve(r.responseText):reject(new Error(`Stylesheet HTTP ${r.status}`)),onerror:()=>reject(new Error('Stylesheet request failed')),ontimeout:()=>reject(new Error('Stylesheet request timed out'))});
+      let settled=false,request=null;
+      const finish=(fn,value)=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(watchdog);
+        fn(value);
+      };
+      const watchdog=setTimeout(()=>{
+        try{request?.abort?.();}catch{}
+        finish(reject,new Error('Stylesheet request watchdog timed out'));
+      },15000);
+      try{
+        request=GM_xmlhttpRequest({
+          method:'GET',url,timeout:12000,
+          onload:r=>r.status>=200&&r.status<300
+            ? finish(resolve,r.responseText)
+            : finish(reject,new Error(`Stylesheet HTTP ${r.status}`)),
+          onerror:()=>finish(reject,new Error('Stylesheet request failed')),
+          ontimeout:()=>finish(reject,new Error('Stylesheet request timed out')),
+          onabort:()=>finish(reject,new Error('Stylesheet request aborted')),
+        });
+      }catch(error){finish(reject,error);}
     });
   }
   function rewriteUrls(cssText,baseUrl){
@@ -3188,6 +3227,7 @@ EXP.DynamicEngine = (() => {
       try{
         pendingRemote.set(key,epoch);
         remoteLifetime.attempts++;
+        try{remoteLifetime.hosts.add(new URL(href).hostname);}catch{}
         const source=rewriteUrls(await requestText(href),href);
         if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
         const rules=parseRemote(source),out=[];
@@ -3253,7 +3293,7 @@ EXP.DynamicEngine = (() => {
   function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
   function start(nextTheme){if(active){refresh(nextTheme);return;}theme=nextTheme;active=true;refresh(theme);observer?.disconnect();observer=new MutationObserver(ms=>{if(ms.some(m=>[...m.addedNodes].some(n=>n?.nodeType===1&&(n.matches?.('style,link[rel~="stylesheet"]')||n.querySelector?.('style,link[rel~="stylesheet"]'))) || m.target?.nodeName==='STYLE'))schedule();});observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
   function stop(){active=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
-  function health(){return {...stats,pendingRemote:pendingRemote.size,remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
+  function health(){return {...stats,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
 })();
 
@@ -3469,6 +3509,7 @@ EXP.LiveResolver = (() => {
     const scope=root?.querySelectorAll?root:document;
     try{
       if(fix.preserve?.length)scope.querySelectorAll(fix.preserve.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
+      if(fix.preserveSurfaces?.length)scope.querySelectorAll(fix.preserveSurfaces.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
       if(options.repairSurfaces&&!options.nativeDark&&fix.surfaces?.length)scope.querySelectorAll(fix.surfaces.join(',')).forEach(el=>{if(repair(el,`site:${fix.id}`,options))stats.siteFixes++;});
       if(fix.text?.length)scope.querySelectorAll(fix.text.join(',')).forEach(el=>{if(repairText(el,`site-text:${fix.id}`))stats.siteFixes++;});
     }catch{}
@@ -3898,10 +3939,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.2';
+EXP.VERSION = '3.4.0-dev.3';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.3': [
+      'Preserves Amazon product-media wells so dark cards do not swallow dark or transparent product artwork.',
+      'Repairs Amazon product titles and prices explicitly while keeping product images unfiltered and fully opaque.',
+      'Adds an independent watchdog around remote stylesheet requests so stalled manager requests cannot remain pending forever.',
+      'Adds bounded remote host diagnostics so Amazon stylesheet transport failures can be identified precisely.',
+    ],
     '3.4.0-dev.2': [
       'Strengthens Amazon navigation, card, form, flyout, alert, and result-surface coverage while preserving product artwork.',
       'Adds explicit Amazon CDN connections for cross-origin stylesheet recovery.',
