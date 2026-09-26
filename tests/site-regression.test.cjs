@@ -149,3 +149,48 @@ test('Amazon product metadata and media do not inherit multiply blending on dark
   assert.notEqual(result.title.color, 'rgb(17, 17, 17)');
   assert.notEqual(result.price.color, 'rgb(17, 17, 17)');
 });
+
+
+test('generic unknown sites get dark surfaces, readable text, preserved media, and dynamic mutation repair', async (t) => {
+  const page = await fixture(t, 'generic-fixture.test', [
+    '<main>',
+      '<section id="generic-panel" style="background:#fff;color:#f8f8f8;border:1px solid #fff">',
+        '<h2 id="generic-title" style="color:#eee">Generic dashboard</h2>',
+        '<input id="generic-input" value="hello" style="background:#fff;color:#fff;border-color:#fff">',
+        '<img id="generic-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" style="filter:none;opacity:1" alt="Artwork">',
+      '</section>',
+    '</main>'
+  ].join(''));
+  const before = await page.evaluate(() => {
+    const read = selector => {
+      const style = getComputedStyle(document.querySelector(selector));
+      return { background: style.backgroundColor, color: style.color, filter: style.filter, opacity: style.opacity };
+    };
+    return {
+      panel: read('#generic-panel'),
+      title: read('#generic-title'),
+      input: read('#generic-input'),
+      image: read('#generic-image'),
+    };
+  });
+  assert.notEqual(before.panel.background, 'rgb(255, 255, 255)');
+  assert.notEqual(before.title.color, before.panel.background);
+  assert.notEqual(before.input.background, 'rgb(255, 255, 255)');
+  assert.equal(before.image.filter, 'none');
+  assert.equal(before.image.opacity, '1');
+
+  await page.evaluate(() => {
+    const card = document.createElement('article');
+    card.id = 'dynamic-card';
+    card.style.cssText = 'background:#fff;color:#fff;border:1px solid #fff';
+    card.innerHTML = '<span id="dynamic-copy" style="color:#eee">Dynamic content</span>';
+    document.querySelector('main').append(card);
+  });
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('#dynamic-card')).backgroundColor !== 'rgb(255, 255, 255)');
+  const after = await page.evaluate(() => ({
+    card: getComputedStyle(document.querySelector('#dynamic-card')).backgroundColor,
+    copy: getComputedStyle(document.querySelector('#dynamic-copy')).color,
+  }));
+  assert.notEqual(after.card, 'rgb(255, 255, 255)');
+  assert.notEqual(after.copy, after.card);
+});
