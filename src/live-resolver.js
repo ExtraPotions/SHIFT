@@ -41,7 +41,7 @@ EXP.LiveResolver = (() => {
     passes:0,scanned:0,unresolved:0,resolved:0,siteFixes:0,contrast:0,brightSurfaces:0,forms:0,
     inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0,
     selfMutationsIgnored:0,rootsCollapsed:0,lastExamined:0,lastChanged:0,lastRoots:0,lastDurationMs:0,maxDurationMs:0,
-    backgroundCacheHits:0,backgroundWalkSteps:0,nativeDarkDepthStops:0,nativeDarkFastPathPasses:0,lastSurfaceLimit:0,lastTextLimit:0
+    backgroundCacheHits:0,backgroundParentCacheHits:0,backgroundWalkSteps:0,nativeDarkDepthStops:0,nativeDarkExtendedWalks:0,nativeDarkFastPathPasses:0,lastSurfaceLimit:0,lastTextLimit:0
   };
 
   function parse(value){ return EXP.ColorEngine.parse(value); }
@@ -101,30 +101,40 @@ EXP.LiveResolver = (() => {
   function effectiveBackground(el){
     const cached=backgroundCache.get(el);
     if(cached){stats.backgroundCacheHits++;return cached;}
-    const maxDepth=options.nativeDark?8:24;
-    let node=el,accumulated=null,inherited=false,depth=0,result='';
-    while(node&&depth<maxDepth){
-      depth++;stats.backgroundWalkSteps++;
-      try{
-        const cs=getComputedStyle(node),color=parse(cs.backgroundColor);
-        if(color&&(color.a??1)>.001){
-          accumulated=accumulated?composite(accumulated,color):color;
-          if((accumulated.a??1)>=.985){
-            if(inherited)stats.inheritedBackgrounds++;
-            result=rgba(accumulated);
-            backgroundCache.set(el,result);
-            return result;
-          }
-        }else stats.transparentSurfaces++;
-      }catch{}
-      inherited=true;
-      node=node.parentElement||node.getRootNode?.()?.host||null;
+    const hardLimit=24,softLimit=options.nativeDark?8:24,seen=new Set();
+    const fallback=rgba(parse(theme?.page)||{r:0,g:0,b:0,a:1})||(theme?.page||'#000');
+    let extended=false;
+    function resolve(node,depth){
+      if(!node||seen.has(node))return fallback;
+      const known=backgroundCache.get(node);
+      if(known){
+        if(node!==el)stats.backgroundParentCacheHits++;
+        else stats.backgroundCacheHits++;
+        return known;
+      }
+      if(depth>=hardLimit){
+        if(options.nativeDark)stats.nativeDarkDepthStops++;
+        return fallback;
+      }
+      if(options.nativeDark&&depth>=softLimit&&!extended){extended=true;stats.nativeDarkExtendedWalks++;}
+      seen.add(node);stats.backgroundWalkSteps++;
+      let own=null;
+      try{own=parse(getComputedStyle(node).backgroundColor);}catch{}
+      if(!own||(own.a??1)<=.001)stats.transparentSurfaces++;
+      const parent=node.parentElement||node.getRootNode?.()?.host||null;
+      let result='';
+      if(own&&(own.a??1)>=.985){
+        result=rgba(own);
+      }else{
+        const parentResult=resolve(parent,depth+1),parentColor=parse(parentResult);
+        result=own&&parentColor?rgba(composite(own,parentColor)):parentResult||fallback;
+        if(node!==el)stats.inheritedBackgrounds++;
+      }
+      seen.delete(node);
+      if(result)backgroundCache.set(node,result);
+      return result||fallback;
     }
-    if(options.nativeDark&&node)stats.nativeDarkDepthStops++;
-    const fallback=parse(theme?.page)||{r:0,g:0,b:0,a:1};
-    result=accumulated?rgba(composite(accumulated,fallback)):(theme?.page||'#000');
-    backgroundCache.set(el,result);
-    return result;
+    return resolve(el,0);
   }
   function minimumContrast(el){
     try{
