@@ -4,7 +4,7 @@ EXP.DynamicEngine = (() => {
   const remoteCache = new Map();
   const cache = new Map();
   const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0 };
-  const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null };
+  const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0;
   const pendingRemote = new Map();
 
@@ -102,7 +102,28 @@ EXP.DynamicEngine = (() => {
   function requestText(url){
     return new Promise((resolve,reject)=>{
       if(typeof GM_xmlhttpRequest!=='function')return reject(new Error('Remote stylesheet transport unavailable'));
-      GM_xmlhttpRequest({method:'GET',url,timeout:12000,onload:r=>r.status>=200&&r.status<300?resolve(r.responseText):reject(new Error(`Stylesheet HTTP ${r.status}`)),onerror:()=>reject(new Error('Stylesheet request failed')),ontimeout:()=>reject(new Error('Stylesheet request timed out'))});
+      let settled=false,request=null;
+      const finish=(fn,value)=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(watchdog);
+        fn(value);
+      };
+      const watchdog=setTimeout(()=>{
+        try{request?.abort?.();}catch{}
+        finish(reject,new Error('Stylesheet request watchdog timed out'));
+      },15000);
+      try{
+        request=GM_xmlhttpRequest({
+          method:'GET',url,timeout:12000,
+          onload:r=>r.status>=200&&r.status<300
+            ? finish(resolve,r.responseText)
+            : finish(reject,new Error(`Stylesheet HTTP ${r.status}`)),
+          onerror:()=>finish(reject,new Error('Stylesheet request failed')),
+          ontimeout:()=>finish(reject,new Error('Stylesheet request timed out')),
+          onabort:()=>finish(reject,new Error('Stylesheet request aborted')),
+        });
+      }catch(error){finish(reject,error);}
     });
   }
   function rewriteUrls(cssText,baseUrl){
@@ -129,6 +150,7 @@ EXP.DynamicEngine = (() => {
       try{
         pendingRemote.set(key,epoch);
         remoteLifetime.attempts++;
+        try{remoteLifetime.hosts.add(new URL(href).hostname);}catch{}
         const source=rewriteUrls(await requestText(href),href);
         if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
         const rules=parseRemote(source),out=[];
@@ -194,6 +216,6 @@ EXP.DynamicEngine = (() => {
   function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
   function start(nextTheme){if(active){refresh(nextTheme);return;}theme=nextTheme;active=true;refresh(theme);observer?.disconnect();observer=new MutationObserver(ms=>{if(ms.some(m=>[...m.addedNodes].some(n=>n?.nodeType===1&&(n.matches?.('style,link[rel~="stylesheet"]')||n.querySelector?.('style,link[rel~="stylesheet"]'))) || m.target?.nodeName==='STYLE'))schedule();});observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
   function stop(){active=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
-  function health(){return {...stats,pendingRemote:pendingRemote.size,remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
+  function health(){return {...stats,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
 })();
