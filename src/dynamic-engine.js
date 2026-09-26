@@ -19,6 +19,36 @@ EXP.DynamicEngine = (() => {
     } catch { return 'x'; }
   };
   const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent].join('|');
+  const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
+  function guardSelectorText(selectorText){
+    const source=String(selectorText||''),parts=[];
+    let start=0,paren=0,bracket=0,quote='',escape=false;
+    for(let i=0;i<=source.length;i++){
+      const ch=source[i]||',';
+      if(quote){
+        if(escape){escape=false;continue;}
+        if(ch==='\\'){escape=true;continue;}
+        if(ch===quote)quote='';
+        continue;
+      }
+      if(ch==='"'||ch==="'"){quote=ch;continue;}
+      if(ch==='(')paren++;
+      else if(ch===')')paren=Math.max(0,paren-1);
+      else if(ch==='[')bracket++;
+      else if(ch===']')bracket=Math.max(0,bracket-1);
+      else if(ch===','&&paren===0&&bracket===0){
+        const part=source.slice(start,i).trim();
+        if(part){
+          const pseudo=part.indexOf('::');
+          parts.push(pseudo>=0
+            ? `${part.slice(0,pseudo)}${DYNAMIC_PRESERVE_GUARD}${part.slice(pseudo)}`
+            : `${part}${DYNAMIC_PRESERVE_GUARD}`);
+        }
+        start=i+1;
+      }
+    }
+    return parts.join(',');
+  }
 
   function role(property,name='',value=''){
     if(String(name).startsWith('--exp-shift-'))return null;
@@ -82,7 +112,7 @@ EXP.DynamicEngine = (() => {
             else next=transformValue(p,v,scope,bg);
             if(next!==v)declarations.push(`${p}:${next}!important`);
           }
-          if(declarations.length){out.push(`${rule.selectorText}{${declarations.join(';')}}`);stats.rulesGenerated++;}
+          if(declarations.length){const selector=guardSelectorText(rule.selectorText);if(selector){out.push(`${selector}{${declarations.join(';')}}`);stats.rulesGenerated++;}}
         }else if(rule.cssRules){
           const nested=[];walk(rule.cssRules,nested,scope,budget);
           const head=rule.cssText?.slice(0,rule.cssText.indexOf('{')).trim();
