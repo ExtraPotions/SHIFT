@@ -24,6 +24,39 @@ async function fixture(t, host, body) {
   return page;
 }
 
+
+async function delayedStylesheetFixture(t, host, body, css, delayMs = 220) {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.addInitScript(() => {
+    const saved = new Map([['exp:v3:shift:settings', { theme: 'ember', accent: 'ember-default', surfaceLevel: 'conservative', repairSurfaces: true }]]);
+    window.GM_getValue = (key, fallback) => saved.has(key) ? saved.get(key) : fallback;
+    window.GM_setValue = (key, value) => saved.set(key, value);
+    window.GM_xmlhttpRequest = () => {};
+  });
+  await page.route(`https://${host}/**`, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/shift.user.js') {
+      await route.fulfill({ status: 200, contentType: 'text/javascript', body: script });
+      return;
+    }
+    if (url.pathname === '/assets/application.css') {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await route.fulfill({ status: 200, contentType: 'text/css', body: css });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `<!doctype html><html><head></head><body>${body}<script src="/shift.user.js"></script><link rel="stylesheet" crossorigin href="/assets/application.css"></body></html>`
+    });
+  });
+  await page.goto(`https://${host}/fixture`);
+  await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift'));
+  return page;
+}
+
 test('SteamGifts pale native headings and notices get paired dark surfaces and legible text', async (t) => {
   const page = await fixture(t, 'www.steamgifts.com', '<div class="page__heading" style="background:linear-gradient(white,#ddd);color:white"><a href="#">Giveaways › Won</a></div><div class="notification" style="background:#faf3c7;color:#fff">Check your Steam account</div><div class="giveaway__row-outer-wrap"><span class="giveaway__column--contributor-level" style="background:linear-gradient(white,#ddd);color:white">Level 1</span></div>');
   const result = await page.evaluate(() => Object.fromEntries(['.page__heading', '.notification'].map(selector => {
@@ -191,6 +224,42 @@ test('Amazon product metadata and media do not inherit multiply blending on dark
   assert.notEqual(result.price.color, 'rgb(17, 17, 17)');
 });
 
+
+test('Greasy Fork and Sleazy Fork style delayed CSS is repaired after the stylesheet finishes loading', async (t) => {
+  const css = [
+    ':root{--overall-background-color:#f7f7f7;--overall-text-color:#222;--content-background-color:#fff;--content-border-color:#bbb;--link-color:#670000}',
+    'body{margin:0;background-color:var(--overall-background-color);color:var(--overall-text-color)}',
+    'a{color:var(--link-color)}',
+    '.width-constraint{margin:auto;max-width:1200px}',
+    '#main-header{background-color:#670000;background-image:linear-gradient(#670000,#990000);color:#fff}',
+    '#main-header a{color:#fff}',
+    '.text-content{background-color:var(--content-background-color);border:1px solid var(--content-border-color);padding:1em;margin:14px 0}'
+  ].join('');
+  const body = [
+    '<header id="main-header"><div class="width-constraint"><h1>Greasy Fork</h1><a id="header-link" href="#">Scripts</a></div></header>',
+    '<div class="width-constraint"><section class="text-content"><h2 id="welcome">Welcome to Greasy Fork</h2><p>Late stylesheet content.</p><a id="content-link" href="#">Browse scripts</a></section></div>'
+  ].join('');
+  const page = await delayedStylesheetFixture(t, 'greasy-style.test', body, css);
+  await page.waitForTimeout(180);
+  const result = await page.evaluate(() => {
+    const content = document.querySelector('.text-content');
+    const contentStyle = getComputedStyle(content);
+    const titleStyle = getComputedStyle(document.querySelector('#welcome'));
+    const linkStyle = getComputedStyle(document.querySelector('#content-link'));
+    return {
+      background: contentStyle.backgroundColor,
+      color: contentStyle.color,
+      title: titleStyle.color,
+      link: linkStyle.color,
+      live: content.hasAttribute('data-exp-shift-live'),
+      dynamic: Boolean(document.querySelector('style[data-exp-shift-dynamic="1"]')),
+    };
+  });
+  assert.notEqual(result.background, 'rgb(255, 255, 255)', JSON.stringify(result));
+  assert.notEqual(result.title, result.background, JSON.stringify(result));
+  assert.notEqual(result.link, result.background, JSON.stringify(result));
+  assert.equal(result.dynamic || result.live, true, JSON.stringify(result));
+});
 
 test('generic unknown sites get dark surfaces, readable text, preserved media, and dynamic mutation repair', async (t) => {
   const page = await fixture(t, 'generic-fixture.test', [
