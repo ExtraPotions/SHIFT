@@ -1,7 +1,13 @@
-EXP.VERSION = '3.4.0-dev.9';
+EXP.VERSION = '3.4.0-dev.10';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.10': [
+      'Respects ESGST semantic color ownership on SteamGifts category chips, highlighted contributor levels, and ESGST-colored entry controls.',
+      'Marks supported third-party semantic components as preserved before generic live repair so extension-owned state colors are not rewritten.',
+      'Makes global link, form, and muted-text readability rules honor preserved subtrees consistently.',
+      'Keeps native SteamGifts headings, notices, and unowned contributor-level surfaces under Shift styling.',
+    ],
     '3.4.0-dev.9': [
       'Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.',
       'Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces, while strong light-surface evidence or a large light primary content region vetoes native-dark classification.',
