@@ -19,6 +19,8 @@
   <img alt="CC BY-NC-SA 4.0" src="https://img.shields.io/badge/Assets-CC%20BY--NC--SA%204.0-1769AA?style=flat-square">
 </p>
 
+SHIFT 3.4 is being rebuilt on the Dropper 3.3.2 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
+
 ## Install
 
 <p>
