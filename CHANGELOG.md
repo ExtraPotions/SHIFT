@@ -1,3 +1,10 @@
+## 3.4.0-dev.6 — 2026-09-26
+
+- Suppresses resolver feedback from Shift-owned inline style writes so generic repairs do not immediately schedule redundant mutation passes.
+- Collapses nested mutation roots before each pass and reports per-pass examined versus changed counts, collapsed roots, ignored self-mutations, and maximum pass duration.
+- Adds an unknown-site regression with no adapter or site rules to verify generic surface, contrast, form, media-preservation, and dynamic-content behavior.
+- Keeps the established Amazon dev.5 appearance and remote stylesheet recovery behavior as regression baselines while moving performance hardening into the generic engine.
+
 ## 3.4.0-dev.5 — 2026-09-26
 
 - Neutralizes Amazon multiply blend modes on product metadata so repaired titles and prices render at their intended light color.
