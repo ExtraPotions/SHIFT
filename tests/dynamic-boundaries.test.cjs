@@ -21,3 +21,29 @@ test('late remote stylesheet response cannot revive a stopped theme or overwrite
  await page.evaluate(()=>{expTest.DynamicEngine.start(expTest.Themes.resolve('midnight','site-default'));expTest.DynamicEngine.refresh(expTest.Themes.resolve('ember','site-default'));responses.at(-2).onload({status:200,responseText:'.stale-only{color:#111}'});responses.at(-1).onload({status:200,responseText:'.current-only{color:#111}'});});
  const css=await page.locator('[data-exp-shift-dynamic-remote]').allTextContents();assert.equal(css.length,1);assert.match(css[0],/current-only/);assert.doesNotMatch(css[0],/stale-only/);
 });
+
+
+test('remote stylesheet telemetry survives refresh resets and reports pending/failure state',async t=>{
+ const page=await fixture(t);
+ await page.route('https://styles.test/**',r=>r.fulfill({contentType:'text/css',body:'.remote{color:#111;background:#fff}'}));
+ const result=await page.evaluate(async()=>{
+  window.requests=[];
+  window.GM_xmlhttpRequest=o=>requests.push(o);
+  const l=document.createElement('link');l.rel='stylesheet';l.href='https://styles.test/fail.css';document.head.append(l);
+  await new Promise(r=>l.onload=r);
+  expTest.DynamicEngine.start(expTest.Themes.resolve('midnight','site-default'));
+  const pending=expTest.DynamicEngine.health();
+  requests.at(-1).onerror();
+  await new Promise(r=>setTimeout(r,0));
+  const failed=expTest.DynamicEngine.health();
+  expTest.DynamicEngine.refresh(expTest.Themes.resolve('midnight','site-default'));
+  const refreshed=expTest.DynamicEngine.health();
+  return {pending,failed,refreshed};
+ });
+ assert.ok(result.pending.pendingRemote>=1,JSON.stringify(result.pending));
+ assert.equal(result.failed.remoteFailuresLifetime,1);
+ assert.equal(result.failed.lastRemoteFailure.host,'styles.test');
+ assert.match(result.failed.lastRemoteFailure.message,/failed/i);
+ assert.equal(result.refreshed.remoteFailuresLifetime,1);
+ assert.equal(result.refreshed.lastRemoteFailure.host,'styles.test');
+});
