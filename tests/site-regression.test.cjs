@@ -39,6 +39,47 @@ test('SteamGifts pale native headings and notices get paired dark surfaces and l
   assert.notEqual(level.foreground, level.background);
 });
 
+
+test('SteamGifts respects ESGST semantic color ownership while retaining native repairs', async (t) => {
+  const page = await fixture(t, 'www.steamgifts.com', [
+    '<style>',
+      '.esgst-gc{background:#1f6d47;color:#f4ffe9;border:1px solid #65d18f}',
+      '.esgst-glh-highlight{background:#f1f1d0;color:#304010}',
+    '</style>',
+    '<div class="giveaway__row-outer-wrap">',
+      '<div class="esgst-gc-panel"><a class="esgst-gc esgst-gc-fullCV" href="#">Full CV</a><a class="esgst-gc esgst-gc-achievements" href="#">Achievements</a></div>',
+      '<span id="esgst-level" class="giveaway__column--contributor-level esgst-glh-highlight">Level 3+</span>',
+      '<div id="esgst-enter" class="giveaway__quick-entry-btn giveaway__quick-entry-btn--insert" title="ESGST cannot check ownership of this game" style="background-color:rgb(123,181,71);color:rgb(22,38,10);border-color:rgb(173,225,121)">Enter</div>',
+      '<span id="native-level" class="giveaway__column--contributor-level" style="background:linear-gradient(white,#ddd);color:white">Level 1+</span>',
+    '</div>'
+  ].join(''));
+  await page.waitForTimeout(150);
+  const result = await page.evaluate(() => {
+    const read = id => {
+      const node = document.querySelector(id), style = getComputedStyle(node);
+      return { color:style.color, background:style.backgroundColor, image:style.backgroundImage, preserved:node.hasAttribute('data-exp-shift-preserve') };
+    };
+    return {
+      category:read('.esgst-gc-fullCV'),
+      level:read('#esgst-level'),
+      enter:read('#esgst-enter'),
+      native:read('#native-level')
+    };
+  });
+  assert.equal(result.category.background, 'rgb(31, 109, 71)');
+  assert.equal(result.category.color, 'rgb(244, 255, 233)');
+  assert.equal(result.category.preserved, true);
+  assert.equal(result.level.background, 'rgb(241, 241, 208)');
+  assert.equal(result.level.color, 'rgb(48, 64, 16)');
+  assert.equal(result.level.preserved, true);
+  assert.equal(result.enter.background, 'rgb(123, 181, 71)');
+  assert.equal(result.enter.color, 'rgb(22, 38, 10)');
+  assert.equal(result.enter.preserved, true);
+  assert.equal(result.native.image, 'none');
+  assert.notEqual(result.native.background, 'rgb(255, 255, 255)');
+  assert.notEqual(result.native.color, result.native.background);
+});
+
 test('ManaPool is recognized as a site integration', async (t) => {
   const page = await fixture(t, 'manapool.com', '<main><section><h2>Commander Cards</h2><article><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Card"></article></section></main>');
   const result = await page.evaluate(() => {
