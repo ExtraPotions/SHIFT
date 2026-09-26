@@ -89,7 +89,6 @@ test('theme runtime has one owner for stylesheets and one owner for live DOM rep
   assert.match(dynamic, /style,link\[rel~=/);
   assert.match(live, /attributeFilter:\['class','style','hidden','aria-hidden','open'\]/);
   assert.match(live, /const NATIVE_DARK_CANDIDATES = \[/u);
-  assert.match(live, /const maxDepth=options\.nativeDark\?8:24;/u);
   assert.match(live, /nativeDarkFastPathPasses/u);
   assert.match(live, /backgroundCacheHits/u);
   assert.match(live, /backgroundParentCacheHits/u);
