@@ -8,14 +8,35 @@ EXP.SiteFixes = (() => {
         '[class*="image"] img','video','canvas'
       ],
       surfaces: [
-        '#nav-main','#navbar','#nav-belt','.nav-search','.nav-search-field',
-        '.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
-        '.s-result-item','.s-card-container','.a-section.a-spacing-base',
-        '.a-dropdown-container select','.a-button','.a-button-inner',
-        'input:not([type="checkbox"]):not([type="radio"])','textarea'
+        '#nav-main','#navbar','#nav-belt','#nav-subnav','.nav-search','.nav-search-field',
+        '.nav-flyout','.nav-flyout-content','.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
+        '.s-result-item','.s-card-container','.s-widget-container','.a-section.a-spacing-base',
+        '.a-alert-container','.a-alert-content','.a-tabs','.a-tab-heading',
+        '.a-dropdown-container select','.a-dropdown-prompt','.a-menu-item','.a-button','.a-button-inner',
+        '.a-input-text','.nav-input','input:not([type="checkbox"]):not([type="radio"])','textarea'
       ],
-      text: ['.a-color-base','.a-color-secondary','.a-size-base','.a-text-normal'],
+      text: ['.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal'],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
+      css: `
+        :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
+          background-color:var(--exp-shift-navigation)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 40%,transparent)!important
+        }
+        :is(.a-box,.a-cardui,.s-card-container,.s-widget-container,.a-popover-inner,.a-modal-scroller,.a-alert-container,.a-alert-content,.a-tabs,.a-menu-item){
+          background-color:var(--exp-shift-surface)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 38%,transparent)!important
+        }
+        :is(.nav-search-field,.a-input-text,.a-dropdown-container select,.a-dropdown-prompt,.nav-input,input:not([type="checkbox"]):not([type="radio"]),textarea){
+          background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-accent) 65%,var(--exp-shift-muted))!important
+        }
+        :is(.a-button,.a-button-inner,#nav-search-submit-button){
+          background-color:var(--exp-shift-interactive)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 45%,transparent)!important
+        }
+        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal){color:var(--exp-shift-text)!important}
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){filter:none!important}
+      `,
     },
     steamgifts: {
       hosts: ['steamgifts.com'],
