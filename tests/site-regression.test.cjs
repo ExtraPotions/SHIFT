@@ -261,6 +261,50 @@ test('Greasy Fork and Sleazy Fork style delayed CSS is repaired after the styles
   assert.equal(result.dynamic || result.live, true, JSON.stringify(result));
 });
 
+test('late native dark stylesheet reclassifies before dynamic rewriting persists', async (t) => {
+  const css = [
+    'html{color-scheme:light dark;background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
+    'body{background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
+    'main{min-height:900px;background:light-dark(#ffffff,#171b22);color:light-dark(#111111,#d7dce2)}',
+    'section{height:300px;background:light-dark(#ffffff,#171b22);color:light-dark(#111111,#d7dce2)}'
+  ].join('');
+  const body = '<main><section id="native-panel">Native dark content</section><section>More content</section><section>More content</section></main>';
+  const page = await delayedStylesheetFixture(t, 'late-native-dark.test', body, css);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.waitForTimeout(650);
+  const result = await page.evaluate(() => ({
+    panel: getComputedStyle(document.querySelector('#native-panel')).backgroundColor,
+    rootScheme: getComputedStyle(document.documentElement).colorScheme,
+    dynamicStyles: document.querySelectorAll('style[data-exp-shift-dynamic="1"],style[data-exp-shift-dynamic-remote="1"]').length,
+    css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
+  }));
+  assert.equal(result.panel, 'rgb(23, 27, 34)', JSON.stringify(result));
+  assert.match(result.rootScheme, /dark/, JSON.stringify(result));
+  assert.equal(result.dynamicStyles, 0, JSON.stringify(result));
+  assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/, JSON.stringify(result));
+});
+
+test('dynamic engine preserves primitive CSS variables and does not rewrite variable identifiers', async (t) => {
+  const page = await fixture(t, 'token-integrity.test', [
+    '<style>',
+      ':root{--color-black:#000;--color-white:#fff;--font-weight-black:900;--tw-border-style:solid;--surface:#fff}',
+      '.panel{background:#fff;color:#111;border-top-style:var(--tw-border-style)}',
+      '.font-black{font-weight:var(--font-weight-black)}',
+      '.text-black{color:var(--color-black)}',
+    '</style>',
+    '<main><section class="panel"><span id="weight" class="font-black">Heavy</span><span class="text-black">Text</span></section></main>'
+  ].join(''));
+  await page.waitForTimeout(180);
+  const result = await page.evaluate(() => ({
+    weight: getComputedStyle(document.querySelector('#weight')).fontWeight,
+    dynamicCss: [...document.querySelectorAll('style[data-exp-shift-dynamic="1"]')].map(node => node.textContent || '').join('\n'),
+  }));
+  assert.equal(result.weight, '900', JSON.stringify(result));
+  assert.doesNotMatch(result.dynamicCss, /--font-weight-#/i, JSON.stringify(result));
+  assert.doesNotMatch(result.dynamicCss, /--color-(?:rgb|#)/i, JSON.stringify(result));
+  assert.doesNotMatch(result.dynamicCss, /--tw-border-style:(?:none|solid)!important/i, JSON.stringify(result));
+});
+
 test('generic unknown sites get dark surfaces, readable text, preserved media, and dynamic mutation repair', async (t) => {
   const page = await fixture(t, 'generic-fixture.test', [
     '<main>',
