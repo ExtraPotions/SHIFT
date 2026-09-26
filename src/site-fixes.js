@@ -7,6 +7,12 @@ EXP.SiteFixes = (() => {
         '#imgTagWrapperId img','.a-dynamic-image','.s-image','img.a-lazy-loaded',
         '[class*="image"] img','video','canvas'
       ],
+      preserveSurfaces: [
+        '#imgTagWrapperId','.s-product-image-container',
+        '[class*="product-image" i]','[class*="image-container" i]',
+        '.a-cardui :is(.a-section,.a-row):has(> img)',
+        '.a-carousel-card :is(.a-section,.a-row):has(> img)'
+      ],
       surfaces: [
         '#nav-main','#navbar','#nav-belt','#nav-subnav','.nav-search','.nav-search-field',
         '.nav-flyout','.nav-flyout-content','.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
@@ -15,7 +21,12 @@ EXP.SiteFixes = (() => {
         '.a-dropdown-container select','.a-dropdown-prompt','.a-menu-item','.a-button','.a-button-inner',
         '.a-input-text','.nav-input','input:not([type="checkbox"]):not([type="radio"])','textarea'
       ],
-      text: ['.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal'],
+      text: [
+        '.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal',
+        '.a-size-base-plus','.a-size-medium','.a-size-large',
+        '.a-price','.a-price-whole','.a-price-fraction','.a-price-symbol',
+        '.s-title-instructions-style','.a-link-normal:not(:has(img))'
+      ],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
       css: `
         :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
@@ -34,8 +45,15 @@ EXP.SiteFixes = (() => {
           background-color:var(--exp-shift-interactive)!important;color:var(--exp-shift-text)!important;
           border-color:color-mix(in srgb,var(--exp-shift-muted) 45%,transparent)!important
         }
-        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal){color:var(--exp-shift-text)!important}
-        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){filter:none!important}
+        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal,.a-size-base-plus,.a-size-medium,.a-size-large,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol,.s-title-instructions-style){
+          color:var(--exp-shift-text)!important
+        }
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){
+          filter:none!important;opacity:1!important;mix-blend-mode:normal!important
+        }
+        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i]){
+          opacity:1!important;filter:none!important;mix-blend-mode:normal!important
+        }
       `,
     },
     steamgifts: {
