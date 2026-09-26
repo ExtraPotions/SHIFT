@@ -24,6 +24,11 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      api.github.com
+// @connect      m.media-amazon.com
+// @connect      images-na.ssl-images-amazon.com
+// @connect      images-eu.ssl-images-amazon.com
+// @connect      images-fe.ssl-images-amazon.com
+// @connect      images.amazon.com
 // ==/UserScript==
 // SHIFT Manager Metadata
 // Description: Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
