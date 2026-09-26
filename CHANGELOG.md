@@ -1,3 +1,10 @@
+## 3.4.0-dev.4 — 2026-09-26
+
+- Adds a final Amazon product-text repair pass so recovered stylesheet rules cannot push recommendation titles and prices back to near-black.
+- Keeps the successful remote stylesheet recovery path unchanged while applying Amazon title and price corrections after it.
+- Preserves the dev.3 product-media well treatment and native artwork handling.
+- Adds a regression proving Amazon product text remains readable even when a recovered stylesheet uses important dark colors.
+
 ## 3.4.0-dev.3 — 2026-09-26
 
 - Preserves Amazon product-media wells so dark cards do not swallow dark or transparent product artwork.
