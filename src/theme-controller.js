@@ -23,7 +23,7 @@ EXP.Engine = (() => {
   let nativeBaseline = null;
   let writing = false;
   const hostPaint = new WeakMap();
-  const metrics = { mode:'Original', reattaches:0, nativeDark:false, nativeDarkReason:null, applies:0 };
+  const metrics = { mode:'Original', reattaches:0, nativeDark:false, nativeDarkReason:null, nativeDarkEvidence:null, applies:0 };
 
   function parseColor(value) {
     const raw=String(value||'').trim();
@@ -50,10 +50,48 @@ EXP.Engine = (() => {
   }
   function detectNativeDark(){
     const baseline=captureNativeBaseline();
-    const dark=color=>Boolean(color&&(color.a??1)>=.9&&(Math.max(color.r,color.g,color.b)+Math.min(color.r,color.g,color.b))/510<=.22);
+    const tone=color=>{
+      if(!color||(color.a??1)<.9)return 'transparent';
+      const level=(Math.max(color.r,color.g,color.b)+Math.min(color.r,color.g,color.b))/510;
+      if(level<=.28)return 'dark';
+      if(level>=.68)return 'light';
+      return 'mid';
+    };
     const explicit=/\bdark\b/i.test(baseline.rootScheme)||/\bdark\b/i.test(baseline.bodyScheme)||(/\bdark\b/.test(baseline.meta)&&!/\blight\s+dark\b|\bdark\s+light\b/.test(baseline.meta));
-    metrics.nativeDark=Boolean(explicit&&(dark(baseline.rootBg)||dark(baseline.bodyBg)));
-    metrics.nativeDarkReason=metrics.nativeDark?'explicit-dark-scheme-with-dark-canvas':null;
+    const darkCanvas=tone(baseline.rootBg)==='dark'||tone(baseline.bodyBg)==='dark';
+    const sampleSelectors=[
+      'main','[role="main"]','header','nav','aside','section','article','form',
+      '[role="banner"]','[role="navigation"]','[role="contentinfo"]','[role="dialog"]',
+      '.card','.panel','[class*="card" i]','[class*="panel" i]'
+    ].join(',');
+    const candidates=[];
+    try{
+      for(const el of document.querySelectorAll(sampleSelectors)){
+        if(candidates.length>=48)break;
+        if(el.closest?.('[data-exp-owned="1"]'))continue;
+        const rect=el.getBoundingClientRect();
+        if(rect.width<120||rect.height<40||rect.bottom<0||rect.top>innerHeight*2)continue;
+        const area=rect.width*rect.height;
+        if(area<Math.max(8000,innerWidth*innerHeight*.025))continue;
+        let color=null;try{color=parseColor(getComputedStyle(el).backgroundColor);}catch{}
+        const kind=tone(color);
+        if(kind==='transparent')continue;
+        candidates.push({area,kind});
+      }
+    }catch{}
+    candidates.sort((a,b)=>b.area-a.area);
+    const samples=candidates.slice(0,24);
+    const darkSurfaceCount=samples.filter(item=>item.kind==='dark').length;
+    const lightSurfaceCount=samples.filter(item=>item.kind==='light').length;
+    const midSurfaceCount=samples.length-darkSurfaceCount-lightSurfaceCount;
+    const darkSurfaceRatio=samples.length?darkSurfaceCount/samples.length:0;
+    const inferred=darkCanvas&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
+    metrics.nativeDark=Boolean((explicit&&darkCanvas)||(!explicit&&inferred));
+    metrics.nativeDarkReason=metrics.nativeDark?(explicit?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
+    metrics.nativeDarkEvidence={
+      explicitDarkScheme:explicit,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
+      darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,inferred
+    };
     return metrics.nativeDark;
   }
   function rememberHost(node){
