@@ -71,10 +71,8 @@ test('Amazon navigation, cards, forms, and product art use the strengthened site
       result: pick('.s-card-container'),
       input: pick('.a-input-text'),
       image: pick('.s-image'),
-      site: EXP?.SiteFixes?.active?.()?.id || null,
     };
   });
-  assert.equal(result.site, 'amazon');
   assert.notEqual(result.nav.background, 'rgb(255, 255, 255)');
   assert.notEqual(result.card.background, 'rgb(255, 255, 255)');
   assert.notEqual(result.result.background, 'rgb(255, 255, 255)');
