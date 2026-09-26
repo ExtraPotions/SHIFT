@@ -3977,6 +3977,8 @@ EXP.Engine = (() => {
     const disabled=theme.original||next.safeMode||next.excluded||originalHeld||forcedColors();
     metrics.mode=next.excluded?'Excluded':next.safeMode?'Safe':theme.original||originalHeld?'Original':'Generic';
     if(disabled){EXP.Preload?.finish();restore();return{theme,mode:metrics.mode};}
+    EXP.DynamicEngine?.stop();
+    EXP.LiveResolver?.stop();
     unlockHost();
     const nativeDark=detectNativeDark();
     lockHost(theme,!nativeDark);
