@@ -57,7 +57,8 @@ EXP.Engine = (() => {
       if(level>=.68)return 'light';
       return 'mid';
     };
-    const explicit=/\bdark\b/i.test(baseline.rootScheme)||/\bdark\b/i.test(baseline.bodyScheme)||(/\bdark\b/.test(baseline.meta)&&!/\blight\s+dark\b|\bdark\s+light\b/.test(baseline.meta));
+    const darkOnlyScheme=value=>/\bdark\b/i.test(String(value||''))&&!/\blight\s+dark\b|\bdark\s+light\b/i.test(String(value||''));
+    const explicit=darkOnlyScheme(baseline.rootScheme)||darkOnlyScheme(baseline.bodyScheme)||darkOnlyScheme(baseline.meta);
     const darkCanvas=tone(baseline.rootBg)==='dark'||tone(baseline.bodyBg)==='dark';
     const sampleSelectors=[
       'main','[role="main"]','header','nav','aside','section','article','form',
