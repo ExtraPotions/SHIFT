@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.1
+// @version      3.4.0-dev.2
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -24,6 +24,11 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      api.github.com
+// @connect      m.media-amazon.com
+// @connect      images-na.ssl-images-amazon.com
+// @connect      images-eu.ssl-images-amazon.com
+// @connect      images-fe.ssl-images-amazon.com
+// @connect      images.amazon.com
 // ==/UserScript==
 // SHIFT Manager Metadata
 // Description: Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
@@ -3001,14 +3006,35 @@ EXP.SiteFixes = (() => {
         '[class*="image"] img','video','canvas'
       ],
       surfaces: [
-        '#nav-main','#navbar','#nav-belt','.nav-search','.nav-search-field',
-        '.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
-        '.s-result-item','.s-card-container','.a-section.a-spacing-base',
-        '.a-dropdown-container select','.a-button','.a-button-inner',
-        'input:not([type="checkbox"]):not([type="radio"])','textarea'
+        '#nav-main','#navbar','#nav-belt','#nav-subnav','.nav-search','.nav-search-field',
+        '.nav-flyout','.nav-flyout-content','.a-box','.a-cardui','.a-popover-inner','.a-modal-scroller',
+        '.s-result-item','.s-card-container','.s-widget-container','.a-section.a-spacing-base',
+        '.a-alert-container','.a-alert-content','.a-tabs','.a-tab-heading',
+        '.a-dropdown-container select','.a-dropdown-prompt','.a-menu-item','.a-button','.a-button-inner',
+        '.a-input-text','.nav-input','input:not([type="checkbox"]):not([type="radio"])','textarea'
       ],
-      text: ['.a-color-base','.a-color-secondary','.a-size-base','.a-text-normal'],
+      text: ['.a-color-base','.a-color-secondary','.a-color-tertiary','.a-size-base','.a-text-normal'],
       ignoreInline: ['[style*="background-image"]','.a-dynamic-image'],
+      css: `
+        :is(#nav-main,#navbar,#nav-belt,#nav-subnav,.nav-flyout,.nav-flyout-content){
+          background-color:var(--exp-shift-navigation)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 40%,transparent)!important
+        }
+        :is(.a-box,.a-cardui,.s-card-container,.s-widget-container,.a-popover-inner,.a-modal-scroller,.a-alert-container,.a-alert-content,.a-tabs,.a-menu-item){
+          background-color:var(--exp-shift-surface)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 38%,transparent)!important
+        }
+        :is(.nav-search-field,.a-input-text,.a-dropdown-container select,.a-dropdown-prompt,.nav-input,input:not([type="checkbox"]):not([type="radio"]),textarea){
+          background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-accent) 65%,var(--exp-shift-muted))!important
+        }
+        :is(.a-button,.a-button-inner,#nav-search-submit-button){
+          background-color:var(--exp-shift-interactive)!important;color:var(--exp-shift-text)!important;
+          border-color:color-mix(in srgb,var(--exp-shift-muted) 45%,transparent)!important
+        }
+        :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal){color:var(--exp-shift-text)!important}
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){filter:none!important}
+      `,
     },
     steamgifts: {
       hosts: ['steamgifts.com'],
@@ -3036,7 +3062,8 @@ EXP.DynamicEngine = (() => {
   const remoteHandles = new Map();
   const remoteCache = new Map();
   const cache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0 };
+  const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null };
   let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0;
   const pendingRemote = new Map();
 
@@ -3148,18 +3175,41 @@ EXP.DynamicEngine = (() => {
     return style.sheet?.cssRules||[];
   }
   async function processRemoteSheet(sheet,root){
-    const href=sheet.href||sheet.ownerNode?.href;if(!href||!/^https?:/i.test(href))return;
+    const href=sheet.href||sheet.ownerNode?.href;
+    if(!href||!/^https?:/i.test(href)){
+      stats.remoteSkippedNoHref++;
+      remoteLifetime.skippedNoHref++;
+      return;
+    }
     const key=`${href}|${themeKey(theme)}`, epoch=generation;
     if(pendingRemote.has(key))return;
     let css=remoteCache.get(key);
     if(css===undefined){
       try{
         pendingRemote.set(key,epoch);
+        remoteLifetime.attempts++;
         const source=rewriteUrls(await requestText(href),href);
         if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
         const rules=parseRemote(source),out=[];
-        walk(rules,out,new Map(),8000);css=out.join('\n');remoteCache.set(key,css);if(remoteCache.size>32)remoteCache.delete(remoteCache.keys().next().value);stats.remoteRules+=out.length;
-      }catch(error){if(active&&epoch===generation){stats.remoteFailures++;EXP.Core.safeError(Object.assign(error,{code:'REMOTE_STYLESHEET'}),'shift-dynamic');}return;}
+        walk(rules,out,new Map(),8000);
+        css=out.join('\n');
+        remoteCache.set(key,css);
+        if(remoteCache.size>32)remoteCache.delete(remoteCache.keys().next().value);
+        stats.remoteRules+=out.length;
+        remoteLifetime.successes++;
+        remoteLifetime.recoveredRules+=out.length;
+        remoteLifetime.lastSuccessAt=Date.now();
+      }catch(error){
+        if(active&&epoch===generation){
+          stats.remoteFailures++;
+          remoteLifetime.failures++;
+          let host='';
+          try{host=new URL(href).hostname;}catch{}
+          remoteLifetime.lastFailure={ at:Date.now(), host, message:String(error?.message||error||'Remote stylesheet failed') };
+          EXP.Core.safeError(Object.assign(error,{code:'REMOTE_STYLESHEET'}),'shift-dynamic');
+        }
+        return;
+      }
       finally { if(pendingRemote.get(key)===epoch)pendingRemote.delete(key); }
     }else stats.cacheHits++;
     if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
@@ -3178,7 +3228,7 @@ EXP.DynamicEngine = (() => {
       for(const h of handles.values())h.remove(); handles.clear();
       for(const h of remoteHandles.values())h.remove(); remoteHandles.clear();
     }
-    theme=nextTheme;lastThemeKey=nextKey;stats.runs++;stats.sheets=stats.rulesSeen=stats.rulesGenerated=stats.inaccessible=stats.remoteSheets=stats.remoteRules=stats.remoteFailures=stats.variables=stats.groups=stats.shadowRoots=stats.adoptedSheets=stats.inferredVariables=stats.skippedSemanticVariables=stats.gradients=stats.layeredBackgrounds=stats.preservedImages=stats.currentColor=stats.colorMix=stats.masks=stats.filters=0;
+    theme=nextTheme;lastThemeKey=nextKey;stats.runs++;stats.sheets=stats.rulesSeen=stats.rulesGenerated=stats.inaccessible=stats.remoteSheets=stats.remoteRules=stats.remoteFailures=stats.remoteSkippedNoHref=stats.variables=stats.groups=stats.shadowRoots=stats.adoptedSheets=stats.inferredVariables=stats.skippedSemanticVariables=stats.gradients=stats.layeredBackgrounds=stats.preservedImages=stats.currentColor=stats.colorMix=stats.masks=stats.filters=0;
     const roots=[document];
     const visitShadows=(root)=>{
       root.querySelectorAll?.('*').forEach(el=>{
@@ -3203,7 +3253,7 @@ EXP.DynamicEngine = (() => {
   function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
   function start(nextTheme){if(active){refresh(nextTheme);return;}theme=nextTheme;active=true;refresh(theme);observer?.disconnect();observer=new MutationObserver(ms=>{if(ms.some(m=>[...m.addedNodes].some(n=>n?.nodeType===1&&(n.matches?.('style,link[rel~="stylesheet"]')||n.querySelector?.('style,link[rel~="stylesheet"]'))) || m.target?.nodeName==='STYLE'))schedule();});observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});}
   function stop(){active=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
-  function health(){return {...stats,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
+  function health(){return {...stats,pendingRemote:pendingRemote.size,remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
 })();
 
@@ -3848,10 +3898,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.1';
+EXP.VERSION = '3.4.0-dev.2';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.2': [
+      'Strengthens Amazon navigation, card, form, flyout, alert, and result-surface coverage while preserving product artwork.',
+      'Adds Amazon CDN permissions needed for cross-origin stylesheet recovery on amazon.com.',
+      'Adds durable remote stylesheet telemetry for pending requests, cumulative successes and failures, recovered rules, and last failure details.',
+      'Adds Amazon surface and remote stylesheet regression coverage before the next quality comparison.',
+    ],
     '3.4.0-dev.1': [
       'Rebuilds SHIFT on the Dropper 3.3.2 application shell instead of maintaining a separate launcher and menu implementation.',
       'Uses exp-core for the launcher, header, support control, section navigation, Full / Compact / Narrow geometry, update cards, and multi-product coordination.',
