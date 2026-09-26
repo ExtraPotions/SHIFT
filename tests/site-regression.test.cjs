@@ -306,6 +306,14 @@ test('dark canvas with light major surfaces does not infer native-dark mode', as
   await page.waitForTimeout(150);
   const result = await page.evaluate(() => ({
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
+    rootScheme: getComputedStyle(document.documentElement).colorScheme,
+    bodyScheme: getComputedStyle(document.body).colorScheme,
+    samples: [...document.querySelectorAll('main,[role="main"],header,nav,aside,section,article,form,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],.card,.panel,[class*="card" i],[class*="panel" i]')].slice(0,20).map(el => ({
+      tag: el.tagName,
+      cls: el.className,
+      bg: getComputedStyle(el).backgroundColor,
+      rect: [Math.round(el.getBoundingClientRect().width), Math.round(el.getBoundingClientRect().height), Math.round(el.getBoundingClientRect().top)],
+    })),
   }));
-  assert.match(result.css, /:is\(main,\[role="main"\]\)/);
+  assert.match(result.css, /:is\(main,\[role="main"\]\)/, JSON.stringify(result));
 });
