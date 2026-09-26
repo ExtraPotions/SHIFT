@@ -266,7 +266,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
 
-  const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].map((item) => item.querySelector('span')?.textContent));
+  const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.querySelector('span')?.textContent));
   assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'System']);
 
   const subtitle = await root.evaluate((node) => {
@@ -535,7 +535,7 @@ test('supported-site adapter controls persist and invoke page effects', async (t
   await page.addScriptTag({ content: script });
   await page.waitForSelector('#exp-shift-root', { state: 'attached' });
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-route]')].find((item) => item.dataset.route === 'effects').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'effects').click(); });
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.group .label')].map((item) => item.textContent));
   assert.ok(labels.includes('Hide recommendations'));
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Hide recommendations'); row.querySelector('[role="switch"]').click(); });
@@ -606,7 +606,7 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
   await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click(); });
   await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
-  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-route]')].find((item) => item.dataset.route === 'system').click());
+  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'system').click());
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => !(document.querySelector('#exp-shift-page-style')?.textContent) && document.querySelectorAll('[data-exp-shift-live]').length === 0);
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
@@ -652,7 +652,7 @@ test('update metadata remains offline by default and requests only after opt in'
   t.after(() => browser.close());
   assert.equal(await page.evaluate(() => window.__updateRequests), 0);
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-route]')].find((item) => item.dataset.route === 'menu').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'menu').click(); });
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Quiet update notifications'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => window.__updateRequests === 1);
   assert.equal(await page.evaluate(() => window.__updateRequests), 1);
