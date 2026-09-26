@@ -1,3 +1,10 @@
+## 3.4.0-dev.2 — 2026-09-26
+
+- Strengthens Amazon navigation, card, form, flyout, alert, and result-surface coverage while preserving product artwork.
+- Adds explicit Amazon CDN connections for cross-origin stylesheet recovery.
+- Adds durable remote stylesheet telemetry for pending requests, lifetime successes/failures, recovered rules, and last failure context.
+- Adds Amazon surface and remote stylesheet regression coverage.
+
 ## 3.4.0-dev.1 — 2026-09-25
 
 - Rebuilds SHIFT on the Dropper 3.3.2 application shell instead of maintaining a separate launcher and menu implementation.
