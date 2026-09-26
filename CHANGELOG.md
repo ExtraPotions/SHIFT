@@ -1,3 +1,10 @@
+## 3.4.0-dev.9 — 2026-09-26
+
+- Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.
+- Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces before enabling the native-dark fast path.
+- Adds native-dark evidence diagnostics including explicit-scheme state, canvas state, sampled surface counts, dark/light/mid counts, and dark-surface ratio.
+- Adds anonymous positive and mixed-surface regressions so dark applications gain native-dark restraint while mixed or light sites remain on the full transformation path.
+
 ## 3.4.0-dev.8 — 2026-09-26
 
 - Memoizes resolved ancestor backgrounds within each resolver pass so deeply nested native-dark content can reuse parent results instead of rebuilding the same chain.
