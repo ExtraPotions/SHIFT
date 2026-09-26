@@ -2,7 +2,7 @@
 
 SHIFT is a source-first vanilla JavaScript userscript. The build concatenates ordered modules into one private closure; no runtime module or executable code is downloaded.
 
-`core.js` owns product registration, lifecycle, capability validation, version negotiation, sanitized diagnostics, one filtered DOM scheduler, navigation signaling, and declarative DOM coordination. Each userscript sandbox keeps its own callback-bearing Core runtime. The DOM protocol publishes only versioned product/launcher state so isolated sandboxes do not assume a shared JavaScript global.
+`core.js` binds SHIFT to the bundled `exp-core` lifecycle. The vendored Core is pinned to the approved Dropper 3.3.2 baseline and owns product registration, launcher/menu chrome, update notice geometry, diagnostics infrastructure, capability validation, version negotiation, navigation signaling, and declarative DOM coordination. Each userscript remains self-contained at runtime; no executable code is downloaded.
 
 `settings.js` owns the `exp:v3:shift` schema. It does not inspect ColorShift or other pre-V3 keys. Validation creates a complete replacement object before persistence so invalid import data cannot partially apply.
 
@@ -12,6 +12,6 @@ SHIFT is a source-first vanilla JavaScript userscript. The build concatenates or
 
 `adapters.js` selects at most one supported-site adapter. Adapter exceptions are contained and reported as degraded while Generic Mode continues. Adapter styles and classification markers use the `exp-shift` namespace.
 
-`ui.js` renders one Shadow DOM root containing a 48×48 rounded-square launcher and two-panel desktop menu. Narrow viewports preserve the same destinations through sequential horizontal navigation. Boolean controls are buttons with `role="switch"`; no checkbox UI is used.
+`ui.js` contains only SHIFT-specific section renderers and engine actions. The Dropper 3.3.2-derived `exp-core` product shell creates the Shadow DOM host, 48×48 launcher, 40×40 launcher artwork, 38×38 menu badge, header actions, support control, Full / Compact / Narrow menu geometry, section navigation, update/changelog cards, focus behavior, and multi-product coordination. SHIFT does not maintain a parallel launcher or menu implementation. Boolean product controls remain buttons with `role="switch"`; no checkbox UI is used.
 
 State precedence is hostname override, selected profile, global product values, then schema defaults. Appearance selects, switches, and palette swatches preview and persist on change. Hold to Show Original temporarily removes SHIFT effects only.
