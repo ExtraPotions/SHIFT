@@ -46,6 +46,10 @@ test('userscript metadata and generated safety constraints', () => {
   assert.match(script, /createDiagnosticsReport\('SHIFT'/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'src', 'ui.js'), 'utf8'), /<svg class="launcher-ring"/u);
   assert.match(script, /launcher\.replaceChildren\(mark\)/u);
+  assert.match(script, /ExtraPotionsCore\.createProduct\(\{/u);
+  assert.match(script, /ExtraPotionsCore\.createProductNotice\(\{/u);
+  assert.match(script, /supportUrl:\s*SUPPORT_URL/u);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'scripts', 'build.cjs'), 'utf8'), /menu-chrome\.js/u);
 });
 
 test('manifest and package versions agree', () => {
@@ -64,7 +68,7 @@ test('source avoids legacy JavaScript var declarations', () => {
 });
 
 test('runtime source keeps direct style creation inside Core fallback only', () => {
-  const files = ['theme-controller.js','adapters.js','updates.js','menu-chrome.js','diagnostics.js','ui.js','main.js','settings.js','themes.js'];
+  const files = ['theme-controller.js','adapters.js','updates.js','diagnostics.js','ui.js','main.js','settings.js','themes.js'];
   for (const name of files) {
     const source = fs.readFileSync(path.resolve(__dirname, '..', 'src', name), 'utf8');
     assert.doesNotMatch(source, /createElement\(['"]style['"]\)|el\(['"]style['"]/i, name);
