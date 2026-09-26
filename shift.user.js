@@ -3156,11 +3156,18 @@ EXP.DynamicEngine = (() => {
   }
   function role(property,name='',value=''){
     if(primitiveVariable(name))return null;
-    const key=`${property} ${name}`.toLowerCase();
+    const prop=String(property||'').toLowerCase();
+    if(prop){
+      if(prop==='background'||prop==='background-color')return'background';
+      if(/^(?:color|text-decoration-color|caret-color|fill|stop-color|flood-color|lighting-color)$/.test(prop))return'foreground';
+      if(/^(?:border(?:-(?:top|right|bottom|left))?|outline|column-rule)$/.test(prop)||/^(?:border(?:-(?:top|right|bottom|left))?-color|outline-color|column-rule-color|stroke)$/.test(prop))return'border';
+      return null;
+    }
+    const key=String(name||'').toLowerCase();
     const semantic=/(?:success|danger|error|warning|info|brand|logo|rating|star|sale|discount|promo|price|positive|negative|favorite|heart|selected|active-state)/.test(key);
     if(semantic){stats.skippedSemanticVariables++;return null;}
     if(/background|\bbg\b|surface|canvas|panel|card|layer|container|popover|dialog|menu/.test(key))return'background';
-    if(/color|text|foreground|\bfg\b|label|ink|content|fill|lighting|copy|font/.test(key))return'foreground';
+    if(/color|text|foreground|\bfg\b|label|ink|content|fill|lighting|copy/.test(key))return'foreground';
     if(/border|outline|divider|stroke|rule|separator/.test(key))return'border';
     if(name&&String(name).startsWith('--')){
       const parsed=EXP.ColorEngine.parse(String(value).trim());
