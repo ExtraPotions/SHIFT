@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.5
+// @version      3.4.0-dev.6
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3339,12 +3339,14 @@ EXP.LiveResolver = (() => {
   const ledger = new Map();
   const processors = new Set();
   const queuedRoots = new Set();
+  const selfMutations = new WeakSet();
   const pseudoRules = new Map();
   let pseudoStyle = null;
   let pseudoSequence = 0;
   const stats = {
     passes:0,scanned:0,unresolved:0,resolved:0,siteFixes:0,contrast:0,brightSurfaces:0,forms:0,
-    inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0
+    inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0,
+    selfMutationsIgnored:0,rootsCollapsed:0,lastExamined:0,lastChanged:0,lastRoots:0,lastDurationMs:0,maxDurationMs:0
   };
 
   function parse(value){ return EXP.ColorEngine.parse(value); }
@@ -3395,7 +3397,9 @@ EXP.LiveResolver = (() => {
     if(!value)return false;
     remember(el,property);
     if(el.style.getPropertyValue(property)===value&&el.style.getPropertyPriority(property)==='important')return false;
+    selfMutations.add(el);
     el.style.setProperty(property,value,'important');
+    setTimeout(()=>selfMutations.delete(el),0);
     return true;
   }
   function effectiveBackground(el){
@@ -3608,8 +3612,11 @@ EXP.LiveResolver = (() => {
   }
   function pass(roots=null,mutation=false){
     if(!active||!theme)return;
-    const started=performance.now();stats.passes++;if(mutation)stats.mutationPasses++;ensureGlobalRepairs();
+    const started=performance.now(),resolvedBefore=stats.resolved;
+    let examined=0;
+    stats.passes++;if(mutation)stats.mutationPasses++;ensureGlobalRepairs();
     const targets=[],textTargets=[],sourceRoots=roots?.length?roots:[document.documentElement];
+    stats.lastRoots=sourceRoots.length;
     // Site preservation must run before the generic scan so artwork/media wells
     // are protected before any bright-surface repair can rewrite them.
     for(const root of sourceRoots)applySiteFixes(root);
@@ -3622,7 +3629,7 @@ EXP.LiveResolver = (() => {
     const seen=new Set();
     for(const el of targets){
       if(seen.has(el)||!visible(el))continue;
-      seen.add(el);stats.scanned++;
+      seen.add(el);stats.scanned++;examined++;
       const bg=effectiveBackground(el);
       if(bright(bg)){stats.unresolved++;repair(el,'visual',options);}
       else repair(el,'contrast',{...options,surface:false});
@@ -3630,10 +3637,13 @@ EXP.LiveResolver = (() => {
     }
     for(const el of textTargets){
       if(seen.has(el)||!visible(el))continue;
-      stats.scanned++;repairText(el,'text');
+      stats.scanned++;examined++;repairText(el,'text');
     }
     for(const processor of processors){try{processor(sourceRoots);}catch(error){EXP.Core.safeError(error,'shift-processor');}}
+    stats.lastExamined=examined;
+    stats.lastChanged=Math.max(0,stats.resolved-resolvedBefore);
     stats.lastDurationMs=Math.round((performance.now()-started)*10)/10;
+    stats.maxDurationMs=Math.max(stats.maxDurationMs,stats.lastDurationMs);
   }
   function flush(){
     timer=0;if(!active)return;
@@ -3641,7 +3651,14 @@ EXP.LiveResolver = (() => {
     queuedRoots.clear();pass(roots.length?roots:null,true);
   }
   function schedule(root){
-    if(root?.nodeType===1){queuedRoots.add(root);stats.rootsQueued++;}
+    if(root?.nodeType===1){
+      let covered=false;
+      for(const queued of [...queuedRoots]){
+        if(queued===root||queued.contains?.(root)){covered=true;stats.rootsCollapsed++;break;}
+        if(root.contains?.(queued)){queuedRoots.delete(queued);stats.rootsCollapsed++;}
+      }
+      if(!covered){queuedRoots.add(root);stats.rootsQueued++;}
+    }
     clearTimeout(timer);timer=setTimeout(flush,90);
   }
   const onScroll = () => { if(active)schedule(document.documentElement); };
@@ -3654,6 +3671,7 @@ EXP.LiveResolver = (() => {
       for(const mutation of mutations){
         if(mutation.type==='attributes'){
           const target=mutation.target;
+          if(mutation.attributeName==='style'&&selfMutations.has(target)){stats.selfMutationsIgnored++;continue;}
           if(target?.nodeType===1&&!target.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))schedule(target);
           continue;
         }
@@ -3958,10 +3976,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.5';
+EXP.VERSION = '3.4.0-dev.6';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.6': [
+      'Suppresses resolver feedback from Shift-owned inline style writes so generic repairs do not immediately schedule redundant mutation passes.',
+      'Collapses nested mutation roots before each pass and reports per-pass examined versus changed counts, collapsed roots, ignored self-mutations, and maximum pass duration.',
+      'Adds an unknown-site regression with no adapter or site rules to verify generic surface, contrast, form, media-preservation, and dynamic-content behavior.',
+      'Keeps the established Amazon dev.5 appearance and remote stylesheet recovery behavior as regression baselines while moving performance hardening into the generic engine.',
+    ],
     '3.4.0-dev.5': [
       'Neutralizes Amazon multiply blend modes on product metadata so repaired titles and prices render at their intended light color.',
       'Neutralizes multiply blending and reduced opacity on Amazon product images and image wrappers while keeping native media wells intact.',
