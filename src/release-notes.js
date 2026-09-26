@@ -1,7 +1,13 @@
-EXP.VERSION = '3.4.0-dev.7';
+EXP.VERSION = '3.4.0-dev.8';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.8': [
+      'Memoizes resolved ancestor backgrounds within each resolver pass so deeply nested native-dark content can reuse parent results instead of rebuilding the same chain.',
+      'Keeps an eight-level native-dark fast path but extends accurately to a hard depth of twenty-four only when needed, then caches the resolved chain.',
+      'Adds diagnostics for parent-background cache reuse and extended native-dark walks while preserving the existing native-dark structural fast path.',
+      'Adds an anonymous deep native-dark regression covering nested contrast repair, sibling reuse conditions, and preservation of intentional light surfaces.',
+    ],
     '3.4.0-dev.7': [
       'Adds a native-dark fast path that scans only interactive/accessibility surfaces instead of the full structural surface set.',
       'Caches effective backgrounds within each resolver pass and caps native-dark ancestor reconstruction at eight levels.',
