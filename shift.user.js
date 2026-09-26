@@ -3101,7 +3101,7 @@ EXP.DynamicEngine = (() => {
   const cache = new Map();
   const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
-  let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0;
+  let observer=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
   const watchedLinks = new WeakSet();
 
@@ -3115,7 +3115,7 @@ EXP.DynamicEngine = (() => {
       return `${rules.length}:${hash>>>0}`;
     } catch { return 'x'; }
   };
-  const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent].join('|');
+  const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent,nativeDarkMode?'native-dark':'full'].join('|');
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
   function guardSelectorText(selectorText){
     const source=String(selectorText||''),parts=[];
@@ -3187,7 +3187,13 @@ EXP.DynamicEngine = (() => {
   function transformLiterals(value,colorRole,background){
     const source=String(value||''),vars=[];
     const masked=source.replace(/var\([^()]*\)/g,token=>`__EXP_VAR_${vars.push(token)-1}__`);
-    const next=masked.replace(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\)|hsla?\([^)]*\)|\b(?:white|black|silver|gray|grey|red|green|blue|yellow|teal|aqua)\b)/ig,color=>EXP.ColorEngine.transform(color,colorRole,theme,background));
+    const next=masked.replace(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\)|hsla?\([^)]*\)|\b(?:white|black|silver|gray|grey|red|green|blue|yellow|teal|aqua)\b)/ig,color=>{
+      if(nativeDarkMode&&colorRole==='background'){
+        const parsed=EXP.ColorEngine.parse(color);
+        if(parsed&&(parsed.a??1)>=.8&&EXP.ColorEngine.luminance(parsed)>=.72)return color;
+      }
+      return EXP.ColorEngine.transform(color,colorRole,theme,background);
+    });
     return next.replace(/__EXP_VAR_(\d+)__/g,(_match,index)=>vars[Number(index)]||_match);
   }
   function transformValue(property,value,vars,background){
@@ -3342,9 +3348,10 @@ EXP.DynamicEngine = (() => {
     try{root?.querySelectorAll?.('link[rel~="stylesheet"]').forEach(watchStylesheetLink);}catch{}
   }
 
-  function refresh(nextTheme){
+  function refresh(nextTheme,nextOptions){
     if(!nextTheme)return;
-    if(!active){start(nextTheme);return;}
+    if(nextOptions&&Object.prototype.hasOwnProperty.call(nextOptions,'nativeDark'))nativeDarkMode=Boolean(nextOptions.nativeDark);
+    if(!active){start(nextTheme,{nativeDark:nativeDarkMode});return;}
     const nextKey=themeKey(nextTheme);
     if(lastThemeKey&&lastThemeKey!==nextKey){
       generation++;pendingRemote.clear();
@@ -3375,9 +3382,10 @@ EXP.DynamicEngine = (() => {
     for(const [sheet,handle] of [...handles])if(!live.has(sheet)){handle.remove();handles.delete(sheet);}
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
-  function start(nextTheme){
-    if(active){refresh(nextTheme);return;}
-    theme=nextTheme;active=true;refresh(theme);observer?.disconnect();
+  function start(nextTheme,nextOptions={}){
+    nativeDarkMode=Boolean(nextOptions.nativeDark);
+    if(active){refresh(nextTheme,{nativeDark:nativeDarkMode});return;}
+    theme=nextTheme;active=true;refresh(theme,{nativeDark:nativeDarkMode});observer?.disconnect();
     observer=new MutationObserver(ms=>{
       let shouldSchedule=false;
       for(const mutation of ms){
@@ -3392,8 +3400,8 @@ EXP.DynamicEngine = (() => {
     });
     observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
   }
-  function stop(){active=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
-  function health(){return {...stats,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
+  function stop(){active=false;nativeDarkMode=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
+  function health(){return {...stats,nativeDarkMode,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
 })();
 
@@ -4140,7 +4148,7 @@ EXP.Engine = (() => {
     const nativeDark=detectNativeDark();
     lockHost(theme,!nativeDark);
     ensureStyle(css(theme,next,nativeDark));
-    if(nativeDark)EXP.DynamicEngine?.stop();else EXP.DynamicEngine?.start(theme);
+    EXP.DynamicEngine?.start(theme,{nativeDark});
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
     return{theme,mode:metrics.mode};
   }
