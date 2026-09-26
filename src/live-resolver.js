@@ -294,6 +294,9 @@ EXP.LiveResolver = (() => {
     if(!active||!theme)return;
     const started=performance.now();stats.passes++;if(mutation)stats.mutationPasses++;ensureGlobalRepairs();
     const targets=[],textTargets=[],sourceRoots=roots?.length?roots:[document.documentElement];
+    // Site preservation must run before the generic scan so artwork/media wells
+    // are protected before any bright-surface repair can rewrite them.
+    for(const root of sourceRoots)applySiteFixes(root);
     const levelLimit={off:0,conservative:700,balanced:1800,aggressive:5000}[options.surfaceLevel]??700;
     const surfaceLimit=roots?.length?Math.min(levelLimit,1200):levelLimit,textLimit=roots?.length?1200:2600;
     for(const root of sourceRoots){
@@ -313,7 +316,6 @@ EXP.LiveResolver = (() => {
       if(seen.has(el)||!visible(el))continue;
       stats.scanned++;repairText(el,'text');
     }
-    for(const root of sourceRoots)applySiteFixes(root);
     for(const processor of processors){try{processor(sourceRoots);}catch(error){EXP.Core.safeError(error,'shift-processor');}}
     stats.lastDurationMs=Math.round((performance.now()-started)*10)/10;
   }
