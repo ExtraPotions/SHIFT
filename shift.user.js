@@ -3876,15 +3876,25 @@ EXP.Engine = (() => {
     const midSurfaceCount=samples.length-darkSurfaceCount-lightSurfaceCount;
     const darkSurfaceRatio=samples.length?darkSurfaceCount/samples.length:0;
     const lightSurfaceRatio=samples.length?lightSurfaceCount/samples.length:0;
+    let dominantLightContent=false;
+    try{
+      dominantLightContent=[...document.querySelectorAll('main,[role="main"]')].some(el=>{
+        if(el.closest?.('[data-exp-owned="1"]'))return false;
+        const rect=el.getBoundingClientRect();
+        if(rect.width<Math.max(240,innerWidth*.55)||rect.height<Math.max(180,innerHeight*.25)||rect.bottom<0||rect.top>innerHeight*1.5)return false;
+        return tone(parseColor(getComputedStyle(el).backgroundColor))==='light';
+      });
+    }catch{}
     const contradictoryLightMajority=samples.length>=3&&lightSurfaceCount>=2&&lightSurfaceCount>darkSurfaceCount&&lightSurfaceRatio>=.5;
-    const inferred=darkCanvas&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
-    const explicitConfirmed=explicit&&darkCanvas&&!contradictoryLightMajority;
+    const lightVeto=dominantLightContent||contradictoryLightMajority;
+    const inferred=darkCanvas&&!lightVeto&&samples.length>=4&&darkSurfaceCount>=3&&darkSurfaceRatio>=.72&&lightSurfaceCount<=Math.max(1,Math.floor(samples.length*.12));
+    const explicitConfirmed=explicit&&darkCanvas&&!lightVeto;
     metrics.nativeDark=Boolean(explicitConfirmed||(!explicit&&inferred));
     metrics.nativeDarkReason=metrics.nativeDark?(explicitConfirmed?'explicit-dark-scheme-with-dark-canvas':'inferred-dark-surface-majority'):null;
     metrics.nativeDarkEvidence={
       explicitDarkScheme:explicit,explicitConfirmed,darkCanvas,sampleCount:samples.length,darkSurfaceCount,lightSurfaceCount,midSurfaceCount,
       darkSurfaceRatio:Math.round(darkSurfaceRatio*1000)/1000,lightSurfaceRatio:Math.round(lightSurfaceRatio*1000)/1000,
-      contradictoryLightMajority,inferred
+      dominantLightContent,contradictoryLightMajority,lightVeto,inferred
     };
     return metrics.nativeDark;
   }
@@ -4077,7 +4087,7 @@ EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
     '3.4.0-dev.9': [
       'Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.',
-      'Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces, while a strong light-surface majority vetoes native-dark classification.',
+      'Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces, while strong light-surface evidence or a large light primary content region vetoes native-dark classification.',
       'Adds native-dark evidence diagnostics including explicit-scheme state, canvas state, sampled surface counts, dark/light/mid counts, and dark-surface ratio.',
       'Adds anonymous positive and mixed-surface regressions so dark applications gain native-dark restraint while mixed or light sites remain on the full transformation path.',
     ],
