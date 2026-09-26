@@ -1,3 +1,10 @@
+## 3.4.0-dev.3 — 2026-09-26
+
+- Preserves Amazon product-media wells so dark cards do not swallow dark or transparent product artwork.
+- Repairs Amazon product titles and prices explicitly while keeping product images unfiltered and fully opaque.
+- Adds an independent watchdog around remote stylesheet requests so stalled manager requests cannot remain pending forever.
+- Adds bounded remote host diagnostics so Amazon stylesheet transport failures can be identified precisely.
+
 ## 3.4.0-dev.2 — 2026-09-26
 
 - Strengthens Amazon navigation, card, form, flyout, alert, and result-surface coverage while preserving product artwork.
