@@ -93,3 +93,25 @@ test('Amazon navigation, cards, forms, text, and product media wells keep usable
   assert.notEqual(result.card.color, result.card.background);
   assert.notEqual(result.input.color, result.input.background);
 });
+
+test('Amazon final text repair wins over recovered important product colors', async (t) => {
+  const page = await fixture(t, 'www.amazon.com', [
+    '<style>.s-card-container .a-size-base-plus,.s-card-container .a-price{color:#111!important}</style>',
+    '<div class="s-card-container" style="background:#fff">',
+      '<span class="a-size-base-plus">Recovered-title</span>',
+      '<span class="a-price">$19.99</span>',
+    '</div>'
+  ].join(''));
+  const result = await page.evaluate(() => {
+    const title = getComputedStyle(document.querySelector('.a-size-base-plus')).color;
+    const price = getComputedStyle(document.querySelector('.a-price')).color;
+    const bg = getComputedStyle(document.querySelector('.s-card-container')).backgroundColor;
+    return { title, price, bg };
+  });
+  assert.notEqual(result.bg, 'rgb(255, 255, 255)');
+  assert.notEqual(result.title, 'rgb(17, 17, 17)');
+  assert.notEqual(result.price, 'rgb(17, 17, 17)');
+  assert.notEqual(result.title, result.bg);
+  assert.notEqual(result.price, result.bg);
+});
+
