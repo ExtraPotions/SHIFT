@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.3
+// @version      3.4.0-dev.4
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
