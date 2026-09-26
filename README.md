@@ -19,19 +19,23 @@
   <img alt="CC BY-NC-SA 4.0" src="https://img.shields.io/badge/Assets-CC%20BY--NC--SA%204.0-1769AA?style=flat-square">
 </p>
 
-SHIFT 3.4 is being rebuilt on the Dropper 3.3.2 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
+SHIFT 3.4.0 is built on the Dropper 3.3.2 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
 
 ## Install
 
 <p>
-  <a href="https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js?v=3.4.0-dev.1">
+  <a href="https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js">
     <img alt="Install SHIFT" src="https://img.shields.io/badge/Install-SHIFT-24476B?style=flat-square">
   </a>
-  <img alt="Version 3.4.0-dev.1" src="https://img.shields.io/badge/version-3.4.0--dev.1-22C55E?style=flat-square">
+  <img alt="Version 3.4.0" src="https://img.shields.io/badge/version-3.4.0-22C55E?style=flat-square">
   <a href="https://github.com/ExtraPotions/SHIFT/releases">
     <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/ExtraPotions/SHIFT/total?style=flat-square&label=Downloads">
   </a>
 </p>
+
+## 3.4.0
+
+Fixes page-covering launcher backdrops and keeps Amazon themed after startup. Includes exp-core 3.3.3, with the approved Dropper 3.3.2 UI baseline preserved.
 
 ## What SHIFT Does
 

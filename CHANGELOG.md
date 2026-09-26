@@ -1,3 +1,9 @@
+## 3.4.0 — 2026-09-26
+
+- Prevents launcher backdrops from covering Greasy Fork and other sites while preserving real site dialogs.
+- Keeps Amazon and other light pages themed after startup by removing temporary Preload paint before native-theme detection.
+- Bundles exp-core 3.3.3 with the shared launcher fix and preserves the Dropper 3.3.2 interface baseline.
+
 ## 3.4.0-dev.10 — 2026-09-26
 
 - Respects ESGST semantic color ownership on SteamGifts category chips, highlighted contributor levels, and ESGST-colored entry controls.

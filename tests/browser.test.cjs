@@ -261,7 +261,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.noticeTitle, 'SHIFT Changelog');
   assert.equal(facts.noticeVersion, `v${pkg.version}`);
   assert.ok(facts.noticeBullets.length >= 2 && facts.noticeBullets.length <= 4, JSON.stringify(facts.noticeBullets));
-  assert.ok(facts.noticeBullets.some((item) => /native-dark|background|ancestor|memoiz|generic/i.test(item)));
+  assert.ok(facts.noticeBullets.some((item) => /backdrop|Preload/i.test(item)));
   assert.equal(facts.noticePlacement, 'menu');
   assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));

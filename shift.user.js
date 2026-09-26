@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.10
+// @version      3.4.0
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -1527,7 +1527,7 @@ function createProductLifecycle(shared) {
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.2';
+  const version = '3.3.3';
   const sourceVersion = '3.3.2';
   const protocol = 'exp-core-coordination-v1';
   const gridProtocol = 'exp-launcher-grid-v3';
@@ -1790,13 +1790,18 @@ const ExtraPotionsCore = (() => {
     const id = options.productId || options.id || host.dataset.productId;
     Object.assign(host.dataset, { expProductLauncher:'1', productId:id, launcherPriority:String(options.priority ?? PRIORITY[id] ?? 0) });
     applyMatteToggleChrome(host);
+    // The launcher is non-modal: site-wide dialog backdrop styles must never
+    // paint over the page when the reference opens its manual popover.
+    const backdropStyle = host.shadowRoot ? injectStyle(host.shadowRoot,
+      ':host::backdrop{all:initial!important;display:none!important;background:transparent!important;pointer-events:none!important}',
+      { expLauncherBackdrop: '1' }) : null;
     const stopProtect = DropperReference.protectLauncherHost(host);
     let frame = 0;
     const refresh = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; layoutGrid(); controllers.get(host)?.layout(); }); };
     document.addEventListener('exp-core:coordination', refresh);
     addEventListener('resize', refresh);
     layoutGrid(); emit('launcher-added', id);
-    const dispose = () => { stopProtect(); cancelAnimationFrame(frame); document.removeEventListener('exp-core:coordination', refresh); removeEventListener('resize', refresh); delete host.dataset.expProductLauncher; registrations.delete(host); layoutGrid(); emit('launcher-removed', id); };
+    const dispose = () => { stopProtect(); backdropStyle?.dispose(); cancelAnimationFrame(frame); document.removeEventListener('exp-core:coordination', refresh); removeEventListener('resize', refresh); delete host.dataset.expProductLauncher; registrations.delete(host); layoutGrid(); emit('launcher-removed', id); };
     registrations.set(host, dispose);
     return dispose;
   }
@@ -4154,7 +4159,10 @@ EXP.Engine = (() => {
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
     return{theme,mode:metrics.mode};
   }
-  function start(initial){if(active)return;active=true;settings=initial;captureNativeBaseline();bindLifecycle();apply(initial);}
+  // apply() removes Preload before detection captures the native baseline.
+  // At document-start the saved baseline may have no body; sampling it here
+  // would fill those missing values with our own temporary dark paint.
+  function start(initial){if(active)return;active=true;settings=initial;bindLifecycle();apply(initial);}
   function stop(){active=false;unbindLifecycle();guard?.disconnect();guard=null;restore();}
   function holdOriginal(held){originalHeld=Boolean(held);if(settings)apply(settings);}
   function health(){
@@ -4238,10 +4246,15 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.10';
+EXP.VERSION = '3.4.0';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0': [
+      'Prevents launcher backdrops from covering Greasy Fork and other sites while preserving real site dialogs.',
+      'Keeps Amazon and other light pages themed after startup by removing temporary Preload paint before native-theme detection.',
+      'Bundles exp-core 3.3.3 with the shared launcher fix and preserves the Dropper 3.3.2 interface baseline.',
+    ],
     '3.4.0-dev.10': [
       'Respects ESGST semantic color ownership on SteamGifts category chips, highlighted contributor levels, and ESGST-colored entry controls.',
       'Marks supported third-party semantic components as preserved before generic live repair so extension-owned state colors are not rewritten.',
@@ -5034,7 +5047,7 @@ EXP.UI = (() => {
 
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);
 const SHIFT_MANIFEST = Object.freeze({
-  id: 'shift', version: EXP.VERSION, coreRange: '^3.3.2',
+  id: 'shift', version: EXP.VERSION, coreRange: '^3.3.3',
   capabilities: ['lifecycle', 'settings', 'diagnostics', 'dom-scheduler', 'navigation', 'launcher', 'ui']
 });
 

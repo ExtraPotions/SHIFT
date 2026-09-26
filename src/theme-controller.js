@@ -255,7 +255,10 @@ EXP.Engine = (() => {
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
     return{theme,mode:metrics.mode};
   }
-  function start(initial){if(active)return;active=true;settings=initial;captureNativeBaseline();bindLifecycle();apply(initial);}
+  // apply() removes Preload before detection captures the native baseline.
+  // At document-start the saved baseline may have no body; sampling it here
+  // would fill those missing values with our own temporary dark paint.
+  function start(initial){if(active)return;active=true;settings=initial;bindLifecycle();apply(initial);}
   function stop(){active=false;unbindLifecycle();guard?.disconnect();guard=null;restore();}
   function holdOriginal(held){originalHeld=Boolean(held);if(settings)apply(settings);}
   function health(){
