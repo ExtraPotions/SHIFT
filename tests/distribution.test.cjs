@@ -92,6 +92,10 @@ test('theme runtime has one owner for stylesheets and one owner for live DOM rep
   assert.match(live, /const maxDepth=options\.nativeDark\?8:24;/u);
   assert.match(live, /nativeDarkFastPathPasses/u);
   assert.match(live, /backgroundCacheHits/u);
+  assert.match(live, /backgroundParentCacheHits/u);
+  assert.match(live, /nativeDarkExtendedWalks/u);
+  assert.match(live, /const hardLimit=24,softLimit=options\.nativeDark\?8:24/u);
+  assert.match(live, /backgroundCache\.set\(node,result\)/u);
   assert.match(live, /Math\.min\(levelLimit,700\)/u);
   assert.match(live, /repair\(el,'native-dark',\{\.\.\.options,surface:false\}\)/u);
 });
