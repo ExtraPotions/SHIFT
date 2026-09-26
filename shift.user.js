@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0-dev.9
+// @version      3.4.0-dev.10
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3071,13 +3071,19 @@ EXP.SiteFixes = (() => {
       hosts: ['steamgifts.com'],
       // SteamGifts uses pale gradient heading/notice strips over an otherwise dark layout.
       // Keep those strips and their controls together instead of darkening only their text.
+      // ESGST owns the semantic colors of its category panels, highlighted levels and custom entry controls.
+      preserve: [
+        '.esgst-gc-panel','.esgst-gc','.esgst-glh-highlight','.esgst-elgb-button',
+        '.giveaway__quick-entry-btn--insert[title^="ESGST "]',
+        '[class*="esgst-"][style*="color" i]','[class*="esgst-"][style*="background" i]'
+      ],
       css: `:is(.page__heading,.page__heading__breadcrumbs,.table__heading,.table__column__heading){background-color:var(--exp-shift-raised)!important;background-image:none!important;color:var(--exp-shift-text)!important}
         .notification{background-color:color-mix(in srgb,#b88718 30%,var(--exp-shift-surface))!important;background-image:none!important;color:#fff3c4!important;border-color:#b88718!important}
         :is(.page__heading,.page__heading__breadcrumbs,.notification,.table__heading,.table__column__heading) :is(a,span,small,button){color:var(--exp-shift-text)!important}
         .notification :is(a,span,small,button){color:#fff3c4!important}
         .table__row-outer-wrap :is(.table__column__heading,.table__column__secondary-link){color:var(--exp-shift-text)!important}
-        :is(.giveaway__row-outer-wrap,.featured__container) :is(.giveaway__heading__thin,.giveaway__heading__name,.giveaway__column--contributor-level){color:var(--exp-shift-text)!important;text-shadow:none!important}
-        :is(.giveaway__row-outer-wrap,.featured__container) .giveaway__column--contributor-level{background-image:none!important;background-color:var(--exp-shift-raised)!important;border-color:var(--exp-shift-muted)!important}`,
+        :is(.giveaway__row-outer-wrap,.featured__container) :is(.giveaway__heading__thin,.giveaway__heading__name,.giveaway__column--contributor-level):not([data-exp-shift-preserve]){color:var(--exp-shift-text)!important;text-shadow:none!important}
+        :is(.giveaway__row-outer-wrap,.featured__container) .giveaway__column--contributor-level:not([data-exp-shift-preserve]){background-image:none!important;background-color:var(--exp-shift-raised)!important;border-color:var(--exp-shift-muted)!important}`,
     }
   });
   function match(host=location.hostname){
@@ -3947,13 +3953,14 @@ EXP.Engine = (() => {
     const effects=`${state.reduceShadows?'box-shadow:none!important;':''}${state.reduceTransparency?'backdrop-filter:none!important;':''}${state.simplifyGradients?'background-image:none!important;':''}${state.reduceBlur?'filter:none!important;backdrop-filter:none!important;':''}`;
     const reduceMotion=state.reduceMotion==='on'||(state.reduceMotion==='system'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
     const motion=reduceMotion?'html[data-exp-shift] :is([data-exp-shift-live],main,header,footer,nav,aside,section,article,button,input,select,textarea){animation:none!important;transition:none!important;scroll-behavior:auto!important}':'';
-    const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a:not([role="button"]):not([data-exp-owned="1"]){color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
+    const preserveGuard=':not(:where([data-exp-owned="1"],[data-exp-owned="1"] *,[data-exp-shift-preserve],[data-exp-shift-preserve] *))';
+    const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a:not([role="button"])${preserveGuard}{color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
     const forms=state.formReadability
       ? (nativeDark
-        ? `html[${HOST_ATTR}] :is(input,select,textarea):not([data-exp-owned="1"]){color:var(--exp-shift-text)!important;border-color:color-mix(in srgb,var(--exp-shift-accent) 55%,currentColor)!important}`
-        : `html[${HOST_ATTR}] :is(input,select,textarea):not([data-exp-owned="1"]){background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`)
+        ? `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{color:var(--exp-shift-text)!important;border-color:color-mix(in srgb,var(--exp-shift-accent) 55%,currentColor)!important}`
+        : `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`)
       : '';
-    const muted=state.mutedRecovery?`html[${HOST_ATTR}] :is(.muted,.text-muted,[class*="muted" i],[class*="secondary" i],[class*="subtle" i],figcaption,small,caption):not([data-exp-owned="1"]){color:color-mix(in srgb,var(--exp-shift-muted) 80%,var(--exp-shift-text))!important}`:'';
+    const muted=state.mutedRecovery?`html[${HOST_ATTR}] :is(.muted,.text-muted,[class*="muted" i],[class*="secondary" i],[class*="subtle" i],figcaption,small,caption)${preserveGuard}{color:color-mix(in srgb,var(--exp-shift-muted) 80%,var(--exp-shift-text))!important}`:'';
     const focus=state.focusVisibility==='site'?'':`html[${HOST_ATTR}] :focus-visible{outline:${state.focusVisibility==='high'?3:2}px solid var(--exp-shift-accent)!important;outline-offset:2px!important}`;
     const structural=nativeDark?'':`
       html[${HOST_ATTR}]{${pagePaint(theme,state,true)};color:${text}!important}
@@ -4081,10 +4088,16 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0-dev.9';
+EXP.VERSION = '3.4.0-dev.10';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.10': [
+      'Respects ESGST semantic color ownership on SteamGifts category chips, highlighted contributor levels, and ESGST-colored entry controls.',
+      'Marks supported third-party semantic components as preserved before generic live repair so extension-owned state colors are not rewritten.',
+      'Makes global link, form, and muted-text readability rules honor preserved subtrees consistently.',
+      'Keeps native SteamGifts headings, notices, and unowned contributor-level surfaces under Shift styling.',
+    ],
     '3.4.0-dev.9': [
       'Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.',
       'Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces, while strong light-surface evidence or a large light primary content region vetoes native-dark classification.',
