@@ -210,6 +210,7 @@ EXP.LiveResolver = (() => {
     const scope=root?.querySelectorAll?root:document;
     try{
       if(fix.preserve?.length)scope.querySelectorAll(fix.preserve.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
+      if(fix.preserveSurfaces?.length)scope.querySelectorAll(fix.preserveSurfaces.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
       if(options.repairSurfaces&&!options.nativeDark&&fix.surfaces?.length)scope.querySelectorAll(fix.surfaces.join(',')).forEach(el=>{if(repair(el,`site:${fix.id}`,options))stats.siteFixes++;});
       if(fix.text?.length)scope.querySelectorAll(fix.text.join(',')).forEach(el=>{if(repairText(el,`site-text:${fix.id}`))stats.siteFixes++;});
     }catch{}
