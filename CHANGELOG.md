@@ -1,3 +1,8 @@
+## 3.4.1 — 2026-09-26
+
+- Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes.
+- Bundles exp-core 3.3.5 with Firefox-safe settings copies and idle menu mutation fixes.
+
 ## 3.4.0 — 2026-09-26
 
 - Prevents launcher backdrops from covering Greasy Fork and other sites while preserving real site dialogs.

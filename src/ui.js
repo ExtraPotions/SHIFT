@@ -248,7 +248,7 @@ EXP.UI = (() => {
     }, 'New profile'));
     const current = state.profiles.find((profile) => profile.id === state.currentProfile);
     if (current) {
-      group.append(actionRow('Duplicate current profile', 'Creates a new stable identity.', () => { const name = prompt('Duplicate profile name', `${current.name} copy`); if (!name?.trim()) return; const copy = { ...structuredClone(current), id: `profile-${Date.now().toString(36)}`, name: name.trim().slice(0, 80), builtIn: false }; onSettings({ ...state, profiles: [...state.profiles, copy], currentProfile: copy.id }, 'profile-duplicate'); setMessage('Profile duplicated.'); }, 'Duplicate'));
+      group.append(actionRow('Duplicate current profile', 'Creates a new stable identity.', () => { const name = prompt('Duplicate profile name', `${current.name} copy`); if (!name?.trim()) return; const copy = { ...EXP.Settings.clone(current), id: `profile-${Date.now().toString(36)}`, name: name.trim().slice(0, 80), builtIn: false }; onSettings({ ...state, profiles: [...state.profiles, copy], currentProfile: copy.id }, 'profile-duplicate'); setMessage('Profile duplicated.'); }, 'Duplicate'));
       group.append(actionRow('Export current profile', 'Includes appearance only.', () => download(`${current.id}.json`, JSON.stringify({ product: 'shift', generation: 3, schema: 1, type: 'profile', profile: current }, null, 2)), 'Export'));
     }
     if (current && !current.builtIn) {
@@ -262,7 +262,7 @@ EXP.UI = (() => {
     const importRow = row('Import profile', 'Validates product, generation, schema, and appearance references.');
     const importInput = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT profile' });
     importInput.hidden = true;
-    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = structuredClone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = EXP.Settings.clone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => importInput.click(), 'action'), importInput); group.append(importRow);
     const actions = el('div', { class: 'button-grid profile-actions' });
     for (const item of [...group.querySelectorAll(':scope > .row')]) {
@@ -307,11 +307,11 @@ EXP.UI = (() => {
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
     input.hidden = true;
-    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = structuredClone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => input.click(), 'action'), input); data.append(importRow);
     data.append(actionRow('Reset SHIFT', 'Deletes SHIFT V3 settings, profiles, and site overrides only.', () => {
       if (!confirm('Reset all SHIFT V3 configuration?')) return;
-      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = structuredClone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
+      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
     }, 'Reset'));
     fragment.append(data);
     return fragment;
@@ -328,7 +328,7 @@ EXP.UI = (() => {
 
   function build(initial, callbacks) {
     if (window.top !== window.self) return { update() {}, toggle() {}, destroy() {} };
-    saved = structuredClone(initial);
+    saved = EXP.Settings.clone(initial);
     onApply = callbacks.apply;
     onSettings = callbacks.settings;
 
@@ -414,7 +414,7 @@ EXP.UI = (() => {
 
     return {
       update(next) {
-        saved = structuredClone(next);
+        saved = EXP.Settings.clone(next);
         applyPosition();
         applyMenuTheme(EXP.Settings.effective());
         product?.renderActive();

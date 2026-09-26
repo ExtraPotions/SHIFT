@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.0
+// @version      3.4.1
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -38,7 +38,7 @@
 'use strict';
 const EXP = Object.create(null);
 
-// Generated from the approved Dropper v3.3.2 install artifact. Do not edit.
+// Generated from the approved Dropper v3.3.3 install artifact. Do not edit.
 const DropperReference = (() => {
 const LAUNCHER_ORDER_KEY = "exp:v3:launcher-order";
 const LAUNCHER_GRID_DELTA_KEY = "exp:v3:launcher-grid-delta";
@@ -1523,12 +1523,12 @@ function createProductLifecycle(shared) {
   });
 }
 
-// Product-neutral host for the code extracted from Dropper 3.3.2.
+// Product-neutral host for the code extracted from Dropper 3.3.3.
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.3';
-  const sourceVersion = '3.3.2';
+  const version = '3.3.5';
+  const sourceVersion = '3.3.3';
   const protocol = 'exp-core-coordination-v1';
   const gridProtocol = 'exp-launcher-grid-v3';
   const GRID_ORDER = 'exp:v3:launcher-order';
@@ -1539,6 +1539,14 @@ const ExtraPotionsCore = (() => {
   const floatingNoticeRegistrations = new WeakMap();
   const controllers = new WeakMap();
   const tokenNames = ['bg', 'panel', 'line', 'text', 'muted', 'accent', 'accent2'];
+  // Callers own foreground, accessibility fallbacks, and removing these inline properties.
+  // Settings use the persisted JSON schema. Parse in the caller's userscript realm
+  // instead of returning a native structuredClone page-realm Xray wrapper.
+  function cloneSettings(value) { return JSON.parse(JSON.stringify(value)); }
+  function applyTextGradient(element, backgroundImage) {
+    const properties = {'background-color':'transparent','background-image':backgroundImage,'background-clip':'text','-webkit-background-clip':'text','background-size':'auto','background-position':'0% 0%','background-repeat':'repeat'};
+    for (const [property,value] of Object.entries(properties)) element.style.setProperty(property,value,'important');
+  }
   function menuWidthForMode(mode = 'compact', fullWidth = 312) {
     if (mode === 'narrow') return 220;
     if (mode === 'compact') return 260;
@@ -2004,7 +2012,7 @@ const ExtraPotionsCore = (() => {
     panel.querySelectorAll('button.action,button.secondary,button.primary,button.compact,.diagnostics-controls button,.button-grid button,.menu-footer button').forEach(node => { if (!node.dataset.expPart) node.classList.add('life-btn'); });
     panel.querySelectorAll('.route-body').forEach(body => body.classList.toggle('fl-tool-hidden', body.hidden));
     const active = panel.querySelector('.fl-tool-header[aria-expanded="true"]');
-    panel.querySelectorAll('.fl-tool-header').forEach(header => { if (active) header.classList.toggle('last-opened', header === active); const chevron = header.querySelector('.fl-tool-chevron'); if (chevron) chevron.textContent = header.getAttribute('aria-expanded') === 'true' ? '▾' : '▸'; });
+    panel.querySelectorAll('.fl-tool-header').forEach(header => { if (active) header.classList.toggle('last-opened', header === active); const chevron = header.querySelector('.fl-tool-chevron'); if (chevron) { const text = header.getAttribute('aria-expanded') === 'true' ? '▾' : '▸'; if (chevron.textContent !== text) chevron.textContent = text; } });
   }
   function normalizeHeader(panel) {
     const head = panel.querySelector('.menu-head,header,.head,.ward-header'); if (!head) return;
@@ -2053,7 +2061,7 @@ const ExtraPotionsCore = (() => {
     const versionButton=panel.querySelector('.version,[data-exp-part="version"]');
     const menuNotices=[...themeRoot.querySelectorAll('.update-notice,.changelog')].map(notice=>createMenuNotice({host,shadow,panel,notice,versionButton:notice.classList.contains('changelog')?versionButton:null,manageVersion:false,durationMs:30000}));
     if (launcherSrc) panel.querySelectorAll('.header-icon img').forEach(image => image.src = launcherSrc);
-    host.dataset.coreVersion = version; host.dataset.coreSource = 'Dropper/3.3.2';
+    host.dataset.coreVersion = version; host.dataset.coreSource = 'Dropper/3.3.3';
     let choices = themes(productTheme), selected = choices.at(-1), open = false, destroyed = false, timer = 0, deadline = 0, frame = 0;
     const removers = [];
     const on = (node,type,fn,opts) => { node.addEventListener(type,fn,opts); removers.push(() => node.removeEventListener(type,fn,opts)); };
@@ -2453,7 +2461,7 @@ const ExtraPotionsCore = (() => {
   if(document.documentElement)startGrid();else addEventListener('DOMContentLoaded',startGrid,{once:true});
   document.addEventListener('exp-core:coordination',scheduleGrid);
   addEventListener('resize',scheduleGrid,{passive:true});
-  const api = Object.freeze({version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,menuWidthForMode,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
+  const api = Object.freeze({version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
   return api;
 })();
 
@@ -2461,6 +2469,9 @@ const ExtraPotionsCore = (() => {
 EXP.Core = ExtraPotionsCore.createLifecycle();
 
 EXP.Settings = (() => {
+  // Persisted settings are JSON data. Copy in this realm: native structuredClone may
+  // return page-realm Xray wrappers in Firefox userscript sandboxes.
+  const clone = (value) => ExtraPotionsCore.cloneSettings(value);
   const PREFIX = 'exp:v3:shift';
   const SCHEMA = 1;
   const memory = new Map();
@@ -2528,7 +2539,7 @@ EXP.Settings = (() => {
   const validTheme = (value) => typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value);
   function validate(candidate) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) throw Object.assign(new Error('Settings must be an object'), { code: 'SETTINGS_TYPE' });
-    const result = structuredClone(defaults);
+    const result = clone(defaults);
 	const themeAliases = { warm: 'ember', discord: 'glacier', pine: 'verdant', obsidian: 'obsidian' };
 	const normalizedTheme = themeAliases[candidate.theme] || candidate.theme;
     const enums = {
@@ -2544,7 +2555,7 @@ EXP.Settings = (() => {
     for (const name of ['preserveArt', 'repairSurfaces', 'mutedRecovery', 'formReadability', 'reduceShadows', 'reduceTransparency', 'simplifyGradients', 'reduceBlur', 'safeMode', 'updateNotifications', 'menuAutoClose', 'menuNotifications']) if (typeof candidate[name] === 'boolean') result[name] = candidate[name];
     if (typeof candidate.shortcut === 'string' && candidate.shortcut.length <= 40) result.shortcut = candidate.shortcut;
     if (Array.isArray(candidate.exclusions)) result.exclusions = [...new Set(candidate.exclusions.filter((item) => typeof item === 'string' && item.length <= 253))].slice(0, 500);
-    if (candidate.siteOverrides && typeof candidate.siteOverrides === 'object' && !Array.isArray(candidate.siteOverrides)) result.siteOverrides = structuredClone(candidate.siteOverrides);
+    if (candidate.siteOverrides && typeof candidate.siteOverrides === 'object' && !Array.isArray(candidate.siteOverrides)) result.siteOverrides = clone(candidate.siteOverrides);
     if (candidate.adapterSettings && typeof candidate.adapterSettings === 'object' && !Array.isArray(candidate.adapterSettings)) {
       for (const [adapterId, values] of Object.entries(candidate.adapterSettings)) {
         if (!/^[a-z][a-z0-9-]+$/.test(adapterId) || !values || typeof values !== 'object' || Array.isArray(values)) continue;
@@ -2553,10 +2564,10 @@ EXP.Settings = (() => {
     }
     if (Array.isArray(candidate.profiles)) {
       const profiles = candidate.profiles.filter((profile) => profile && validTheme(profile.id) && typeof profile.name === 'string' && profile.name.trim() && profile.name.length <= 80 && profile.appearance && validTheme(profile.appearance.theme)).slice(0, 100);
-      if (profiles.some((profile) => profile.id === 'original')) result.profiles = structuredClone(profiles);
+      if (profiles.some((profile) => profile.id === 'original')) result.profiles = clone(profiles);
     }
-    if (Array.isArray(candidate.customThemes)) result.customThemes = candidate.customThemes.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && ['page', 'surface', 'raised', 'overlay', 'navigation', 'input', 'interactive', 'text', 'muted'].every((key) => EXP.Themes?.hex(item[key]))).slice(0, 50).map((item) => structuredClone(item));
-    if (Array.isArray(candidate.customAccents)) result.customAccents = candidate.customAccents.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && EXP.Themes?.hex(item.color)).slice(0, 50).map((item) => structuredClone(item));
+    if (Array.isArray(candidate.customThemes)) result.customThemes = candidate.customThemes.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && ['page', 'surface', 'raised', 'overlay', 'navigation', 'input', 'interactive', 'text', 'muted'].every((key) => EXP.Themes?.hex(item[key]))).slice(0, 50).map((item) => clone(item));
+    if (Array.isArray(candidate.customAccents)) result.customAccents = candidate.customAccents.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && EXP.Themes?.hex(item.color)).slice(0, 50).map((item) => clone(item));
     if (typeof candidate.currentProfile === 'string' && result.profiles.some((profile) => profile.id === candidate.currentProfile)) result.currentProfile = candidate.currentProfile;
     return result;
   }
@@ -2566,7 +2577,7 @@ EXP.Settings = (() => {
     rawWrite('settings', state);
     return snapshot();
   }
-  function snapshot() { return structuredClone(state || defaults); }
+  function snapshot() { return clone(state || defaults); }
   function replace(next, reason = 'replace') { const valid = validate(next); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
@@ -2590,7 +2601,7 @@ EXP.Settings = (() => {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({ PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({ clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
 })();
 
 EXP.Themes = (() => {
@@ -4246,10 +4257,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.0';
+EXP.VERSION = '3.4.1';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.1': ["Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes.","Bundles exp-core 3.3.5 with Firefox-safe settings copies and idle menu mutation fixes."],
     '3.4.0': [
       'Prevents launcher backdrops from covering Greasy Fork and other sites while preserving real site dialogs.',
       'Keeps Amazon and other light pages themed after startup by removing temporary Preload paint before native-theme detection.',
@@ -4850,7 +4862,7 @@ EXP.UI = (() => {
     }, 'New profile'));
     const current = state.profiles.find((profile) => profile.id === state.currentProfile);
     if (current) {
-      group.append(actionRow('Duplicate current profile', 'Creates a new stable identity.', () => { const name = prompt('Duplicate profile name', `${current.name} copy`); if (!name?.trim()) return; const copy = { ...structuredClone(current), id: `profile-${Date.now().toString(36)}`, name: name.trim().slice(0, 80), builtIn: false }; onSettings({ ...state, profiles: [...state.profiles, copy], currentProfile: copy.id }, 'profile-duplicate'); setMessage('Profile duplicated.'); }, 'Duplicate'));
+      group.append(actionRow('Duplicate current profile', 'Creates a new stable identity.', () => { const name = prompt('Duplicate profile name', `${current.name} copy`); if (!name?.trim()) return; const copy = { ...EXP.Settings.clone(current), id: `profile-${Date.now().toString(36)}`, name: name.trim().slice(0, 80), builtIn: false }; onSettings({ ...state, profiles: [...state.profiles, copy], currentProfile: copy.id }, 'profile-duplicate'); setMessage('Profile duplicated.'); }, 'Duplicate'));
       group.append(actionRow('Export current profile', 'Includes appearance only.', () => download(`${current.id}.json`, JSON.stringify({ product: 'shift', generation: 3, schema: 1, type: 'profile', profile: current }, null, 2)), 'Export'));
     }
     if (current && !current.builtIn) {
@@ -4864,7 +4876,7 @@ EXP.UI = (() => {
     const importRow = row('Import profile', 'Validates product, generation, schema, and appearance references.');
     const importInput = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT profile' });
     importInput.hidden = true;
-    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = structuredClone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = EXP.Settings.clone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => importInput.click(), 'action'), importInput); group.append(importRow);
     const actions = el('div', { class: 'button-grid profile-actions' });
     for (const item of [...group.querySelectorAll(':scope > .row')]) {
@@ -4909,11 +4921,11 @@ EXP.UI = (() => {
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
     input.hidden = true;
-    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = structuredClone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => input.click(), 'action'), input); data.append(importRow);
     data.append(actionRow('Reset SHIFT', 'Deletes SHIFT V3 settings, profiles, and site overrides only.', () => {
       if (!confirm('Reset all SHIFT V3 configuration?')) return;
-      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = structuredClone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
+      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
     }, 'Reset'));
     fragment.append(data);
     return fragment;
@@ -4930,7 +4942,7 @@ EXP.UI = (() => {
 
   function build(initial, callbacks) {
     if (window.top !== window.self) return { update() {}, toggle() {}, destroy() {} };
-    saved = structuredClone(initial);
+    saved = EXP.Settings.clone(initial);
     onApply = callbacks.apply;
     onSettings = callbacks.settings;
 
@@ -5016,7 +5028,7 @@ EXP.UI = (() => {
 
     return {
       update(next) {
-        saved = structuredClone(next);
+        saved = EXP.Settings.clone(next);
         applyPosition();
         applyMenuTheme(EXP.Settings.effective());
         product?.renderActive();
