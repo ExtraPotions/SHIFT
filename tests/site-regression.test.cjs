@@ -194,3 +194,36 @@ test('generic unknown sites get dark surfaces, readable text, preserved media, a
   assert.notEqual(after.card, 'rgb(255, 255, 255)');
   assert.notEqual(after.copy, after.card);
 });
+
+
+test('native-dark generic fast path repairs contrast without repainting native surfaces', async (t) => {
+  const page = await fixture(t, 'native-dark.test', [
+    '<style>html,body{color-scheme:dark;background:#0d1117;color:#c9d1d9} .panel{background:#161b22} .dim{color:#1f2933} .native-light{background:#fff;color:#111}</style>',
+    '<main>',
+      '<section class="panel">',
+        '<p class="dim">Low contrast text</p>',
+        '<input id="dark-input" value="query" style="background:#0d1117;color:#1f2933">',
+        '<div class="native-light" id="native-light">Intentional light surface</div>',
+      '</section>',
+    '</main>'
+  ].join(''));
+  const result = await page.evaluate(() => {
+    const read = selector => {
+      const style = getComputedStyle(document.querySelector(selector));
+      return { background: style.backgroundColor, color: style.color };
+    };
+    return {
+      rootScheme: getComputedStyle(document.documentElement).colorScheme,
+      panel: read('.panel'),
+      dim: read('.dim'),
+      input: read('#dark-input'),
+      light: read('#native-light'),
+    };
+  });
+  assert.match(result.rootScheme, /dark/);
+  assert.equal(result.panel.background, 'rgb(22, 27, 34)');
+  assert.notEqual(result.dim.color, 'rgb(31, 41, 51)');
+  assert.equal(result.input.background, 'rgb(13, 17, 23)');
+  assert.notEqual(result.input.color, 'rgb(31, 41, 51)');
+  assert.equal(result.light.background, 'rgb(255, 255, 255)');
+});
