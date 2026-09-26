@@ -1,7 +1,13 @@
-EXP.VERSION = '3.4.0-dev.8';
+EXP.VERSION = '3.4.0-dev.9';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.9': [
+      'Adds conservative inferred native-dark detection for sites with a dark canvas and a strong majority of dark major surfaces even when color-scheme is not declared.',
+      'Requires multiple large visible surface samples, a high dark-surface ratio, and very few light major surfaces before enabling the native-dark fast path.',
+      'Adds native-dark evidence diagnostics including explicit-scheme state, canvas state, sampled surface counts, dark/light/mid counts, and dark-surface ratio.',
+      'Adds anonymous positive and mixed-surface regressions so dark applications gain native-dark restraint while mixed or light sites remain on the full transformation path.',
+    ],
     '3.4.0-dev.8': [
       'Memoizes resolved ancestor backgrounds within each resolver pass so deeply nested native-dark content can reuse parent results instead of rebuilding the same chain.',
       'Keeps an eight-level native-dark fast path but extends accurately to a hard depth of twenty-four only when needed, then caches the resolved chain.',
