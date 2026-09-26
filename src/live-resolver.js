@@ -213,6 +213,10 @@ EXP.LiveResolver = (() => {
       if(fix.preserveSurfaces?.length)scope.querySelectorAll(fix.preserveSurfaces.join(',')).forEach(el=>el.setAttribute(PRESERVE,'1'));
       if(options.repairSurfaces&&!options.nativeDark&&fix.surfaces?.length)scope.querySelectorAll(fix.surfaces.join(',')).forEach(el=>{if(repair(el,`site:${fix.id}`,options))stats.siteFixes++;});
       if(fix.text?.length)scope.querySelectorAll(fix.text.join(',')).forEach(el=>{if(repairText(el,`site-text:${fix.id}`))stats.siteFixes++;});
+      if(fix.forceText?.length)scope.querySelectorAll(fix.forceText.join(',')).forEach(el=>{
+        if(isProtected(el)||!visible(el))return;
+        if(write(el,'color',theme.text)){el.setAttribute(ATTR,`site-force-text:${fix.id}`);stats.siteFixes++;stats.textRepairs++;stats.resolved++;}
+      });
     }catch{}
   }
   function syncPseudoStyle(){
