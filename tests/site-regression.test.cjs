@@ -261,7 +261,7 @@ test('Greasy Fork and Sleazy Fork style delayed CSS is repaired after the styles
   assert.equal(result.dynamic || result.live, true, JSON.stringify(result));
 });
 
-test('late native dark stylesheet reclassifies before dynamic rewriting persists', async (t) => {
+test('late native dark stylesheet reclassifies and harmonizes without structural repaint', async (t) => {
   const css = [
     'html{color-scheme:light dark;background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
     'body{background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
@@ -277,9 +277,9 @@ test('late native dark stylesheet reclassifies before dynamic rewriting persists
     dynamicStyles: document.querySelectorAll('style[data-exp-shift-dynamic="1"],style[data-exp-shift-dynamic-remote="1"]').length,
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
   }));
-  assert.equal(result.panel, 'rgb(23, 27, 34)', JSON.stringify(result));
+  assert.notEqual(result.panel, 'rgb(23, 27, 34)', JSON.stringify(result));
   assert.match(result.rootScheme, /dark/, JSON.stringify(result));
-  assert.equal(result.dynamicStyles, 0, JSON.stringify(result));
+  assert.ok(result.dynamicStyles > 0, JSON.stringify(result));
   assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/, JSON.stringify(result));
 });
 
@@ -349,7 +349,7 @@ test('generic unknown sites get dark surfaces, readable text, preserved media, a
 });
 
 
-test('native-dark generic fast path repairs contrast without repainting native surfaces', async (t) => {
+test('native-dark structural fast path harmonizes dark surfaces while preserving intentional light surfaces', async (t) => {
   const page = await fixture(t, 'native-dark.test', [
     '<style>html,body{color-scheme:dark;background:#0d1117;color:#c9d1d9} .panel{background:#161b22} .dim{color:#1f2933} .native-light{background:#fff;color:#111}</style>',
     '<main>',
@@ -374,15 +374,15 @@ test('native-dark generic fast path repairs contrast without repainting native s
     };
   });
   assert.match(result.rootScheme, /dark/);
-  assert.equal(result.panel.background, 'rgb(22, 27, 34)');
+  assert.notEqual(result.panel.background, 'rgb(22, 27, 34)');
   assert.notEqual(result.dim.color, 'rgb(31, 41, 51)');
-  assert.equal(result.input.background, 'rgb(13, 17, 23)');
+  assert.notEqual(result.input.background, 'rgb(13, 17, 23)');
   assert.notEqual(result.input.color, 'rgb(31, 41, 51)');
   assert.equal(result.light.background, 'rgb(255, 255, 255)');
 });
 
 
-test('deep native-dark ancestry keeps contrast accurate without repainting native structure', async (t) => {
+test('deep native-dark ancestry keeps contrast accurate while harmonizing native dark structure', async (t) => {
   const depth = 14;
   const nestedOpen = Array.from({ length: depth }, (_, i) => `<div class="layer layer-${i}">`).join('');
   const nestedClose = '</div>'.repeat(depth);
@@ -408,7 +408,7 @@ test('deep native-dark ancestry keeps contrast accurate without repainting nativ
     copy2: getComputedStyle(document.querySelector('#deep-copy-2')).color,
     light: getComputedStyle(document.querySelector('#intentional-light')).backgroundColor,
   }));
-  assert.equal(result.panel, 'rgb(23, 27, 34)');
+  assert.notEqual(result.panel, 'rgb(23, 27, 34)');
   assert.notEqual(result.copy, 'rgb(37, 42, 49)');
   assert.notEqual(result.copy2, 'rgb(37, 42, 49)');
   assert.equal(result.light, 'rgb(255, 255, 255)');
@@ -436,8 +436,8 @@ test('dark major-surface majority enables inferred native-dark mode without an e
     dim: getComputedStyle(document.querySelector('#dim-copy')).color,
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
   }));
-  assert.equal(result.main, 'rgb(23, 27, 34)');
-  assert.equal(result.section, 'rgb(23, 27, 34)');
+  assert.notEqual(result.main, 'rgb(23, 27, 34)');
+  assert.notEqual(result.section, 'rgb(23, 27, 34)');
   assert.notEqual(result.dim, 'rgb(37, 42, 49)');
   assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/);
 });
