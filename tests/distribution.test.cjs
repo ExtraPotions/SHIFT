@@ -97,6 +97,10 @@ test('theme runtime has one owner for stylesheets and one owner for live DOM rep
   assert.match(live, /backgroundCache\.set\(node,result\)/u);
   assert.match(live, /Math\.min\(levelLimit,700\)/u);
   assert.match(live, /repair\(el,'native-dark',\{\.\.\.options,surface:false\}\)/u);
+  assert.match(controller, /inferred-dark-surface-majority/u);
+  assert.match(controller, /darkSurfaceRatio>=\.72/u);
+  assert.match(controller, /nativeDarkEvidence/u);
+  assert.match(controller, /lightSurfaceCount<=Math\.max\(1,Math\.floor\(samples\.length\*\.12\)\)/u);
 });
 
 test('SHIFT settings survive manager storage gaps and mirror to fallback storage', () => {
