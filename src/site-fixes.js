@@ -58,10 +58,13 @@ EXP.SiteFixes = (() => {
         :is(.a-color-base,.a-color-secondary,.a-color-tertiary,.a-size-base,.a-text-normal,.a-size-base-plus,.a-size-medium,.a-size-large,.a-price,.a-price-whole,.a-price-fraction,.a-price-symbol,.s-title-instructions-style){
           color:var(--exp-shift-text)!important
         }
-        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img){
+        :is(.a-dynamic-image,.s-image,#imgTagWrapperId img,[class*="image"] img,[class*="asin-image" i]){
           filter:none!important;opacity:1!important;mix-blend-mode:normal!important
         }
-        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i]){
+        :is(#imgTagWrapperId,.s-product-image-container,[class*="product-image" i],[class*="image-container" i],[class*="asin-image-wrapper" i],[class*="asin-image-container" i]){
+          opacity:1!important;filter:none!important;mix-blend-mode:normal!important
+        }
+        :is([class*="asin-metadata" i],[class*="asin-title" i],[class*="asin-price" i]){
           opacity:1!important;filter:none!important;mix-blend-mode:normal!important
         }
       `,
