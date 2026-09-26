@@ -1,7 +1,13 @@
-EXP.VERSION = '3.4.0-dev.6';
+EXP.VERSION = '3.4.0-dev.7';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.7': [
+      'Adds a native-dark fast path that scans only interactive/accessibility surfaces instead of the full structural surface set.',
+      'Caches effective backgrounds within each resolver pass and caps native-dark ancestor reconstruction at eight levels.',
+      'Avoids duplicate effective-background work before native-dark repairs while keeping text, forms, dialogs, focus, and contrast correction active.',
+      'Adds native-dark performance telemetry and a generic native-dark regression while leaving Amazon full-transformation behavior unchanged.',
+    ],
     '3.4.0-dev.6': [
       'Suppresses resolver feedback from Shift-owned inline style writes so generic repairs do not immediately schedule redundant mutation passes.',
       'Collapses nested mutation roots before each pass and reports per-pass examined versus changed counts, collapsed roots, ignored self-mutations, and maximum pass duration.',
