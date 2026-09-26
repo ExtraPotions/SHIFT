@@ -251,7 +251,7 @@ EXP.Engine = (() => {
     const nativeDark=detectNativeDark();
     lockHost(theme,!nativeDark);
     ensureStyle(css(theme,next,nativeDark));
-    EXP.DynamicEngine?.start(theme,{nativeDark});
+    if(nativeDark)EXP.DynamicEngine?.stop();else EXP.DynamicEngine?.start(theme,{nativeDark:false});
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
     return{theme,mode:metrics.mode};
   }
