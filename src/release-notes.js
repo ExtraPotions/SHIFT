@@ -1,7 +1,13 @@
-EXP.VERSION = '3.3.23';
+EXP.VERSION = '3.4.0-dev.1';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.0-dev.1': [
+      'Rebuilds SHIFT on the Dropper 3.3.2 application shell instead of maintaining a separate launcher and menu implementation.',
+      'Uses exp-core for the launcher, header, support control, section navigation, Full / Compact / Narrow geometry, update cards, and multi-product coordination.',
+      'Preserves the existing SHIFT color, stylesheet, live-repair, adapter, profile, and site-rule engines behind the new shared shell.',
+      'Removes the legacy SHIFT menu-chrome module from the generated userscript so shared UI has one implementation owner.',
+    ],
 	'3.3.23': [
 	  'Uses the same menu-width notice surface for Current Version, Update Available, and Update Complete, matching Dropper.',
 	  'Forces a fresh update check for each newly installed SHIFT version instead of inheriting the previous version\'s 15-minute throttle or stale remote version.',
