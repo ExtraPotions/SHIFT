@@ -115,3 +115,37 @@ test('Amazon final text repair wins over recovered important product colors', as
   assert.notEqual(result.price, result.bg);
 });
 
+
+
+test('Amazon product metadata and media do not inherit multiply blending on dark cards', async (t) => {
+  const page = await fixture(t, 'www.amazon.com', [
+    '<style>',
+      '.x-asin-metadata{mix-blend-mode:multiply}',
+      '.x-asin-image{mix-blend-mode:multiply;opacity:.4}',
+    '</style>',
+    '<div class="s-card-container" style="background:#fff">',
+      '<div class="x-asin-image-wrapper"><img class="x-asin-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Product"></div>',
+      '<div class="x-asin-metadata">',
+        '<div class="x-asin-title"><span class="a-size-base-plus">Product title</span></div>',
+        '<div class="x-asin-price"><span class="a-price">$19.99</span></div>',
+      '</div>',
+    '</div>'
+  ].join(''));
+  const result = await page.evaluate(() => {
+    const pick = selector => {
+      const style = getComputedStyle(document.querySelector(selector));
+      return { blend: style.mixBlendMode, opacity: style.opacity, color: style.color };
+    };
+    return {
+      metadata: pick('.x-asin-metadata'),
+      title: pick('.a-size-base-plus'),
+      price: pick('.a-price'),
+      image: pick('.x-asin-image'),
+    };
+  });
+  assert.equal(result.metadata.blend, 'normal');
+  assert.equal(result.image.blend, 'normal');
+  assert.equal(result.image.opacity, '1');
+  assert.notEqual(result.title.color, 'rgb(17, 17, 17)');
+  assert.notEqual(result.price.color, 'rgb(17, 17, 17)');
+});
