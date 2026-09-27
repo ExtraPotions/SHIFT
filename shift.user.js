@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.5
+// @version      3.4.6
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -1523,19 +1523,21 @@ function createProductLifecycle(shared) {
   });
 }
 
-// Shared, local-only recovery and compatibility controls.
+// Shared, local-only compatibility controls.
 const ExtraPotionsTools = (() => {
-  const clone = value => JSON.parse(JSON.stringify(value));
-  function createSettingsRecovery({read,write,validate,limit=5}) {
-    function list() { try { const values=read(); return Array.isArray(values)?values.filter(v=>v&&typeof v.id==='string'&&v.settings&&typeof v.settings==='object').slice(0,limit).map(clone):[]; } catch {return [];} }
-    function capture(settings,reason='change') {
-      const clean=validate(clone(settings)); const entries=list();
-      if(entries[0]&&JSON.stringify(entries[0].settings)===JSON.stringify(clean))return entries[0].id;
-      const entry={id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,at:Date.now(),reason:String(reason).slice(0,80),settings:clean};
-      write([entry,...entries].slice(0,limit));return entry.id;
-    }
-    function restore(id){const entry=list().find(v=>v.id===id);if(!entry)throw Error('This backup is no longer available.');return validate(clone(entry.settings));}
-    return Object.freeze({list,capture,restore});
+  function placeDonationPanel(panel, trigger){
+    trigger.closest('.menu-head,.ward-header,header')?.after(panel);
+    panel.style.cssText='position:static!important;width:100%!important;max-width:100%!important;margin:7px 0;box-shadow:none';
+  }
+  function createBitcoinDonation(){
+    const address='bc1qg4xq63mwu63qc5dnqugk3qtxvulv5p3frjayna8ey8tu8ey4wpxsg92hv3';
+    const details=document.createElement('details');details.className='exp-bitcoin-donation';details.style.cssText='margin-top:7px;min-width:0';
+    const summary=document.createElement('summary');summary.textContent='₿ Bitcoin';summary.style.cssText='cursor:pointer;font-weight:700;padding:6px;border:1px solid var(--theme-line);border-radius:7px';
+    const code=document.createElement('code');code.textContent=address;code.setAttribute('aria-label','Bitcoin donation address');code.style.cssText='display:block;overflow-wrap:anywhere;word-break:break-all;user-select:all;margin:7px 0;font-size:11px;line-height:1.4';
+    const status=document.createElement('p');status.setAttribute('role','status');status.style.cssText='margin:5px 0 0;font-size:10px';
+    const copy=button('Copy Bitcoin address',async()=>{try{await navigator.clipboard.writeText(address);status.textContent='Bitcoin address copied.';}catch{status.textContent='Select and copy the address above.';}});copy.style.cssText='width:100%;min-width:0;white-space:normal;border-radius:7px';
+    const wallet=document.createElement('a');wallet.href='bitcoin:'+address;wallet.textContent='Open Bitcoin wallet';
+    details.append(summary,code,copy,wallet,status);return details;
   }
   function compatibilitySnapshot(){
     const rows=[];const warnings=[];const versions=new Set();
@@ -1554,8 +1556,7 @@ const ExtraPotionsTools = (() => {
   const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='life-btn action';b.textContent=label;b.addEventListener('click',fn);return b;};
   function card(title){const d=document.createElement('details');d.className='exp-tools-card';d.style.cssText='border:1px solid var(--theme-line,var(--line,#777));border-radius:7px;padding:7px;margin-top:8px';const s=document.createElement('summary');s.textContent=title;d.append(s);return d;}
   function createCompatibilityControls(){const d=card('Product compatibility'),out=document.createElement('div');out.setAttribute('aria-live','polite');function refresh(){out.replaceChildren();const value=compatibilitySnapshot();for(const p of value.products){const line=document.createElement('p');line.textContent=`${p.id.toUpperCase()} ${p.versions.join(', ')} · ${p.core?'core '+p.core:'native product UI'}`;out.append(line);}const status=document.createElement('p');status.textContent=value.warnings.join(' ')||'No mixed core versions or duplicate instances detected on this page.';out.append(status);const note=document.createElement('small');note.textContent='Only products running on this page are visible. This is not an online update check.';out.append(note);}d.addEventListener('toggle',()=>{if(d.open)refresh();});d.append(out,button('Refresh compatibility',refresh));return d;}
-  function createRecoveryControls({list,capture,restore,notify=()=>{}}){const d=card('Settings backups'),select=document.createElement('select'),status=document.createElement('p');select.setAttribute('aria-label','Settings backup');status.setAttribute('role','status');function refresh(){select.replaceChildren();for(const e of list()){const o=document.createElement('option');o.value=e.id;o.textContent=`${new Date(e.at).toLocaleString()} · ${e.reason}`;select.append(o);}select.disabled=!select.options.length;rollback.disabled=select.disabled;}const backup=button('Back up settings',()=>{try{capture();refresh();status.textContent='Settings backed up locally.';}catch(e){status.textContent=e.message;}});const rollback=button('Restore selected backup',()=>{try{if(!select.value)return;restore(select.value);refresh();status.textContent='Settings restored. The previous state was also backed up.';notify(status.textContent);}catch(e){status.textContent=e.message;}});d.addEventListener('toggle',()=>{if(d.open)refresh();});d.append(select,backup,rollback,status);refresh();return d;}
-  return Object.freeze({createSettingsRecovery,compatibilitySnapshot,createCompatibilityControls,createRecoveryControls});
+  return Object.freeze({placeDonationPanel,createBitcoinDonation,compatibilitySnapshot,createCompatibilityControls});
 })();
 
 // Section arrangement shared at build time by ExtraPotions menus.
@@ -1610,7 +1611,7 @@ const ExpMenuArrangement = (() => {
       });
       onChange();
     }
-    function update() { if (!recovery.body.contains(editor)) recovery.body.append(editor); }
+    function update() { const target = recovery.body.querySelector('[data-exp-system-tools]') || recovery.body; if (editor.parentElement !== target) target.append(editor); }
     for (const entry of entries) {
       entry.section.dataset.expArrangeSection = entry.key;
       const grip = document.createElement('button'); grip.type = 'button'; grip.className = 'exp-section-grip'; grip.textContent = '⠿';
@@ -1671,7 +1672,7 @@ const ExpMenuArrangement = (() => {
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.8';
+  const version = '3.3.9';
   const sourceVersion = '3.3.5';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
   const protocol = 'exp-core-coordination-v1';
@@ -1691,6 +1692,21 @@ const ExtraPotionsCore = (() => {
   function applyTextGradient(element, backgroundImage) {
     const properties = {'background-color':'transparent','background-image':backgroundImage,'background-clip':'text','-webkit-background-clip':'text','background-size':'auto','background-position':'0% 0%','background-repeat':'repeat'};
     for (const [property,value] of Object.entries(properties)) element.style.setProperty(property,value,'important');
+  }
+  function replaceMenuContent(container, content) {
+    const summary = node => node.querySelector(':scope > summary')?.textContent.trim();
+    const expanded = new Set([...container.querySelectorAll('details[open]')].map(summary));
+    container.replaceChildren(content);
+    for (const node of container.querySelectorAll('details')) if (expanded.has(summary(node))) node.open = true;
+  }
+  function createDisclosure(label, ...contents) {
+    const details = document.createElement('details'); details.className = 'exp-system-card';
+    const summary = document.createElement('summary'); summary.textContent = label;
+    details.append(summary, ...contents); return details;
+  }
+  function createSystemGrid(...contents) {
+    const grid = document.createElement('div'); grid.dataset.expSystemTools = '1';
+    grid.append(...contents); return grid;
   }
   function menuWidthForMode(mode = 'compact', fullWidth = 312) {
     if (mode === 'narrow') return 220;
@@ -1713,6 +1729,14 @@ const ExtraPotionsCore = (() => {
     [data-exp-part="dock"] :is(input,select,textarea){min-width:0;max-width:100%}
     .update-notice,.changelog{max-height:calc(100vh - 24px)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;overflow-wrap:anywhere}
 
+    [data-exp-system-tools]{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;align-items:stretch;grid-column:1/-1!important;min-width:0}
+    [data-exp-system-tools]>details{box-sizing:border-box;min-width:0;margin:0!important;padding:7px!important;border:1px solid var(--theme-line);border-radius:7px;grid-column:auto!important;overflow-wrap:anywhere}
+    [data-exp-system-tools]>details[open]{grid-column:1/-1!important}
+    [data-exp-system-tools]>details>summary{cursor:pointer;font-weight:600}
+    .exp-system-card>summary{cursor:pointer}
+    .exp-system-card>summary+*{margin-top:6px}
+    [data-exp-part="dock"] .row:has(>select[aria-label="Menu width"]){display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,104px)!important;align-items:center;gap:8px!important}
+    [data-exp-part="dock"] .row>select[aria-label="Menu width"]{box-sizing:border-box;width:100%!important;max-width:104px!important;min-width:0!important;margin:0!important}
     :host{color-scheme:dark}
     [data-exp-part="launcher"]{box-sizing:border-box!important;width:48px!important;min-width:48px!important;max-width:48px!important;height:48px!important;min-height:48px!important;max-height:48px!important}
     [data-exp-part="launcher"] .launcher-icon{width:40px!important;height:40px!important}
@@ -2499,15 +2523,16 @@ const ExtraPotionsCore = (() => {
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
     anchor.textContent = 'Open Ko-fi';
-    popover.append(strong, copy, anchor);
+    popover.append(strong, copy, anchor, ExtraPotionsTools.createBitcoinDonation());
     wrapper.append(button, popover);
     const toggle = event => {
       event?.stopPropagation?.();
+      ExtraPotionsTools.placeDonationPanel(popover,button);
       popover.hidden = !popover.hidden;
       button.setAttribute('aria-expanded', String(!popover.hidden));
     };
     const outside = event => {
-      if (popover.hidden || event.composedPath().includes(wrapper)) return;
+      if (popover.hidden || event.composedPath().includes(wrapper) || event.composedPath().includes(popover)) return;
       popover.hidden = true;
       button.setAttribute('aria-expanded', 'false');
     };
@@ -2518,7 +2543,7 @@ const ExtraPotionsCore = (() => {
       button,
       popover,
       hide() { popover.hidden = true; button.setAttribute('aria-expanded', 'false'); },
-      destroy() { button.removeEventListener('click', toggle); document.removeEventListener('pointerdown', outside, true); wrapper.remove(); },
+      destroy() { button.removeEventListener('click', toggle); document.removeEventListener('pointerdown', outside, true); popover.remove(); wrapper.remove(); },
     });
   }
 
@@ -2606,7 +2631,7 @@ const ExtraPotionsCore = (() => {
     const header=document.createElement('header');header.className='menu-head';const brand=document.createElement('div');brand.className='header-brand';const image=document.createElement('img');image.src=artwork;image.alt='';const copy=document.createElement('div');const titleRow=document.createElement('div');const title=document.createElement('strong');title.textContent=name;const v=document.createElement('button');v.type='button';v.className='version';v.textContent='v'+productVersion;titleRow.append(title,v);const sub=document.createElement('small');sub.textContent=subtitle;copy.append(titleRow,sub);brand.append(image,copy);const close=document.createElement('button');close.className='close';close.textContent='×';close.setAttribute('aria-label','Close '+name);const actions=document.createElement('div');actions.className='header-actions';const support=createSupportControl({url:supportUrl,label:'Support '+name});if(support)actions.append(support.element);actions.append(close);header.append(brand,actions);const divider=document.createElement('div');divider.className='header-divider';const nav=document.createElement('nav');
     let isOpen=false, activeId='';let chrome;
     const sectionMap=new Map();
-    function renderSection(section,body){const content=section.render({core:api,onSettings});body.replaceChildren(content);chrome?.update();}
+    function renderSection(section,body){const content=section.render({core:api,onSettings});replaceMenuContent(body,content);chrome?.update();}
     function renderActive(){if(!activeId)return false;const entry=sectionMap.get(activeId);if(!entry||entry.body.hidden)return false;renderSection(entry.section,entry.body);return true;}
     function setOpen(value,focus=true){isOpen=Boolean(value);panel.hidden=!isOpen;launcher.setAttribute('aria-expanded',String(isOpen));if(isOpen){activeId='';nav.querySelectorAll('.route-body').forEach(n=>n.hidden=true);nav.querySelectorAll('button[data-section]').forEach(n=>n.setAttribute('aria-expanded','false'));}chrome.state(isOpen);if(focus)(isOpen?focusMenuSurface(panel):launcher.focus());}
     for(const section of sections){const group=document.createElement('section');group.className='tool-panel';const button=document.createElement('button');button.type='button';button.textContent=section.label;button.dataset.section=section.id;const body=document.createElement('div');body.className='route-body';body.hidden=true;sectionMap.set(section.id,{section,body,button});button.addEventListener('click',()=>{const opening=body.hidden;nav.querySelectorAll('.route-body').forEach(n=>n.hidden=true);nav.querySelectorAll('button[data-section]').forEach(n=>{n.classList.toggle('last-opened',n===button);n.setAttribute('aria-expanded',String(opening&&n===button));});body.hidden=!opening;activeId=opening?section.id:'';if(opening)renderSection(section,body);chrome.update();});group.append(button,body);nav.append(group);}
@@ -2621,7 +2646,7 @@ const ExtraPotionsCore = (() => {
   if(document.documentElement)startGrid();else addEventListener('DOMContentLoaded',startGrid,{once:true});
   document.addEventListener('exp-core:coordination',scheduleGrid);
   addEventListener('resize',scheduleGrid,{passive:true});
-  const api = Object.freeze({...ExtraPotionsTools,version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
+  const api = Object.freeze({...ExtraPotionsTools,version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,replaceMenuContent,createDisclosure,createSystemGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
   return api;
 })();
 
@@ -2733,18 +2758,12 @@ EXP.Settings = (() => {
   }
   function load() {
     const stored = rawRead('settings');
-    if(stored && rawRead('settings-version')!==EXP.VERSION)recovery.capture(stored,'before-update');
-    rawWrite('settings-version',EXP.VERSION);
     state = validate(stored || defaults);
     rawWrite('settings', state);
     return snapshot();
   }
-  const recovery = ExtraPotionsCore.createSettingsRecovery({read:()=>rawRead('backups'),write:value=>rawWrite('backups',value),validate});
-  function backups(){return recovery.list();}
-  function backup(){return recovery.capture(snapshot(),'manual');}
-  function restoreBackup(id){return replace(recovery.restore(id),'rollback');}
   function snapshot() { return clone(state || defaults); }
-  function replace(next, reason = 'replace') { const valid = validate(next); if(state&&JSON.stringify(valid)!==JSON.stringify(state))recovery.capture(state,reason); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
+  function replace(next, reason = 'replace') { const valid = validate(next);  rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
   function hostExcluded(hostname, exclusions = []) {
@@ -2767,7 +2786,7 @@ EXP.Settings = (() => {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({backups,backup,restoreBackup, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
 })();
 
 EXP.Themes = (() => {
@@ -4444,10 +4463,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.5';
+EXP.VERSION = '3.4.6';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.6': ["Compacts System menus and keeps menu width controls together on one row.","Groups existing menu preferences consistently while preserving saved settings.","Removes automatic Settings Backup and its restore controls.","Adds a Bitcoin donation option with address copying and wallet support."],
     '3.4.5': ['Aligns automated release verification with the bundled exp-core 3.3.8.','Preserves the Original swatch, menu controls, and refreshed feature guide.'],
     '3.4.4': ["Adds an Original palette swatch, selected by default for fresh settings.","Bundles exp-core 3.3.8 with section arrangement and viewport-safe menus.","Refreshes the README and feature screenshots in a horizontal gallery."],
     '3.4.3': ["Adds a readability inspector and a reversible bypass for selected page elements.","Restores inline repairs from both color engines while preserving unrelated styles.","Adds settings backups, rollback, and compatibility details through exp-core 3.3.7."],
@@ -4844,7 +4864,7 @@ EXP.UI = (() => {
     skinVertical:'linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)'
   });
   const routes = [
-    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['menu', 'Menu & Updates'], ['system', 'System']
+    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['system', 'System']
   ];
   let host;
   let shadow;
@@ -4918,7 +4938,7 @@ EXP.UI = (() => {
   }
   function section(title) {
     const node = el('section', { class: 'group' });
-    node.append(el('h3', {}, title));
+    if (title) node.append(el('h3', {}, title));
     return node;
   }
   function row(label, help) {
@@ -5005,6 +5025,11 @@ EXP.UI = (() => {
     surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));
     surfaces.append(switchControl('Preserve artwork and charts', 'Never classify images, video, canvas, or SVG.', saved.preserveArt, (preserveArt) => commit({ preserveArt }, 'preserve-art', preserveArt ? 'Artwork preservation on.' : 'Artwork preservation off.')));
     surfaces.append(switchControl('Repair unreadable surfaces', 'Repair leftover neutral boxes after host CSS paints the page.', saved.repairSurfaces, (repairSurfaces) => commit({ repairSurfaces }, 'repair-surfaces', repairSurfaces ? 'Surface repair on.' : 'Surface repair off.')));
+    const motion = section('Motion', 'Motion preferences apply immediately when you change them.');
+    motion.append(selectControl('Reduce motion', 'Follow the system preference or override it.', saved.reduceMotion, [['off', 'Off'], ['system', 'Follow system'], ['on', 'On']], (reduceMotion) => commit({ reduceMotion }, 'reduce-motion', `Reduce motion set to ${reduceMotion}.`)));
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
+    motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
+    fragment.append(motion);
     fragment.append(surfaces, appearanceFooter());
     return fragment;
   }
@@ -5019,11 +5044,7 @@ EXP.UI = (() => {
     readability.append(selectControl('Focus visibility', 'Visible keyboard focus without mouse-only effects.', saved.focusVisibility, [['site', 'Site default'], ['enhanced', 'Enhanced'], ['high', 'High']], (focusVisibility) => commit({ focusVisibility }, 'focus-visibility', `Focus visibility set to ${focusVisibility}.`)));
     fragment.append(readability);
 
-    const motion = section('Motion', 'Motion preferences apply immediately when you change them.');
-    motion.append(selectControl('Reduce motion', 'Follow the system preference or override it.', saved.reduceMotion, [['off', 'Off'], ['system', 'Follow system'], ['on', 'On']], (reduceMotion) => commit({ reduceMotion }, 'reduce-motion', `Reduce motion set to ${reduceMotion}.`)));
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
-    motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
-    fragment.append(motion, appearanceFooter());
+    fragment.append(appearanceFooter());
     return fragment;
   }
 
@@ -5106,6 +5127,7 @@ EXP.UI = (() => {
       const file = item.querySelector('input[type="file"]'); if (file) group.append(file);
       actions.append(action); item.remove();
     }
+    if (state.exclusions.length) group.append(actionRow('Excluded sites', state.exclusions.join(', '), () => { const hostName = prompt('Hostname to remove from exclusions', state.exclusions[0]); if (!hostName) return; onSettings({ ...state, exclusions: state.exclusions.filter((item) => item !== hostName.trim()) }, 'exclusion-manager'); setMessage('Exclusions updated.'); }, 'Manage'));
     group.append(actions); fragment.append(group);
     return fragment;
   }
@@ -5113,17 +5135,15 @@ EXP.UI = (() => {
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
-    const chromeGroup = section('Menu chrome', 'Width, close behavior, and local feedback.');
-    chromeGroup.append(selectControl('Menu width', 'Dropper-style Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
-    chromeGroup.append(switchControl('Automatic menu close', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
+    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');
+    chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
     chromeGroup.append(switchControl('Menu notifications', 'Show brief local feedback messages for menu actions.', state.menuNotifications, (menuNotifications) => { onSettings({ ...state, menuNotifications }, 'menu-notifications'); if (!menuNotifications && toast) toast.hidden = true; else setMessage('Menu notifications enabled.'); }));
     fragment.append(chromeGroup);
 
-    const about = section('Updates', 'Release metadata only; SHIFT never installs automatically.');
-    about.append(switchControl('Quiet update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
+    const about = chromeGroup;
+    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
     if (state.updateNotifications) about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
-    if (state.exclusions.length) about.append(actionRow('Excluded sites', state.exclusions.join(', '), () => { const hostName = prompt('Hostname to remove from exclusions', state.exclusions[0]); if (!hostName) return; onSettings({ ...state, exclusions: state.exclusions.filter((item) => item !== hostName.trim()) }, 'exclusion-manager'); setMessage('Exclusions updated.'); }, 'Manage'));
-    fragment.append(about);
+
     return fragment;
   }
 
@@ -5131,15 +5151,18 @@ EXP.UI = (() => {
     const state = EXP.Settings.snapshot();
     const health = EXP.Engine.health();
     const fragment = document.createDocumentFragment();
-    const group = section('Diagnostics', 'Page, technical, console, and plugin details; captured locally.');
-    group.append(EXP.Inspector.createControls(()=>product?.open()));
-    group.append(ExtraPotionsCore.createCompatibilityControls(),ExtraPotionsCore.createRecoveryControls({list:EXP.Settings.backups,capture:EXP.Settings.backup,restore:id=>{const next=EXP.Settings.restoreBackup(id);saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();},notify:setMessage}));
+    const group = section();
+    const repairs = ExtraPotionsCore.createDisclosure('Maintenance');
+    const tools = ExtraPotionsCore.createSystemGrid();
+    repairs.append(EXP.Inspector.createControls(()=>product?.open()));
+    tools.append(ExtraPotionsCore.createCompatibilityControls());
     group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
-    group.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
-    group.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
+    repairs.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
+    repairs.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
     group.append(switchControl('Safe Mode', 'Suspend transformations and adapters while preserving configuration.', state.safeMode, (safeMode) => { onSettings({ ...state, safeMode }, 'safe-mode'); setMessage(safeMode ? 'Safe Mode active.' : 'Safe Mode disabled.'); }));
+    fragment.append(selectControl('Menu width', 'Dropper-style Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
     fragment.append(group);
-    const data = section('Data', 'Imports validate ownership and schema before replacing settings.');
+    const data = ExtraPotionsCore.createDisclosure('Settings');
     data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-v3-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
@@ -5150,7 +5173,8 @@ EXP.UI = (() => {
       if (!confirm('Reset all SHIFT V3 configuration?')) return;
       const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
     }, 'Reset'));
-    fragment.append(data);
+    tools.prepend(renderMenuUpdates(), repairs, data);
+    fragment.append(tools);
     return fragment;
   }
 
@@ -5174,7 +5198,6 @@ EXP.UI = (() => {
       readability: renderReadability,
       effects: renderEffects,
       profiles: renderProfilesSites,
-      menu: renderMenuUpdates,
       system: renderRecoveryData,
     };
 

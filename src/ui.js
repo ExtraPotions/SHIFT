@@ -10,7 +10,7 @@ EXP.UI = (() => {
     skinVertical:'linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)'
   });
   const routes = [
-    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['menu', 'Menu & Updates'], ['system', 'System']
+    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['system', 'System']
   ];
   let host;
   let shadow;
@@ -84,7 +84,7 @@ EXP.UI = (() => {
   }
   function section(title) {
     const node = el('section', { class: 'group' });
-    node.append(el('h3', {}, title));
+    if (title) node.append(el('h3', {}, title));
     return node;
   }
   function row(label, help) {
@@ -171,6 +171,11 @@ EXP.UI = (() => {
     surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));
     surfaces.append(switchControl('Preserve artwork and charts', 'Never classify images, video, canvas, or SVG.', saved.preserveArt, (preserveArt) => commit({ preserveArt }, 'preserve-art', preserveArt ? 'Artwork preservation on.' : 'Artwork preservation off.')));
     surfaces.append(switchControl('Repair unreadable surfaces', 'Repair leftover neutral boxes after host CSS paints the page.', saved.repairSurfaces, (repairSurfaces) => commit({ repairSurfaces }, 'repair-surfaces', repairSurfaces ? 'Surface repair on.' : 'Surface repair off.')));
+    const motion = section('Motion', 'Motion preferences apply immediately when you change them.');
+    motion.append(selectControl('Reduce motion', 'Follow the system preference or override it.', saved.reduceMotion, [['off', 'Off'], ['system', 'Follow system'], ['on', 'On']], (reduceMotion) => commit({ reduceMotion }, 'reduce-motion', `Reduce motion set to ${reduceMotion}.`)));
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
+    motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
+    fragment.append(motion);
     fragment.append(surfaces, appearanceFooter());
     return fragment;
   }
@@ -185,11 +190,7 @@ EXP.UI = (() => {
     readability.append(selectControl('Focus visibility', 'Visible keyboard focus without mouse-only effects.', saved.focusVisibility, [['site', 'Site default'], ['enhanced', 'Enhanced'], ['high', 'High']], (focusVisibility) => commit({ focusVisibility }, 'focus-visibility', `Focus visibility set to ${focusVisibility}.`)));
     fragment.append(readability);
 
-    const motion = section('Motion', 'Motion preferences apply immediately when you change them.');
-    motion.append(selectControl('Reduce motion', 'Follow the system preference or override it.', saved.reduceMotion, [['off', 'Off'], ['system', 'Follow system'], ['on', 'On']], (reduceMotion) => commit({ reduceMotion }, 'reduce-motion', `Reduce motion set to ${reduceMotion}.`)));
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
-    motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
-    fragment.append(motion, appearanceFooter());
+    fragment.append(appearanceFooter());
     return fragment;
   }
 
@@ -272,6 +273,7 @@ EXP.UI = (() => {
       const file = item.querySelector('input[type="file"]'); if (file) group.append(file);
       actions.append(action); item.remove();
     }
+    if (state.exclusions.length) group.append(actionRow('Excluded sites', state.exclusions.join(', '), () => { const hostName = prompt('Hostname to remove from exclusions', state.exclusions[0]); if (!hostName) return; onSettings({ ...state, exclusions: state.exclusions.filter((item) => item !== hostName.trim()) }, 'exclusion-manager'); setMessage('Exclusions updated.'); }, 'Manage'));
     group.append(actions); fragment.append(group);
     return fragment;
   }
@@ -279,17 +281,15 @@ EXP.UI = (() => {
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
-    const chromeGroup = section('Menu chrome', 'Width, close behavior, and local feedback.');
-    chromeGroup.append(selectControl('Menu width', 'Dropper-style Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
-    chromeGroup.append(switchControl('Automatic menu close', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
+    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');
+    chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
     chromeGroup.append(switchControl('Menu notifications', 'Show brief local feedback messages for menu actions.', state.menuNotifications, (menuNotifications) => { onSettings({ ...state, menuNotifications }, 'menu-notifications'); if (!menuNotifications && toast) toast.hidden = true; else setMessage('Menu notifications enabled.'); }));
     fragment.append(chromeGroup);
 
-    const about = section('Updates', 'Release metadata only; SHIFT never installs automatically.');
-    about.append(switchControl('Quiet update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
+    const about = chromeGroup;
+    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
     if (state.updateNotifications) about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
-    if (state.exclusions.length) about.append(actionRow('Excluded sites', state.exclusions.join(', '), () => { const hostName = prompt('Hostname to remove from exclusions', state.exclusions[0]); if (!hostName) return; onSettings({ ...state, exclusions: state.exclusions.filter((item) => item !== hostName.trim()) }, 'exclusion-manager'); setMessage('Exclusions updated.'); }, 'Manage'));
-    fragment.append(about);
+
     return fragment;
   }
 
@@ -297,15 +297,18 @@ EXP.UI = (() => {
     const state = EXP.Settings.snapshot();
     const health = EXP.Engine.health();
     const fragment = document.createDocumentFragment();
-    const group = section('Diagnostics', 'Page, technical, console, and plugin details; captured locally.');
-    group.append(EXP.Inspector.createControls(()=>product?.open()));
-    group.append(ExtraPotionsCore.createCompatibilityControls(),ExtraPotionsCore.createRecoveryControls({list:EXP.Settings.backups,capture:EXP.Settings.backup,restore:id=>{const next=EXP.Settings.restoreBackup(id);saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();},notify:setMessage}));
+    const group = section();
+    const repairs = ExtraPotionsCore.createDisclosure('Maintenance');
+    const tools = ExtraPotionsCore.createSystemGrid();
+    repairs.append(EXP.Inspector.createControls(()=>product?.open()));
+    tools.append(ExtraPotionsCore.createCompatibilityControls());
     group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
-    group.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
-    group.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
+    repairs.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
+    repairs.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
     group.append(switchControl('Safe Mode', 'Suspend transformations and adapters while preserving configuration.', state.safeMode, (safeMode) => { onSettings({ ...state, safeMode }, 'safe-mode'); setMessage(safeMode ? 'Safe Mode active.' : 'Safe Mode disabled.'); }));
+    fragment.append(selectControl('Menu width', 'Dropper-style Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
     fragment.append(group);
-    const data = section('Data', 'Imports validate ownership and schema before replacing settings.');
+    const data = ExtraPotionsCore.createDisclosure('Settings');
     data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-v3-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
@@ -316,7 +319,8 @@ EXP.UI = (() => {
       if (!confirm('Reset all SHIFT V3 configuration?')) return;
       const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
     }, 'Reset'));
-    fragment.append(data);
+    tools.prepend(renderMenuUpdates(), repairs, data);
+    fragment.append(tools);
     return fragment;
   }
 
@@ -340,7 +344,6 @@ EXP.UI = (() => {
       readability: renderReadability,
       effects: renderEffects,
       profiles: renderProfilesSites,
-      menu: renderMenuUpdates,
       system: renderRecoveryData,
     };
 

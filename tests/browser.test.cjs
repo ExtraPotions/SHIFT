@@ -206,7 +206,7 @@ test('appearance live-commits on selection and survives SPA traversal', async (t
   assert.deepEqual(await appearance(), { theme: 'pride', page: '#100a12', saved: true });
 });
 
-test('first run is Original and menu is a six-row Dropper-style shell', async (t) => {
+test('first run is Original and menu is a five-row Dropper-style shell', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
 
@@ -251,9 +251,9 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   });
 
   assert.equal(facts.panelHidden, false);
-  assert.equal(facts.navCount, 6);
+  assert.equal(facts.navCount, 5);
   assert.equal(facts.checkboxCount, 0);
-  assert.equal(facts.switchCount, 5); // Section visibility switches live inside the collapsed System editor.
+  assert.equal(facts.switchCount, 4); // Section visibility switches live inside the collapsed System editor.
   assert.equal(facts.visibleBodies, 0);
   assert.equal(facts.width, 260);
   assert.equal(facts.noticeOutside, true);
@@ -268,7 +268,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
 
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
-  assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'Menu & Updates', 'System']);
+  assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'System']);
 
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
@@ -329,7 +329,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: 38 });
 });
 
-test('Appearance owns palette and surfaces; Readability owns text and motion', async (t) => {
+test('Appearance owns palette, surfaces and motion; Readability owns text', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
@@ -341,10 +341,10 @@ test('Appearance owns palette and surfaces; Readability owns text and motion', a
   const appearanceLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(appearanceLabels.includes('Theme Strength'));
   assert.ok(appearanceLabels.includes('Surface Intelligence'));
-  assert.equal(appearanceLabels.includes('Reduce motion'), false);
+  assert.equal(appearanceLabels.includes('Reduce motion'), true);
   await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="readability"]').click());
   const readabilityLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.ok(readabilityLabels.includes('Reduce motion'));
+  assert.equal(readabilityLabels.includes('Reduce motion'), false);
   assert.ok(readabilityLabels.includes('Text contrast'));
   assert.ok(readabilityLabels.includes('Focus visibility'));
   assert.equal(readabilityLabels.includes('Surface Intelligence'), false);
@@ -632,7 +632,7 @@ test('Appearance is flat and has no custom-theme editors', async (t) => {
   assert.equal(await root.getByLabel('Text contrast',{exact:true}).isVisible(),true);
 });
 
-test('Profiles & Sites and Menu & Updates hold site and chrome controls', async (t) => {
+test('Profiles & Sites and System hold site and chrome controls', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
@@ -640,16 +640,15 @@ test('Profiles & Sites and Menu & Updates hold site and chrome controls', async 
   const profileLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(profileLabels.includes('Enable SHIFT on this site'));
   assert.ok(profileLabels.includes('Current profile'));
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="menu"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
   const menuLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(menuLabels.includes('Menu width'));
-  assert.ok(menuLabels.includes('Quiet update notifications'));
-  assert.equal(menuLabels.includes('Safe Mode'), false);
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
+  assert.ok(menuLabels.includes('Update notifications'));
+  assert.equal(menuLabels.includes('Safe Mode'), true);
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(recoveryLabels.includes('Safe Mode'));
   assert.ok(recoveryLabels.includes('Export SHIFT settings'));
-  assert.equal(recoveryLabels.includes('Quiet update notifications'), false);
+  assert.equal(recoveryLabels.includes('Update notifications'), true);
 });
 
 test('update metadata remains offline by default and requests only after opt in', async (t) => {
@@ -657,8 +656,8 @@ test('update metadata remains offline by default and requests only after opt in'
   t.after(() => browser.close());
   assert.equal(await page.evaluate(() => window.__updateRequests), 0);
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'menu').click(); });
-  await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Quiet update notifications'); row.querySelector('[role="switch"]').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'system').click(); });
+  await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Update notifications'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => window.__updateRequests === 1);
   assert.equal(await page.evaluate(() => window.__updateRequests), 1);
 });
@@ -1223,7 +1222,7 @@ test('route headers do not carry restated helper tips', async (t) => {
   const tips = await root.evaluate((host) => {
     const shadow = host.shadowRoot;
     shadow.querySelector('.launcher').click();
-    shadow.querySelector('[data-section="menu"]')?.click();
+    shadow.querySelector('[data-section="system"]')?.click();
     return {
       headers: [...shadow.querySelectorAll('.fl-tool-header')].map((node) => ({
         tip: node.dataset.tip || '',

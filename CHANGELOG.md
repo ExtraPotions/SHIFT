@@ -1,3 +1,10 @@
+## 3.4.6 — 2026-09-26
+
+- Compacts System menus and keeps menu width controls together on one row.
+- Groups existing menu preferences consistently while preserving saved settings.
+- Removes automatic Settings Backup and its restore controls.
+- Adds a Bitcoin donation option with address copying and wallet support.
+
 ## 3.4.5 — 2026-09-26
 
 - Aligns automated release verification with the bundled exp-core 3.3.8.
