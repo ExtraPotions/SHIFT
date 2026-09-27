@@ -1,3 +1,9 @@
+## 3.4.8 — 2026-09-27
+
+- Lets every launcher move left, right, up, or down within the shared grid.
+- Persists launcher order and supports Alt+Arrow keyboard reordering.
+- Bundles exp-core 3.3.11.
+
 ## 3.4.7 — 2026-09-27
 
 - Adds “Why this appearance?” with the effective palette, setting sources, and the reason SHIFT is active or paused.
