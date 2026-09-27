@@ -10,6 +10,14 @@ Keep a site’s original appearance or choose a color palette, then adjust readi
 [![Code: PolyForm Noncommercial 1.0.0](docs/badges/code.svg)](LICENSE-CODE.md)
 [![Artwork and documentation: CC BY-NC-SA 4.0](docs/badges/assets.svg)](LICENSE-ASSETS.md)
 
+## Get started
+
+1. Install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/get-it/) or [Tampermonkey](https://www.tampermonkey.net/).
+2. [Install SHIFT](https://github.com/ExtraPotions/SHIFT/raw/refs/heads/main/shift.user.js) and confirm in your userscript manager.
+3. Refresh a page you want to use and open the product launcher.
+
+Open Appearance and choose Original or a palette. Adjust Readability to your preference, then use Profiles & Sites for individual websites.
+
 ## What you can do
 
 - **Original by default:** no color choice is required. Return to Original to remove the applied page theme.
@@ -24,18 +32,10 @@ Screenshots show the current product with sample content.
 
 <table>
   <tr>
-    <td width="50%" valign="top" align="center"><a href="docs/screenshots/appearance-demo.png"><img src="docs/screenshots/appearance-demo.png" width="440" alt="SHIFT: a chosen palette applied to sample page content"></a><br><strong>A chosen palette applied to sample page content</strong></td>
-    <td width="50%" valign="top" align="center"><a href="docs/screenshots/readability.png"><img src="docs/screenshots/readability.png" width="440" alt="SHIFT: text and reading controls"></a><br><strong>Text and reading controls</strong></td>
+    <td width="50%" valign="top" align="center"><a href="docs/screenshots/appearance-demo.png"><img src="docs/screenshots/appearance-demo.png" width="220" alt="SHIFT: a chosen palette applied to sample page content"></a><br><strong>A chosen palette applied to sample page content</strong></td>
+    <td width="50%" valign="top" align="center"><a href="docs/screenshots/readability.png"><img src="docs/screenshots/readability.png" width="220" alt="SHIFT: text and reading controls"></a><br><strong>Text and reading controls</strong></td>
   </tr>
 </table>
-
-## Get started
-
-1. Install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/get-it/) or [Tampermonkey](https://www.tampermonkey.net/).
-2. [Install SHIFT](https://github.com/ExtraPotions/SHIFT/raw/refs/heads/main/shift.user.js) and confirm in your userscript manager.
-3. Refresh a page you want to use and open the product launcher.
-
-Open Appearance and choose Original or a palette. Adjust Readability to your preference, then use Profiles & Sites for individual websites.
 
 ## Support
 
