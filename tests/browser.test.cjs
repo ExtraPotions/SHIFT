@@ -253,7 +253,7 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.panelHidden, false);
   assert.equal(facts.navCount, 6);
   assert.equal(facts.checkboxCount, 0);
-  assert.equal(facts.switchCount, 0);
+  assert.equal(facts.switchCount, 5); // Section visibility switches live inside the collapsed System editor.
   assert.equal(facts.visibleBodies, 0);
   assert.equal(facts.width, 260);
   assert.equal(facts.noticeOutside, true);
@@ -359,7 +359,8 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
   const palettes = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.exp-theme-swatch')].map((item) => item.getAttribute('aria-label')));
-  assert.deepEqual(palettes, ['Ember', 'Midnight', 'Glacier', 'High contrast', 'Verdant', 'Pride', 'Crimson', 'SHIFT gem']);
+  assert.deepEqual(palettes, ['Original', 'Ember', 'Midnight', 'Glacier', 'High contrast', 'Verdant', 'Pride', 'Crimson', 'SHIFT gem']);
+  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').getAttribute('aria-pressed')), 'true');
   assert.equal(await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('button')].some((item) => item.textContent === 'Apply' || item.textContent === 'Cancel')), false);
   await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click());
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page'));
@@ -377,6 +378,9 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
   assert.ok(await page.locator('[data-exp-shift-live]').count() > 0);
   assert.equal(await page.locator('img[data-exp-shift-live]').count(), 0);
+  await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').click());
+  await page.waitForFunction(()=>window.GM_getValue('exp:v3:shift:settings').theme==='original' && document.querySelectorAll('[data-exp-shift-live]').length===0);
+  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').getAttribute('aria-pressed')), 'true');
 });
 
 test('Pride and SHIFT gem palettes recolor the live page when constructable sheets are inert', async (t) => {

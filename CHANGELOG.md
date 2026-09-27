@@ -1,3 +1,9 @@
+## 3.4.4 — 2026-09-26
+
+- Adds an Original palette swatch, selected by default for fresh settings.
+- Bundles exp-core 3.3.8 with section arrangement and viewport-safe menus.
+- Refreshes the README and feature screenshots in a horizontal gallery.
+
 ## 3.4.3 — 2026-09-26
 
 - Adds a readability inspector and a reversible bypass for selected page elements.

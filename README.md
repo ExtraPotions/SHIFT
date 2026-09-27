@@ -1,83 +1,51 @@
-<p align="center">
-  <img src="assets/shift-launcher.svg" width="128" height="128" alt="SHIFT icon">
-</p>
+<p align="center"><img src="assets/shift-launcher.svg" width="128" height="128" alt="SHIFT icon"></p>
 
-<h1 align="center">SHIFT</h1>
+# SHIFT
 
-<p align="center"><strong>Semantic Page Themes and Readability</strong></p>
+**Site colors and readability, on your terms**
 
-<p align="center">
-  A reversible appearance companion for applying accessible dark themes, repairing page surfaces, and improving readability across the web.
-</p>
+Keep a site’s original appearance or choose a color palette, then adjust reading comfort for the pages you use.
 
-<p align="center">
-  <img alt="Violentmonkey Supported" src="https://img.shields.io/badge/Violentmonkey-Supported-7C3AED?style=flat-square">
-  <img alt="Tampermonkey Supported" src="https://img.shields.io/badge/Tampermonkey-Supported-00A67E?style=flat-square">
-  <img alt="Chrome Supported" src="https://img.shields.io/badge/Chrome-Supported-F9AB00?style=flat-square&logo=googlechrome&logoColor=000000">
-  <img alt="Firefox Supported" src="https://img.shields.io/badge/Firefox-Supported-FF7139?style=flat-square&logo=firefoxbrowser&logoColor=white">
-  <img alt="PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/Code-PolyForm%20NC%201.0.0-6B7280?style=flat-square">
-  <img alt="CC BY-NC-SA 4.0" src="https://img.shields.io/badge/Assets-CC%20BY--NC--SA%204.0-1769AA?style=flat-square">
-</p>
+[![Install SHIFT](docs/badges/install.svg)](https://github.com/ExtraPotions/SHIFT/raw/refs/heads/main/shift.user.js)
+[![Code: PolyForm Noncommercial 1.0.0](docs/badges/code.svg)](LICENSE-CODE.md)
+[![Artwork and documentation: CC BY-NC-SA 4.0](docs/badges/assets.svg)](LICENSE-ASSETS.md)
 
-SHIFT 3.4.3 is built on the Dropper 3.3.3 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
+## What you can do
 
-## Install
+- **Original by default:** no color choice is required. Return to Original to remove the applied page theme.
+- **Visual palettes:** choose colors for page surfaces, text, links, and controls while preserving media.
+- **Reading comfort:** adjust text, contrast, focus, and visual effects.
+- **Site preferences:** use profiles and site-specific choices instead of treating every page the same.
+- **Easy recovery:** pause changes or use recovery controls when a page needs its native appearance.
 
-<p>
-  <a href="https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js">
-    <img alt="Install SHIFT" src="https://img.shields.io/badge/Install-SHIFT-24476B?style=flat-square">
-  </a>
-  <img alt="Version 3.4.3" src="https://img.shields.io/badge/version-3.4.3-22C55E?style=flat-square">
-  <a href="https://github.com/ExtraPotions/SHIFT/releases">
-    <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/ExtraPotions/SHIFT/total?style=flat-square&label=Downloads">
-  </a>
-</p>
+## See it in action
 
-## 3.4.3
-
-Fixes page-covering launcher backdrops and keeps Amazon themed after startup. Includes exp-core 3.3.3, with the approved Dropper 3.3.2 UI baseline preserved.
-
-## What SHIFT Does
-
-- Applies accessible semantic themes to page backgrounds, surfaces, text, links, forms, and controls.
-- Preserves artwork and media while repairing bright or unreadable interface surfaces.
-- Provides readability, contrast, focus, motion, shadow, transparency, gradient, and blur controls.
-- Supports Original and Safe Mode paths that restore SHIFT's page changes.
-- Maintains site-specific profiles and responds to navigation and dynamic page updates.
-- Includes shared launcher placement, coordinated themes, update notices, and bounded, redacted diagnostics.
-
-## Screenshots
+Screenshots show the current product with sample content.
 
 <table>
-  <tr><th width="20%">Overview</th><th width="20%">Appearance</th><th width="20%">Effects</th><th width="20%">Readability</th><th width="20%">Recovery</th></tr>
-  <tr><td align="center"><img src="docs/screenshots/menu-overview.png" width="180" alt="SHIFT menu overview"></td><td align="center"><img src="docs/screenshots/appearance-menu.png" width="180" alt="SHIFT Appearance menu"></td><td align="center"><img src="docs/screenshots/effects-menu.png" width="180" alt="SHIFT Effects menu"></td><td align="center"><img src="docs/screenshots/readability-menu.png" width="180" alt="SHIFT Readability menu"></td><td align="center"><img src="docs/screenshots/recovery-menu.png" width="180" alt="SHIFT Recovery menu"></td></tr>
+  <tr>
+    <td width="50%" valign="top" align="center"><a href="docs/screenshots/appearance-demo.png"><img src="docs/screenshots/appearance-demo.png" width="440" alt="SHIFT: a chosen palette applied to sample page content"></a><br><strong>A chosen palette applied to sample page content</strong></td>
+    <td width="50%" valign="top" align="center"><a href="docs/screenshots/readability.png"><img src="docs/screenshots/readability.png" width="440" alt="SHIFT: text and reading controls"></a><br><strong>Text and reading controls</strong></td>
+  </tr>
 </table>
 
-## Diagnostics and product compatibility
+## Get started
 
-Use **Show Diagnostics** / **Hide Diagnostics**, then **Copy Diagnostics** when troubleshooting. Reports include **Page**, **Technical**, **Console**, and **Plugin** sections, identify active ExtraPotions products and visible conflicts on the current page, and are never uploaded automatically.
+1. Install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/get-it/) or [Tampermonkey](https://www.tampermonkey.net/).
+2. [Install SHIFT](https://github.com/ExtraPotions/SHIFT/raw/refs/heads/main/shift.user.js) and confirm in your userscript manager.
+3. Refresh a page you want to use and open the product launcher.
+
+Open Appearance and choose Original or a palette. Adjust Readability to your preference, then use Profiles & Sites for individual websites.
+
+## Support
+
+[Support development](https://ko-fi.com/expdare). Donations are optional. All features remain available without donating.
 
 ## License
 
 **Code:** [PolyForm Noncommercial License 1.0.0](LICENSE-CODE.md)<br>
 **Artwork and documentation:** [CC BY-NC-SA 4.0](LICENSE-ASSETS.md)
 
-See [NOTICE.md](NOTICE.md) for the split-license notice.
+## About
 
-## Disclaimer
-
-SHIFT is an independent project and is not affiliated with or endorsed by the websites it modifies.
-
-## Firefox compatibility update
-
-Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes. Bundles exp-core 3.3.5 with Firefox-safe settings copies and idle menu mutation fixes.
-
-## 3.4.3 update
-
-Bundles exp-core 3.3.7 with shared menu coordination and default donation controls. Preserves Firefox-safe settings and closes peer launcher menus without stealing focus.
-
-## Recovery and inspection tools
-
-Adds local settings backups and rollback, current-page product compatibility, and an Inspect readability tool in System. Select a page element to see computed colors, font and original SHIFT-owned inline values. Temporarily bypass its subtree, then resume without reloading. The bypass does not promise to undo colors inherited from ancestors or independent site changes.
-
-These features are included in version 3.4.3.
+SHIFT is an independent project and is not affiliated with or endorsed by the websites where it is used.

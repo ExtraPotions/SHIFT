@@ -121,6 +121,7 @@ EXP.UI = (() => {
   }
   function appearanceSwatches() {
     const presets = [
+      { id:'original', name:'Original', theme:'original', accent:'site-default', swatch:'linear-gradient(135deg,#f4f4f4 0 50%,#252525 50% 100%)' },
       { id:'ember', name:'Ember', theme:'ember', accent:'ember-default', swatch:'linear-gradient(135deg,#120807 0 38%,#c9512c 38% 69%,#b68a32 69% 100%)' },
       { id:'midnight', name:'Midnight', theme:'midnight', accent:'midnight-default', swatch:'linear-gradient(135deg,#050a12 0 38%,#3563a3 38% 69%,#348f8b 69% 100%)' },
       { id:'glacier', name:'Glacier', theme:'glacier', accent:'glacier-default', swatch:'linear-gradient(135deg,#061216 0 38%,#4a9eaa 38% 69%,#92b85b 69% 100%)' },

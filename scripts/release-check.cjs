@@ -51,7 +51,7 @@ for (const file of ['docs/preview-rc1.png', 'docs/shift-badge-32.png', 'docs/che
   if (fs.existsSync(path.join(root, file))) throw new Error(`Release blocked: remove legacy asset ${file}.`);
 }
 const screenshots = fs.readdirSync(path.join(root, 'docs', 'screenshots')).filter((name) => name.endsWith('.png'));
-if (screenshots.length !== 6) throw new Error(`Release blocked: docs/screenshots must contain exactly 6 PNG files (found ${screenshots.length}).`);
+if (screenshots.length !== 8) throw new Error(`Release blocked: docs/screenshots must contain exactly 8 PNG files (found ${screenshots.length}).`);
 if (!artifact.includes(`EXP.VERSION = '${pkg.version}'`)) throw new Error('Release blocked: built userscript EXP.VERSION does not match package.json.');
 for (const bullet of bullets) if (!artifact.includes(bullet)) throw new Error(`Release blocked: in-app release notes missing changelog bullet: ${bullet}`);
 console.log('Release check passed: build, tests, credentials, dynamic execution, network permissions, and control policy.');

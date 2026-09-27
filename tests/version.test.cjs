@@ -16,7 +16,7 @@ test('legacy release-note files and screenshots are removed', () => {
     assert.equal(fs.existsSync(path.join(root, file)), false, file);
   }
   const screenshots = fs.readdirSync(path.join(root, 'docs', 'screenshots')).filter((name) => name.endsWith('.png'));
-  assert.deepEqual(screenshots.sort(), ['appearance-menu.png', 'current-fixture.png', 'effects-menu.png', 'menu-overview.png', 'readability-menu.png', 'recovery-menu.png']);
+  assert.deepEqual(screenshots.sort(), ['appearance-demo.png', 'appearance-menu.png', 'current-fixture.png', 'effects-menu.png', 'menu-overview.png', 'readability-menu.png', 'readability.png', 'recovery-menu.png']);
 });
 
 test('CHANGELOG and in-app release notes use Dropper-style version headers and bullets', () => {
