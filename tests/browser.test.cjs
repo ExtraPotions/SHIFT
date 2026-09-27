@@ -618,12 +618,13 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#120807') && document.querySelectorAll('[data-exp-shift-live]').length > 0);
 });
 
-test('Appearance is flat and has no custom-theme editors', async (t) => {
+test('Appearance keeps controls flat with one optional explanation and no custom-theme editors', async (t) => {
   const { browser, page } = await fixture(); t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate(node => {const s=node.shadowRoot;s.querySelector('.launcher').click();s.querySelector('[data-section="appearance"]').click();});
   assert.equal(await root.locator('.appearance-group').count(),0);
-  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),0);
+  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),1);
+  assert.equal(await root.locator('[data-shift-appearance-explanation]').evaluate(n=>n.open),false);
   assert.equal(await root.getByText('Create custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByText('Import custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByLabel('Theme Strength',{exact:true}).isVisible(),true);
@@ -1426,6 +1427,9 @@ test('3.1 avoids inline rewriting on explicit native dark pages', async (t) => {
   assert.equal(facts.inlineRepair, false, JSON.stringify(facts));
   assert.notEqual(facts.cardBg, 'rgb(255, 255, 255)', JSON.stringify(facts));
   assert.equal(facts.host, 'shift');
+  await root.locator('[data-shift-appearance-explanation]>summary').click();
+  await root.locator('[data-shift-appearance-explanation] [role="status"]').waitFor();
+  assert.match(await root.locator('[data-shift-appearance-explanation]').textContent(), /site already has a dark appearance/);
 });
 
 test('3.1 still transforms dark-looking pages that do not declare a native dark scheme', async (t) => {

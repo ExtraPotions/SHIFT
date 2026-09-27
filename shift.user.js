@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.6
+// @version      3.4.7
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -1672,7 +1672,7 @@ const ExpMenuArrangement = (() => {
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.9';
+  const version = '3.3.10';
   const sourceVersion = '3.3.5';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
   const protocol = 'exp-core-coordination-v1';
@@ -1684,7 +1684,39 @@ const ExtraPotionsCore = (() => {
   const registrations = new WeakMap();
   const floatingNoticeRegistrations = new WeakMap();
   const controllers = new WeakMap();
-  const tokenNames = ['bg', 'panel', 'line', 'text', 'muted', 'accent', 'accent2'];
+  const baseTokenNames = ['bg', 'panel', 'line', 'text', 'muted', 'accent', 'accent2'];
+  const tokenNames = [...baseTokenNames, 'raised', 'inset', 'link', 'focus', 'onAccent'];
+  const hex = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#000000';
+  const rgb = value => [1, 3, 5].map(index => parseInt(hex(value).slice(index, index + 2), 16));
+  const blend = (from, to, amount) => '#' + rgb(from).map((part, index) => Math.round(part + (rgb(to)[index] - part) * amount).toString(16).padStart(2, '0')).join('');
+  const luminance = value => {
+    const parts = rgb(value).map(part => { const channel = part / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4; });
+    return .2126 * parts[0] + .7152 * parts[1] + .0722 * parts[2];
+  };
+  const contrast = (one, two) => { const [light, dark] = [luminance(one), luminance(two)].sort((a, b) => b - a); return (light + .05) / (dark + .05); };
+  function readable(candidate, background, fallback) {
+    if (contrast(candidate, background) >= 4.5) return candidate;
+    for (let amount = .15; amount <= 1; amount += .05) {
+      const lighter = blend(candidate, '#ffffff', amount);
+      if (contrast(lighter, background) >= 4.5) return lighter;
+      const darker = blend(candidate, '#000000', amount);
+      if (contrast(darker, background) >= 4.5) return darker;
+    }
+    return fallback;
+  }
+  function semanticTheme(theme = {}) {
+    const panel = hex(theme.panel);
+    const background = hex(theme.bg);
+    const onAccent = [hex(theme.text), background, '#ffffff', '#000000'].sort((a, b) => contrast(b, theme.accent) - contrast(a, theme.accent))[0];
+    return {
+      ...theme,
+      raised: hex(theme.raised) !== '#000000' || theme.raised === '#000000' ? theme.raised : blend(panel, theme.text, .08),
+      inset: hex(theme.inset) !== '#000000' || theme.inset === '#000000' ? theme.inset : blend(background, '#000000', .18),
+      link: theme.link && contrast(theme.link, panel) >= 4.5 ? theme.link : readable(theme.accent2, panel, theme.text),
+      focus: theme.focus && contrast(theme.focus, panel) >= 3 ? theme.focus : readable(theme.accent2, panel, theme.text),
+      onAccent: theme.onAccent && contrast(theme.onAccent, theme.accent) >= 4.5 ? theme.onAccent : onAccent,
+    };
+  }
   // Callers own foreground, accessibility fallbacks, and removing these inline properties.
   // Settings use the persisted JSON schema. Parse in the caller's userscript realm
   // instead of returning a native structuredClone page-realm Xray wrapper.
@@ -1743,16 +1775,17 @@ const ExtraPotionsCore = (() => {
     .header-icon{width:38px!important;height:38px!important}
     .header-icon .menu-icon{width:38px!important;height:38px!important}
     :host([data-exp-theme-deprioritized="1"]) .theme-row:has(.exp-theme-swatches),:host([data-exp-theme-deprioritized="1"]) #mb-theme-dots{display:none!important}
-    :host([data-exp-theme-deprioritized="1"]) #mb-cluster{--mb-bg:var(--theme-bg)!important;--mb-surface:var(--theme-panel)!important;--mb-chip:var(--theme-panel)!important;--mb-ink:var(--theme-text)!important;--mb-muted:var(--theme-muted)!important;--mb-line:var(--theme-line)!important;--mb-brand:var(--theme-accent)!important;--mb-brand-ink:var(--theme-bg)!important;--mb-hover:var(--theme-panel)!important;--mb-track:var(--theme-line)!important}
+    :host([data-exp-theme-deprioritized="1"]) #mb-cluster{--mb-bg:var(--theme-bg)!important;--mb-surface:var(--theme-panel)!important;--mb-chip:var(--theme-raised)!important;--mb-ink:var(--theme-text)!important;--mb-muted:var(--theme-muted)!important;--mb-line:var(--theme-line)!important;--mb-brand:var(--theme-accent)!important;--mb-brand-ink:var(--theme-onAccent)!important;--mb-hover:var(--theme-raised)!important;--mb-track:var(--theme-line)!important}
     [hidden]{display:none!important}
     .exp-core-theme{position:static;display:contents;color:var(--theme-text);font:13px/1.42 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
     [data-exp-part="dock"],[data-exp-part="launcher"]{position:fixed}
     [data-exp-part="dock"]{color:var(--theme-text);scrollbar-width:thin}
     [data-exp-part="dock"] [data-exp-part="title"]{color:var(--theme-text)}
+    .exp-core-theme a{color:var(--theme-link)}
     button,input,select,textarea{font-family:inherit}
     button{color:inherit}
     button:disabled{opacity:.5;cursor:not-allowed}
-    button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--theme-accent2);outline-offset:2px}
+    button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--theme-focus);outline-offset:2px}
     button.fl-tool-header{width:100%;border:0;background:transparent;color:var(--theme-text);text-align:left;font:inherit}
     .fl-tool-header .fl-tool-chevron{font:11px/1.42 system-ui}
     .fl-tool-body[hidden]{display:none!important}
@@ -1774,7 +1807,7 @@ const ExtraPotionsCore = (() => {
     .button-grid,.actions,.profile-actions,.menu-footer,.diagnostics-controls>div,.rules-transfer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0}
     .button-grid>*{min-width:0}
     .life-btn.warn{border-color:#cb6868!important;background:#402020!important;color:#ffd7d7!important}
-    input:not([type=file]),textarea{box-sizing:border-box;max-width:100%;min-width:0;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-bg);color:var(--theme-text);padding:5px 6px;font-size:11px}
+    input:not([type=file]),textarea{box-sizing:border-box;max-width:100%;min-width:0;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-inset);color:var(--theme-text);padding:5px 6px;font-size:11px}
     input[type=search],textarea{width:100%}
     .identity{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--theme-line)}
     .identity>.copy{flex:1;min-width:0}
@@ -1782,7 +1815,7 @@ const ExtraPotionsCore = (() => {
     .identity-actions>.life-btn{width:auto;margin:0;padding:3px 6px}
     .theme-row{flex-wrap:wrap}
     .exp-theme-swatches{min-width:0}
-    .appearance-group,.auth-advanced,.rule-card,.stat-card{grid-column:1/-1;min-width:0;border:1px solid var(--theme-line);border-radius:7px;margin-top:6px;padding:6px;background:var(--theme-bg)}
+    .appearance-group,.auth-advanced,.rule-card,.stat-card{grid-column:1/-1;min-width:0;border:1px solid var(--theme-line);border-radius:7px;margin-top:6px;padding:6px;background:var(--theme-inset)}
     summary{cursor:pointer;font-size:11px}
     .feature-pair,.category-grid{display:block}
     .status-value,output{font-size:10px;color:var(--theme-muted)}
@@ -1795,7 +1828,7 @@ const ExtraPotionsCore = (() => {
     .ward-shell{display:contents}
     .utility-grid,.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
     .workspace-actions{grid-column:1/-1}
-    .setting-arrow,.step-btn{width:25px;min-height:25px;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-bg);color:var(--theme-text)}
+    .setting-arrow,.step-btn{width:25px;min-height:25px;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-raised);color:var(--theme-text)}
     .step-value{flex:1;text-align:center;font-size:10px}
     .stepper{display:flex;align-items:center;gap:5px}
   `;
@@ -1819,13 +1852,13 @@ const ExtraPotionsCore = (() => {
     if (host?.dataset.productId === 'dropper') {
       const selected = host.shadowRoot?.querySelector('#tdh-cluster')?.dataset.uiTheme;
       const theme = DropperReference.UI_THEMES.find(item => item.id === selected);
-      if (theme) return theme;
+      if (theme) return semanticTheme(theme);
     }
     try {
       const value = JSON.parse(host.dataset.expMenuPalette || 'null');
-      if (!value || !['bg','panel','line','text','muted','accent','accent2'].every(key => /^#[0-9a-f]{3,8}$/i.test(value[key]))) return null;
+      if (!value || !baseTokenNames.every(key => /^#[0-9a-f]{3,8}$/i.test(value[key]))) return null;
       if (value.skin && (/url\(|var\(|;|\/\*/i.test(value.skin) || value.skin.length > 300)) return null;
-      return value;
+      return semanticTheme(value);
     } catch { return null; }
   }
   function publishMenuPalette(host, theme) {
@@ -1989,7 +2022,7 @@ const ExtraPotionsCore = (() => {
   }
   function themes(productTheme) {
     const common = DropperReference.UI_THEMES.filter(t => !['twitch', 'dropper'].includes(t.id));
-    return Object.freeze([...common, DropperReference.CRIMSON_THEME, ...(productTheme ? [productTheme] : [DropperReference.UI_THEMES.at(-1)])].map(t => Object.freeze({ ...t, vars: Object.fromEntries(tokenNames.map(k => [k, t[k]])) })));
+    return Object.freeze([...common, DropperReference.CRIMSON_THEME, ...(productTheme ? [productTheme] : [DropperReference.UI_THEMES.at(-1)])].map(t => { const theme = semanticTheme(t); return Object.freeze({ ...theme, vars: Object.fromEntries(tokenNames.map(k => [k, theme[k]])) }); }));
   }
   function createThemeSwatches({ container, themes: choices, value, onChange = () => {} }) {
     const root = resolveShadowRoot(container);
@@ -2274,7 +2307,7 @@ const ExtraPotionsCore = (() => {
       paintTheme(deprioritized && menuPalette(owner) || localTheme);
     }
     function setTheme(value, supplied) {
-      if (supplied) choices = supplied.map(t => ({ ...t, ...t.vars, skin:t.skin || t.swatch, skinVertical:t.skinVertical || t.skin || t.swatch }));
+      if (supplied) choices = supplied.map(t => semanticTheme({ ...t, ...t.vars, skin:t.skin || t.swatch, skinVertical:t.skinVertical || t.skin || t.swatch }));
       const alias = ({warm:'ember',discord:'glacier',pine:'verdant',obsidian:'contrast'})[value] || value;
       localTheme = choices.find(t => t.id === alias) || choices.at(-1);
       publishMenuPalette(host, localTheme);
@@ -2774,19 +2807,25 @@ EXP.Settings = (() => {
       return haystack === needle || haystack.endsWith(`.${needle}`);
     });
   }
-  function effective(hostname = location.hostname) {
+  function explain(hostname = location.hostname) {
     const current = snapshot();
     const site = current.siteOverrides[hostname] || {};
     const profile = current.profiles.find((item) => item.id === (site.profileId || current.currentProfile)) || current.profiles[0];
     const profileAppearance = site.profileId || current.currentProfile !== 'original' ? profile.appearance : {};
-    return { ...current, ...profileAppearance, ...site, excluded: hostExcluded(hostname, current.exclusions) };
+    const settings = { ...current, ...profileAppearance, ...site, excluded: hostExcluded(hostname, current.exclusions) };
+    const sources = Object.fromEntries(Object.keys(defaults).map((key) => [key,
+      Object.hasOwn(site, key) ? { kind: 'site', label: `Site override (${hostname})` }
+      : Object.hasOwn(profileAppearance, key) ? { kind: 'profile', label: `Profile: ${profile.name}` }
+      : { kind: 'global', label: 'Global settings' }]));
+    return { settings, sources, profile: profile.name, hostname };
   }
+  function effective(hostname = location.hostname) { return explain(hostname).settings; }
   function exportData() { return { product: 'shift', generation: 3, schema: SCHEMA, settings: snapshot() }; }
   function importData(payload) {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, importData });
 })();
 
 EXP.Themes = (() => {
@@ -4389,7 +4428,8 @@ EXP.Engine = (() => {
     return{...metrics,scanned:live.scanned||0,batches:live.passes||0,lastDurationMs:live.lastDurationMs||0,owned:live.ownedRepairs||0,classified:live.brightSurfaces||0,shells:0,shadows:EXP.DynamicEngine?.health?.().shadowRoots||0,colorRepairs:live.resolved||0,stylesheetInvalidation:{owner:'DynamicEngine',safetyPollMs:0},dynamicEngine:EXP.DynamicEngine?.health?.()||null,liveResolver:live,colorEngine:EXP.ColorEngine.health(),leftoverPaint:{hostAttribute:hostLocked,styleSheets:leftoverStyles,ownedSurfaces:live.ownedRepairs||0,active:Boolean(lastCss)||hostLocked||leftoverStyles>0||(live.ownedRepairs||0)>0}};
   }
   function addProcessor(processor){return EXP.LiveResolver.addProcessor(processor);}
-  return Object.freeze({start,stop,apply,holdOriginal,health,scan:()=>EXP.LiveResolver.scan(),fullScan:()=>EXP.LiveResolver.fullScan(),addProcessor});
+  function appearanceStatus(){return {active,originalHeld,forcedColors:forcedColors(),nativeDark:active&&!originalHeld&&Boolean(metrics.nativeDark)};}
+  return Object.freeze({start,stop,apply,holdOriginal,health,appearanceStatus,scan:()=>EXP.LiveResolver.scan(),fullScan:()=>EXP.LiveResolver.fullScan(),addProcessor});
 })();
 
 EXP.Adapters = (() => {
@@ -4463,10 +4503,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.6';
+EXP.VERSION = '3.4.7';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.7': ['Adds “Why this appearance?” with the effective palette, setting sources, and the reason SHIFT is active or paused.','Lets each explanation jump directly to its global, profile, or site control.','Bundles exp-core 3.3.10 with layered menu surfaces and accessible semantic colors.'],
     '3.4.6': ["Compacts System menus and keeps menu width controls together on one row.","Groups existing menu preferences consistently while preserving saved settings.","Removes automatic Settings Backup and its restore controls.","Adds a Bitcoin donation option with address copying and wallet support."],
     '3.4.5': ['Aligns automated release verification with the bundled exp-core 3.3.8.','Preserves the Original swatch, menu controls, and refreshed feature guide.'],
     '3.4.4': ["Adds an Original palette swatch, selected by default for fresh settings.","Bundles exp-core 3.3.8 with section arrangement and viewport-safe menus.","Refreshes the README and feature screenshots in a horizontal gallery."],
@@ -5014,12 +5055,56 @@ EXP.UI = (() => {
     return footer;
   }
 
+  function appearanceExplanation() {
+    const card = el('details', { class: 'exp-tools-card', 'data-shift-appearance-explanation': 'true' });
+    card.style.cssText = 'border:1px solid var(--theme-line);border-radius:7px;padding:8px;font-size:12px;line-height:1.5;overflow-wrap:anywhere';
+    card.append(el('summary', {}, 'Why this appearance?'));
+    const content = el('div');card.append(content);
+    function refresh() {
+      const { settings, sources } = EXP.Settings.explain();
+      const status = EXP.Engine.appearanceStatus();
+      const palette = EXP.Themes.resolve(settings.theme, settings.accent, settings);
+      const reason = settings.excluded ? 'SHIFT is excluded on this site. Page appearance changes are paused.'
+        : settings.safeMode ? 'Safe Mode is on. Page appearance changes are paused.'
+        : status.forcedColors ? 'Your browser’s forced colors mode is active. SHIFT leaves page colors alone.'
+        : status.originalHeld ? 'The temporary Original preview is active.'
+        : palette.original ? 'Original is selected. SHIFT leaves page colors unchanged.'
+        : !status.active ? 'The appearance engine is not active yet.'
+        : status.nativeDark ? 'The site already has a dark appearance. SHIFT preserves its main surfaces and applies limited readability adjustments.'
+        : 'SHIFT is applying the selected palette and appearance controls.';
+      content.replaceChildren(el('p', { role: 'status' }, reason));
+      content.append(el('p', {}, 'Priority: site override, then profile, then global settings. These are the effective values for this page.'));
+      const fields = [['theme','Palette','appearance'],['accent','Accent','appearance'],['themeStrength','Theme strength','appearance'],['surfaceLevel','Surface intelligence','appearance'],['repairSurfaces','Surface repair','appearance'],['preserveArt','Artwork preservation','appearance'],['reduceMotion','Reduced motion','appearance'],['linkVisibility','Link visibility','readability'],['textContrast','Text contrast','readability'],['mutedRecovery','Muted text recovery','readability'],['formReadability','Form readability','readability'],['focusVisibility','Focus visibility','readability'],['reduceShadows','Reduced shadows','effects'],['reduceTransparency','Reduced transparency','effects'],['simplifyGradients','Simplified gradients','effects'],['reduceBlur','Reduced blur','effects']];
+      const more = el('details');more.append(el('summary', {}, 'More appearance settings'));
+      for (const [key,label,route] of fields) {
+        const value = key === 'theme' ? (palette.name || settings.theme) : key === 'accent' ? (EXP.Themes.accentOptions(settings).find(([id])=>id===settings.accent)?.[1] || settings.accent) : typeof settings[key] === 'boolean' ? (settings[key] ? 'On' : 'Off') : String(settings[key]).replace(/^./, letter=>letter.toUpperCase());
+        const line = el('p', { 'data-setting-source': key }, `${label}: ${value} — ${sources[key].label}`);
+        line.append(button('View source', () => {
+          const destination = sources[key].kind === 'global' ? route : 'profiles';
+          const header = shadow.querySelector(`[data-section="${destination}"]`);
+          const body = header?.parentElement.querySelector('.route-body');
+          if (header?.parentElement) header.parentElement.hidden = false;
+          if (header?.getAttribute('aria-expanded') !== 'true') header?.click();
+          const scope = body || header?.parentElement;
+          const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
+          const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
+          const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
+          (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
+        }, 'secondary'));
+        (['theme','accent'].includes(key) ? content : more).append(line);
+      }
+      content.append(more, button('Refresh explanation', refresh, 'secondary'));
+    }
+    card.addEventListener('toggle', () => { if (card.open) refresh(); });
+    return card;
+  }
+
   function renderAppearance() {
     const fragment = document.createDocumentFragment();
     const themes = section('Palette', 'Choose a semantic palette. Original leaves the page unchanged.');
     themes.append(appearanceSwatches());
     themes.append(selectControl('Theme Strength', 'Soft narrows depth differences; Strong increases raised-surface depth.', saved.themeStrength, [['soft', 'Soft'], ['normal', 'Normal'], ['strong', 'Strong']], (themeStrength) => commit({ themeStrength }, 'theme-strength', `Theme strength set to ${themeStrength}.`)));
-    fragment.append(themes);
+    fragment.append(themes, appearanceExplanation());
 
     const surfaces = section('Surfaces', 'Host CSS themes the page and app shells first. Classification then repairs leftover gray boxes.');
     surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));

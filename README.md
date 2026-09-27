@@ -24,6 +24,7 @@ Open Appearance and choose Original or a palette. Adjust Readability to your pre
 - **Visual palettes:** choose colors for page surfaces, text, links, and controls while preserving media.
 - **Reading comfort:** adjust text, contrast, focus, and visual effects.
 - **Site preferences:** use profiles and site-specific choices instead of treating every page the same.
+- **Understand the result:** open “Why this appearance?” to see which settings control the current page and jump to their source.
 - **Easy recovery:** pause changes or use recovery controls when a page needs its native appearance.
 
 ## See it in action

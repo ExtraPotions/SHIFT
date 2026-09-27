@@ -119,17 +119,23 @@ EXP.Settings = (() => {
       return haystack === needle || haystack.endsWith(`.${needle}`);
     });
   }
-  function effective(hostname = location.hostname) {
+  function explain(hostname = location.hostname) {
     const current = snapshot();
     const site = current.siteOverrides[hostname] || {};
     const profile = current.profiles.find((item) => item.id === (site.profileId || current.currentProfile)) || current.profiles[0];
     const profileAppearance = site.profileId || current.currentProfile !== 'original' ? profile.appearance : {};
-    return { ...current, ...profileAppearance, ...site, excluded: hostExcluded(hostname, current.exclusions) };
+    const settings = { ...current, ...profileAppearance, ...site, excluded: hostExcluded(hostname, current.exclusions) };
+    const sources = Object.fromEntries(Object.keys(defaults).map((key) => [key,
+      Object.hasOwn(site, key) ? { kind: 'site', label: `Site override (${hostname})` }
+      : Object.hasOwn(profileAppearance, key) ? { kind: 'profile', label: `Profile: ${profile.name}` }
+      : { kind: 'global', label: 'Global settings' }]));
+    return { settings, sources, profile: profile.name, hostname };
   }
+  function effective(hostname = location.hostname) { return explain(hostname).settings; }
   function exportData() { return { product: 'shift', generation: 3, schema: SCHEMA, settings: snapshot() }; }
   function importData(payload) {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, importData });
 })();

@@ -1,3 +1,9 @@
+## 3.4.7 — 2026-09-27
+
+- Adds “Why this appearance?” with the effective palette, setting sources, and the reason SHIFT is active or paused.
+- Lets each explanation jump directly to its global, profile, or site control.
+- Bundles exp-core 3.3.10 with layered menu surfaces and accessible semantic colors.
+
 ## 3.4.6 — 2026-09-26
 
 - Compacts System menus and keeps menu width controls together on one row.

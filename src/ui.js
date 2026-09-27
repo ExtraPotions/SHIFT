@@ -160,12 +160,56 @@ EXP.UI = (() => {
     return footer;
   }
 
+  function appearanceExplanation() {
+    const card = el('details', { class: 'exp-tools-card', 'data-shift-appearance-explanation': 'true' });
+    card.style.cssText = 'border:1px solid var(--theme-line);border-radius:7px;padding:8px;font-size:12px;line-height:1.5;overflow-wrap:anywhere';
+    card.append(el('summary', {}, 'Why this appearance?'));
+    const content = el('div');card.append(content);
+    function refresh() {
+      const { settings, sources } = EXP.Settings.explain();
+      const status = EXP.Engine.appearanceStatus();
+      const palette = EXP.Themes.resolve(settings.theme, settings.accent, settings);
+      const reason = settings.excluded ? 'SHIFT is excluded on this site. Page appearance changes are paused.'
+        : settings.safeMode ? 'Safe Mode is on. Page appearance changes are paused.'
+        : status.forcedColors ? 'Your browser’s forced colors mode is active. SHIFT leaves page colors alone.'
+        : status.originalHeld ? 'The temporary Original preview is active.'
+        : palette.original ? 'Original is selected. SHIFT leaves page colors unchanged.'
+        : !status.active ? 'The appearance engine is not active yet.'
+        : status.nativeDark ? 'The site already has a dark appearance. SHIFT preserves its main surfaces and applies limited readability adjustments.'
+        : 'SHIFT is applying the selected palette and appearance controls.';
+      content.replaceChildren(el('p', { role: 'status' }, reason));
+      content.append(el('p', {}, 'Priority: site override, then profile, then global settings. These are the effective values for this page.'));
+      const fields = [['theme','Palette','appearance'],['accent','Accent','appearance'],['themeStrength','Theme strength','appearance'],['surfaceLevel','Surface intelligence','appearance'],['repairSurfaces','Surface repair','appearance'],['preserveArt','Artwork preservation','appearance'],['reduceMotion','Reduced motion','appearance'],['linkVisibility','Link visibility','readability'],['textContrast','Text contrast','readability'],['mutedRecovery','Muted text recovery','readability'],['formReadability','Form readability','readability'],['focusVisibility','Focus visibility','readability'],['reduceShadows','Reduced shadows','effects'],['reduceTransparency','Reduced transparency','effects'],['simplifyGradients','Simplified gradients','effects'],['reduceBlur','Reduced blur','effects']];
+      const more = el('details');more.append(el('summary', {}, 'More appearance settings'));
+      for (const [key,label,route] of fields) {
+        const value = key === 'theme' ? (palette.name || settings.theme) : key === 'accent' ? (EXP.Themes.accentOptions(settings).find(([id])=>id===settings.accent)?.[1] || settings.accent) : typeof settings[key] === 'boolean' ? (settings[key] ? 'On' : 'Off') : String(settings[key]).replace(/^./, letter=>letter.toUpperCase());
+        const line = el('p', { 'data-setting-source': key }, `${label}: ${value} — ${sources[key].label}`);
+        line.append(button('View source', () => {
+          const destination = sources[key].kind === 'global' ? route : 'profiles';
+          const header = shadow.querySelector(`[data-section="${destination}"]`);
+          const body = header?.parentElement.querySelector('.route-body');
+          if (header?.parentElement) header.parentElement.hidden = false;
+          if (header?.getAttribute('aria-expanded') !== 'true') header?.click();
+          const scope = body || header?.parentElement;
+          const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
+          const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
+          const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
+          (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
+        }, 'secondary'));
+        (['theme','accent'].includes(key) ? content : more).append(line);
+      }
+      content.append(more, button('Refresh explanation', refresh, 'secondary'));
+    }
+    card.addEventListener('toggle', () => { if (card.open) refresh(); });
+    return card;
+  }
+
   function renderAppearance() {
     const fragment = document.createDocumentFragment();
     const themes = section('Palette', 'Choose a semantic palette. Original leaves the page unchanged.');
     themes.append(appearanceSwatches());
     themes.append(selectControl('Theme Strength', 'Soft narrows depth differences; Strong increases raised-surface depth.', saved.themeStrength, [['soft', 'Soft'], ['normal', 'Normal'], ['strong', 'Strong']], (themeStrength) => commit({ themeStrength }, 'theme-strength', `Theme strength set to ${themeStrength}.`)));
-    fragment.append(themes);
+    fragment.append(themes, appearanceExplanation());
 
     const surfaces = section('Surfaces', 'Host CSS themes the page and app shells first. Classification then repairs leftover gray boxes.');
     surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));

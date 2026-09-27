@@ -268,5 +268,6 @@ EXP.Engine = (() => {
     return{...metrics,scanned:live.scanned||0,batches:live.passes||0,lastDurationMs:live.lastDurationMs||0,owned:live.ownedRepairs||0,classified:live.brightSurfaces||0,shells:0,shadows:EXP.DynamicEngine?.health?.().shadowRoots||0,colorRepairs:live.resolved||0,stylesheetInvalidation:{owner:'DynamicEngine',safetyPollMs:0},dynamicEngine:EXP.DynamicEngine?.health?.()||null,liveResolver:live,colorEngine:EXP.ColorEngine.health(),leftoverPaint:{hostAttribute:hostLocked,styleSheets:leftoverStyles,ownedSurfaces:live.ownedRepairs||0,active:Boolean(lastCss)||hostLocked||leftoverStyles>0||(live.ownedRepairs||0)>0}};
   }
   function addProcessor(processor){return EXP.LiveResolver.addProcessor(processor);}
-  return Object.freeze({start,stop,apply,holdOriginal,health,scan:()=>EXP.LiveResolver.scan(),fullScan:()=>EXP.LiveResolver.fullScan(),addProcessor});
+  function appearanceStatus(){return {active,originalHeld,forcedColors:forcedColors(),nativeDark:active&&!originalHeld&&Boolean(metrics.nativeDark)};}
+  return Object.freeze({start,stop,apply,holdOriginal,health,appearanceStatus,scan:()=>EXP.LiveResolver.scan(),fullScan:()=>EXP.LiveResolver.fullScan(),addProcessor});
 })();
