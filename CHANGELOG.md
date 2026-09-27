@@ -1,3 +1,8 @@
+## 3.4.2 — 2026-09-26
+
+- Bundles exp-core 3.3.6 with shared menu coordination and default donation controls.
+- Preserves Firefox-safe settings and closes peer launcher menus without stealing focus.
+
 ## 3.4.1 — 2026-09-26
 
 - Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes.

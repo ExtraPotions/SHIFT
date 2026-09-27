@@ -19,7 +19,7 @@
   <img alt="CC BY-NC-SA 4.0" src="https://img.shields.io/badge/Assets-CC%20BY--NC--SA%204.0-1769AA?style=flat-square">
 </p>
 
-SHIFT 3.4.1 is built on the Dropper 3.3.3 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
+SHIFT 3.4.2 is built on the Dropper 3.3.3 application baseline. Shared launcher, menu, update, diagnostics, theme-chrome, and coordination behavior comes from the bundled `exp-core`; SHIFT keeps only its dark-mode engine, settings, adapters, and site-specific behavior.
 
 ## Install
 
@@ -27,13 +27,13 @@ SHIFT 3.4.1 is built on the Dropper 3.3.3 application baseline. Shared launcher,
   <a href="https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js">
     <img alt="Install SHIFT" src="https://img.shields.io/badge/Install-SHIFT-24476B?style=flat-square">
   </a>
-  <img alt="Version 3.4.1" src="https://img.shields.io/badge/version-3.4.1-22C55E?style=flat-square">
+  <img alt="Version 3.4.2" src="https://img.shields.io/badge/version-3.4.2-22C55E?style=flat-square">
   <a href="https://github.com/ExtraPotions/SHIFT/releases">
     <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/ExtraPotions/SHIFT/total?style=flat-square&label=Downloads">
   </a>
 </p>
 
-## 3.4.1
+## 3.4.2
 
 Fixes page-covering launcher backdrops and keeps Amazon themed after startup. Includes exp-core 3.3.3, with the approved Dropper 3.3.2 UI baseline preserved.
 
@@ -71,3 +71,7 @@ SHIFT is an independent project and is not affiliated with or endorsed by the we
 ## Firefox compatibility update
 
 Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes. Bundles exp-core 3.3.5 with Firefox-safe settings copies and idle menu mutation fixes.
+
+## 3.4.2 update
+
+Bundles exp-core 3.3.6 with shared menu coordination and default donation controls. Preserves Firefox-safe settings and closes peer launcher menus without stealing focus.
