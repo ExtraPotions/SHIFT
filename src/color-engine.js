@@ -257,6 +257,14 @@ EXP.ColorEngine = (() => {
     else element.removeAttribute(INLINE_VARS_ATTR);
   }
 
+  function inspectOwned(element) { return [...(inlineLedger.get(element)||[])].map(([property,[value,priority]])=>({property,original:value||'(inherited or stylesheet)',priority,current:element.style.getPropertyValue(property)})); }
+  function restoreOwned(root) {
+    for(const [element,properties] of [...inlineLedger]){
+      if(element!==root&&!root.contains(element))continue;
+      for(const [property,[value,priority]] of properties){if(value)element.style.setProperty(property,value,priority);else element.style.removeProperty(property);}
+      element.removeAttribute(INLINE_ATTR);element.removeAttribute(INLINE_VARS_ATTR);inlineLedger.delete(element);inlineStyleLedger.delete(element);
+    }
+  }
   function clear(root = document) {
     for (const [element, saved] of [...inlineLedger]) {
       if (root !== document && root !== element && !root.contains?.(element)) continue;
@@ -281,7 +289,7 @@ EXP.ColorEngine = (() => {
 
   return Object.freeze({
     parse, luminance, saturation, contrastRatio, ensureContrast, transform, background, foreground, border,
-    inspectInline, clear, health,
+    inspectInline, inspectOwned, restoreOwned, clear, health,
     INLINE_ATTR, INLINE_VARS_ATTR,
   });
 })();

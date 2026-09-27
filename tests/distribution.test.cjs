@@ -116,7 +116,7 @@ test('SHIFT settings survive manager storage gaps and mirror to fallback storage
   assert.match(settings, /if \(typeof GM_setValue === 'function'\) GM_setValue\(storageKey, parsed\);/u);
   assert.match(settings, /if \(typeof GM_setValue === 'function'\) GM_setValue\(storageKey, value\);/u);
   assert.match(settings, /localStorage\.setItem\(storageKey, JSON\.stringify\(value\)\);/u);
-  assert.match(settings, /function load\(\) \{\s*const stored = rawRead\('settings'\);\s*state = validate\(stored \|\| defaults\);\s*rawWrite\('settings', state\);/u);
+  assert.match(settings, /function load\(\) \{\s*const stored = rawRead\('settings'\);[\s\S]*?state = validate\(stored \|\| defaults\);\s*rawWrite\('settings', state\);/u);
   assert.doesNotMatch(settings, /GM_setValue\(key\(name\), value\); return;/u);
 });
 

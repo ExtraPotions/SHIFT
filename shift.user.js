@@ -1523,6 +1523,41 @@ function createProductLifecycle(shared) {
   });
 }
 
+// Shared, local-only recovery and compatibility controls.
+const ExtraPotionsTools = (() => {
+  const clone = value => JSON.parse(JSON.stringify(value));
+  function createSettingsRecovery({read,write,validate,limit=5}) {
+    function list() { try { const values=read(); return Array.isArray(values)?values.filter(v=>v&&typeof v.id==='string'&&v.settings&&typeof v.settings==='object').slice(0,limit).map(clone):[]; } catch {return [];} }
+    function capture(settings,reason='change') {
+      const clean=validate(clone(settings)); const entries=list();
+      if(entries[0]&&JSON.stringify(entries[0].settings)===JSON.stringify(clean))return entries[0].id;
+      const entry={id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,at:Date.now(),reason:String(reason).slice(0,80),settings:clean};
+      write([entry,...entries].slice(0,limit));return entry.id;
+    }
+    function restore(id){const entry=list().find(v=>v.id===id);if(!entry)throw Error('This backup is no longer available.');return validate(clone(entry.settings));}
+    return Object.freeze({list,capture,restore});
+  }
+  function compatibilitySnapshot(){
+    const rows=[];const warnings=[];const versions=new Set();
+    for(const id of ['dropper','shift','prisma','ward']){
+      const markers=[...document.querySelectorAll('[data-exp-diagnostics-product]')].filter(n=>n.dataset.expDiagnosticsProduct===id);
+      if(!markers.length)continue;
+      const productVersions=[...new Set(markers.map(n=>n.dataset.expProductVersion||'unknown'))];
+      const host=document.getElementById(id==='dropper'?'tdh-root':`exp-${id}-root`);
+      const core=host?.dataset.coreVersion||null;if(core)versions.add(core);
+      rows.push({id,versions:productVersions,core,instances:markers.length});
+      if(markers.length>1)warnings.push(`More than one ${id.toUpperCase()} instance is active.`);
+    }
+    if(versions.size>1)warnings.push('Different core versions are active. Update the products and reload this page.');
+    return {products:rows,warnings};
+  }
+  const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='life-btn action';b.textContent=label;b.addEventListener('click',fn);return b;};
+  function card(title){const d=document.createElement('details');d.className='exp-tools-card';d.style.cssText='border:1px solid var(--theme-line,var(--line,#777));border-radius:7px;padding:7px;margin-top:8px';const s=document.createElement('summary');s.textContent=title;d.append(s);return d;}
+  function createCompatibilityControls(){const d=card('Product compatibility'),out=document.createElement('div');out.setAttribute('aria-live','polite');function refresh(){out.replaceChildren();const value=compatibilitySnapshot();for(const p of value.products){const line=document.createElement('p');line.textContent=`${p.id.toUpperCase()} ${p.versions.join(', ')} · ${p.core?'core '+p.core:'native product UI'}`;out.append(line);}const status=document.createElement('p');status.textContent=value.warnings.join(' ')||'No mixed core versions or duplicate instances detected on this page.';out.append(status);const note=document.createElement('small');note.textContent='Only products running on this page are visible. This is not an online update check.';out.append(note);}d.addEventListener('toggle',()=>{if(d.open)refresh();});d.append(out,button('Refresh compatibility',refresh));return d;}
+  function createRecoveryControls({list,capture,restore,notify=()=>{}}){const d=card('Settings backups'),select=document.createElement('select'),status=document.createElement('p');select.setAttribute('aria-label','Settings backup');status.setAttribute('role','status');function refresh(){select.replaceChildren();for(const e of list()){const o=document.createElement('option');o.value=e.id;o.textContent=`${new Date(e.at).toLocaleString()} · ${e.reason}`;select.append(o);}select.disabled=!select.options.length;rollback.disabled=select.disabled;}const backup=button('Back up settings',()=>{try{capture();refresh();status.textContent='Settings backed up locally.';}catch(e){status.textContent=e.message;}});const rollback=button('Restore selected backup',()=>{try{if(!select.value)return;restore(select.value);refresh();status.textContent='Settings restored. The previous state was also backed up.';notify(status.textContent);}catch(e){status.textContent=e.message;}});d.addEventListener('toggle',()=>{if(d.open)refresh();});d.append(select,backup,rollback,status);refresh();return d;}
+  return Object.freeze({createSettingsRecovery,compatibilitySnapshot,createCompatibilityControls,createRecoveryControls});
+})();
+
 // Product-neutral host for the code extracted from Dropper 3.3.4.
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
@@ -2471,7 +2506,7 @@ const ExtraPotionsCore = (() => {
   if(document.documentElement)startGrid();else addEventListener('DOMContentLoaded',startGrid,{once:true});
   document.addEventListener('exp-core:coordination',scheduleGrid);
   addEventListener('resize',scheduleGrid,{passive:true});
-  const api = Object.freeze({version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
+  const api = Object.freeze({...ExtraPotionsTools,version,sourceVersion,protocol,gridProtocol,reference:DropperReference,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,compareVersions:DropperReference.compareVersions});
   return api;
 })();
 
@@ -2583,12 +2618,18 @@ EXP.Settings = (() => {
   }
   function load() {
     const stored = rawRead('settings');
+    if(stored && rawRead('settings-version')!==EXP.VERSION)recovery.capture(stored,'before-update');
+    rawWrite('settings-version',EXP.VERSION);
     state = validate(stored || defaults);
     rawWrite('settings', state);
     return snapshot();
   }
+  const recovery = ExtraPotionsCore.createSettingsRecovery({read:()=>rawRead('backups'),write:value=>rawWrite('backups',value),validate});
+  function backups(){return recovery.list();}
+  function backup(){return recovery.capture(snapshot(),'manual');}
+  function restoreBackup(id){return replace(recovery.restore(id),'rollback');}
   function snapshot() { return clone(state || defaults); }
-  function replace(next, reason = 'replace') { const valid = validate(next); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
+  function replace(next, reason = 'replace') { const valid = validate(next); if(state&&JSON.stringify(valid)!==JSON.stringify(state))recovery.capture(state,reason); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
   function hostExcluded(hostname, exclusions = []) {
@@ -2611,7 +2652,7 @@ EXP.Settings = (() => {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({ clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({backups,backup,restoreBackup, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
 })();
 
 EXP.Themes = (() => {
@@ -2993,6 +3034,14 @@ EXP.ColorEngine = (() => {
     else element.removeAttribute(INLINE_VARS_ATTR);
   }
 
+  function inspectOwned(element) { return [...(inlineLedger.get(element)||[])].map(([property,[value,priority]])=>({property,original:value||'(inherited or stylesheet)',priority,current:element.style.getPropertyValue(property)})); }
+  function restoreOwned(root) {
+    for(const [element,properties] of [...inlineLedger]){
+      if(element!==root&&!root.contains(element))continue;
+      for(const [property,[value,priority]] of properties){if(value)element.style.setProperty(property,value,priority);else element.style.removeProperty(property);}
+      element.removeAttribute(INLINE_ATTR);element.removeAttribute(INLINE_VARS_ATTR);inlineLedger.delete(element);inlineStyleLedger.delete(element);
+    }
+  }
   function clear(root = document) {
     for (const [element, saved] of [...inlineLedger]) {
       if (root !== document && root !== element && !root.contains?.(element)) continue;
@@ -3017,7 +3066,7 @@ EXP.ColorEngine = (() => {
 
   return Object.freeze({
     parse, luminance, saturation, contrastRatio, ensureContrast, transform, background, foreground, border,
-    inspectInline, clear, health,
+    inspectInline, inspectOwned, restoreOwned, clear, health,
     INLINE_ATTR, INLINE_VARS_ATTR,
   });
 })();
@@ -3861,6 +3910,19 @@ EXP.LiveResolver = (() => {
     if(!active){start(nextTheme,nextOptions);return;}
     theme=nextTheme;options={...options,...nextOptions};fix=EXP.SiteFixes.active();schedule(document.documentElement);
   }
+  function inspectElement(el){
+    const style=getComputedStyle(el);
+    return {tag:el.tagName.toLowerCase(),foreground:style.color,background:style.backgroundColor,font:style.font,repairs:[...new Map([...[...(ledger.get(el)||[])].map(([property,[value,priority]])=>[property,{property,original:value||'(inherited or stylesheet)',priority,current:el.style.getPropertyValue(property)}]),...EXP.ColorEngine.inspectOwned(el).map(value=>[value.property,value])]).values()]};
+  }
+  function restoreElement(root){
+    for(const [el,properties] of [...ledger]){
+      if(el!==root&&!root.contains(el))continue;
+      for(const [property,[value,priority]] of properties){if(value)el.style.setProperty(property,value,priority);else el.style.removeProperty(property);}
+      el.removeAttribute(ATTR);ledger.delete(el);
+    }
+    for(const el of [root,...root.querySelectorAll('[data-exp-shift-pseudo-id]')]){const id=el.getAttribute('data-exp-shift-pseudo-id');if(id){pseudoRules.delete(id);el.removeAttribute('data-exp-shift-pseudo-id');}}
+    EXP.ColorEngine.restoreOwned(root);syncPseudoStyle();backgroundCache=new WeakMap();
+  }
   function restore(){
     for(const [el,properties] of [...ledger]){
       if(!el)continue;
@@ -3885,7 +3947,7 @@ EXP.LiveResolver = (() => {
   function addProcessor(processor){processors.add(processor);return()=>processors.delete(processor);}
   function scan(){schedule(document.documentElement);}
   function fullScan(){const previous=options.surfaceLevel;options={...options,surfaceLevel:'aggressive'};pass();options={...options,surfaceLevel:previous};}
-  return Object.freeze({start,refresh,stop,health,scan,fullScan,addProcessor});
+  return Object.freeze({start,refresh,stop,health,scan,fullScan,addProcessor,inspectElement,restoreElement});
 })();
 
 // Component roles use SHIFT palette variables. Rules are authored for SHIFT;
@@ -3936,7 +3998,7 @@ EXP.Engine = (() => {
   ].join(',');
   const NAV_SELECTOR = '.navbar,.nav-bar,.sidebar,.drawer,.toolbar,.menubar,.MuiAppBar-root,.MuiDrawer-paper,.MuiToolbar-root,.ant-layout-header,.ant-layout-sider,.ant-drawer-content';
   const CONTENT_SELECTOR = '.width,.script-list';
-  const EXCLUDE = ':not(:where(img,picture,video,canvas,svg,[role="img"],[data-exp-owned="1"],[data-exp-shift-preserve],[hidden],[aria-hidden="true"]))';
+  const EXCLUDE = ':not(:where(img,picture,video,canvas,svg,[role="img"],[data-exp-owned="1"],[data-exp-shift-preserve],[data-exp-shift-preserve] *,[hidden],[aria-hidden="true"]))';
 
   let style = null;
   let guard = null;
@@ -4623,6 +4685,35 @@ EXP.Diagnostics = Object.freeze({
   createDiagnosticsControls: (getReport, notify) => ExtraPotionsCore.createDiagnosticsControls(getReport, notify)
 });
 
+// Read-only inspection except for an explicit, reversible local repair bypass.
+EXP.Inspector = (() => {
+  let selected=null, picking=false, announce=()=>{};
+  const preserved=new Map();
+  function cancel(){document.removeEventListener('click',pick,true);document.removeEventListener('keydown',key,true);picking=false;}
+  function key(event){if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();cancel();announce('Selection cancelled.');}}
+  function pick(event){
+    const node=event.composedPath().find(n=>n?.nodeType===1);
+    if(!node||node.closest('[data-exp-owned="1"]'))return;
+    event.preventDefault();event.stopImmediatePropagation();cancel();
+    if(node===document.body||node===document.documentElement){announce('Select a text or content element instead of the page root.');return;}
+    selected=node;announce('Element selected.');
+  }
+  function select(notify){cancel();announce=notify;document.addEventListener('click',pick,true);document.addEventListener('keydown',key,true);picking=true;notify('Select an element on the page. Escape cancels.');}
+  function preserve(){if(!selected?.isConnected)return;if(!preserved.has(selected))preserved.set(selected,selected.getAttribute('data-exp-shift-preserve'));selected.setAttribute('data-exp-shift-preserve','inspector');EXP.LiveResolver.restoreElement(selected);}
+  function resume(){for(const [node,old] of preserved){if(node.getAttribute('data-exp-shift-preserve')!=='inspector')continue;if(old===null)node.removeAttribute('data-exp-shift-preserve');else node.setAttribute('data-exp-shift-preserve',old);}preserved.clear();EXP.LiveResolver.scan();}
+  function createControls(onSelected){
+    const card=document.createElement('details');card.style.cssText='border:1px solid var(--theme-line);border-radius:7px;padding:7px;margin-top:8px';
+    const title=document.createElement('summary');title.textContent='Inspect readability';const output=document.createElement('p');output.style.whiteSpace='pre-wrap';output.setAttribute('role','status');
+    function show(message=''){let text=message;if(selected?.isConnected){const data=EXP.LiveResolver.inspectElement(selected);text+='\n'+data.tag+' · '+EXP.Engine.health().mode+'\nText: '+data.foreground+'\nBackground: '+data.background+'\nFont: '+data.font+'\n'+(data.repairs.length?data.repairs.map(r=>r.property+': '+r.original+' → '+r.current).join('\n'):'No SHIFT-owned inline repairs on this element.');}output.textContent=text;}
+    function button(text,fn){const b=document.createElement('button');b.type='button';b.className='life-btn action';b.textContent=text;b.addEventListener('click',fn);return b;}
+    const note=document.createElement('p');note.textContent='The bypass restores SHIFT-owned inline repairs on the selected subtree and excludes it from further styling until resumed or reloaded. Inherited parent colors and site changes may still apply. Page text is not saved.';
+    card.append(title,note,button('Select page element',()=>select(message=>{show(message);if(!picking)onSelected?.();})),button('Refresh inspection',()=>show()),button('Temporarily bypass selected element',()=>{preserve();show('Local bypass applied.');}),button('Resume all inspected elements',()=>{resume();show('Local bypasses removed.');}),button('Cancel selection',()=>{cancel();show('Selection cancelled.');}),output);
+    card.addEventListener('toggle',()=>{if(card.open)show();});return card;
+  }
+  function destroy(){cancel();resume();selected=null;announce=()=>{};}
+  return Object.freeze({createControls,destroy,select,preserve,resume,cancel});
+})();
+
 EXP.UI = (() => {
   const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
@@ -4922,6 +5013,8 @@ EXP.UI = (() => {
     const health = EXP.Engine.health();
     const fragment = document.createDocumentFragment();
     const group = section('Diagnostics', 'Page, technical, console, and plugin details; captured locally.');
+    group.append(EXP.Inspector.createControls(()=>product?.open()));
+    group.append(ExtraPotionsCore.createCompatibilityControls(),ExtraPotionsCore.createRecoveryControls({list:EXP.Settings.backups,capture:EXP.Settings.backup,restore:id=>{const next=EXP.Settings.restoreBackup(id);saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();},notify:setMessage}));
     group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
     group.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
     group.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
@@ -5047,6 +5140,7 @@ EXP.UI = (() => {
       },
       toggle() { product?.toggle(); },
       destroy() {
+        EXP.Inspector.destroy();
         clearTimeout(toastTimer);
         noticeController?.destroy();
         product?.destroy();

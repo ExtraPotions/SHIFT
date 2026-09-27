@@ -1,3 +1,7 @@
+## Unreleased
+
+- Adds local settings backups and rollback, current-page product compatibility, and an Inspect readability tool in System. Select a page element to see computed colors, font and original SHIFT-owned inline values. Temporarily bypass its subtree, then resume without reloading. The bypass does not promise to undo colors inherited from ancestors or independent site changes.
+
 ## 3.4.2 — 2026-09-26
 
 - Bundles exp-core 3.3.6 with shared menu coordination and default donation controls.

@@ -11,7 +11,7 @@ EXP.Engine = (() => {
   ].join(',');
   const NAV_SELECTOR = '.navbar,.nav-bar,.sidebar,.drawer,.toolbar,.menubar,.MuiAppBar-root,.MuiDrawer-paper,.MuiToolbar-root,.ant-layout-header,.ant-layout-sider,.ant-drawer-content';
   const CONTENT_SELECTOR = '.width,.script-list';
-  const EXCLUDE = ':not(:where(img,picture,video,canvas,svg,[role="img"],[data-exp-owned="1"],[data-exp-shift-preserve],[hidden],[aria-hidden="true"]))';
+  const EXCLUDE = ':not(:where(img,picture,video,canvas,svg,[role="img"],[data-exp-owned="1"],[data-exp-shift-preserve],[data-exp-shift-preserve] *,[hidden],[aria-hidden="true"]))';
 
   let style = null;
   let guard = null;

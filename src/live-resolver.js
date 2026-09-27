@@ -428,6 +428,19 @@ EXP.LiveResolver = (() => {
     if(!active){start(nextTheme,nextOptions);return;}
     theme=nextTheme;options={...options,...nextOptions};fix=EXP.SiteFixes.active();schedule(document.documentElement);
   }
+  function inspectElement(el){
+    const style=getComputedStyle(el);
+    return {tag:el.tagName.toLowerCase(),foreground:style.color,background:style.backgroundColor,font:style.font,repairs:[...new Map([...[...(ledger.get(el)||[])].map(([property,[value,priority]])=>[property,{property,original:value||'(inherited or stylesheet)',priority,current:el.style.getPropertyValue(property)}]),...EXP.ColorEngine.inspectOwned(el).map(value=>[value.property,value])]).values()]};
+  }
+  function restoreElement(root){
+    for(const [el,properties] of [...ledger]){
+      if(el!==root&&!root.contains(el))continue;
+      for(const [property,[value,priority]] of properties){if(value)el.style.setProperty(property,value,priority);else el.style.removeProperty(property);}
+      el.removeAttribute(ATTR);ledger.delete(el);
+    }
+    for(const el of [root,...root.querySelectorAll('[data-exp-shift-pseudo-id]')]){const id=el.getAttribute('data-exp-shift-pseudo-id');if(id){pseudoRules.delete(id);el.removeAttribute('data-exp-shift-pseudo-id');}}
+    EXP.ColorEngine.restoreOwned(root);syncPseudoStyle();backgroundCache=new WeakMap();
+  }
   function restore(){
     for(const [el,properties] of [...ledger]){
       if(!el)continue;
@@ -452,5 +465,5 @@ EXP.LiveResolver = (() => {
   function addProcessor(processor){processors.add(processor);return()=>processors.delete(processor);}
   function scan(){schedule(document.documentElement);}
   function fullScan(){const previous=options.surfaceLevel;options={...options,surfaceLevel:'aggressive'};pass();options={...options,surfaceLevel:previous};}
-  return Object.freeze({start,refresh,stop,health,scan,fullScan,addProcessor});
+  return Object.freeze({start,refresh,stop,health,scan,fullScan,addProcessor,inspectElement,restoreElement});
 })();

@@ -297,6 +297,8 @@ EXP.UI = (() => {
     const health = EXP.Engine.health();
     const fragment = document.createDocumentFragment();
     const group = section('Diagnostics', 'Page, technical, console, and plugin details; captured locally.');
+    group.append(EXP.Inspector.createControls(()=>product?.open()));
+    group.append(ExtraPotionsCore.createCompatibilityControls(),ExtraPotionsCore.createRecoveryControls({list:EXP.Settings.backups,capture:EXP.Settings.backup,restore:id=>{const next=EXP.Settings.restoreBackup(id);saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();},notify:setMessage}));
     group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
     group.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
     group.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
@@ -422,6 +424,7 @@ EXP.UI = (() => {
       },
       toggle() { product?.toggle(); },
       destroy() {
+        EXP.Inspector.destroy();
         clearTimeout(toastTimer);
         noticeController?.destroy();
         product?.destroy();

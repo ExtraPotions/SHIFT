@@ -103,12 +103,18 @@ EXP.Settings = (() => {
   }
   function load() {
     const stored = rawRead('settings');
+    if(stored && rawRead('settings-version')!==EXP.VERSION)recovery.capture(stored,'before-update');
+    rawWrite('settings-version',EXP.VERSION);
     state = validate(stored || defaults);
     rawWrite('settings', state);
     return snapshot();
   }
+  const recovery = ExtraPotionsCore.createSettingsRecovery({read:()=>rawRead('backups'),write:value=>rawWrite('backups',value),validate});
+  function backups(){return recovery.list();}
+  function backup(){return recovery.capture(snapshot(),'manual');}
+  function restoreBackup(id){return replace(recovery.restore(id),'rollback');}
   function snapshot() { return clone(state || defaults); }
-  function replace(next, reason = 'replace') { const valid = validate(next); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
+  function replace(next, reason = 'replace') { const valid = validate(next); if(state&&JSON.stringify(valid)!==JSON.stringify(state))recovery.capture(state,reason); rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
   function hostExcluded(hostname, exclusions = []) {
@@ -131,5 +137,5 @@ EXP.Settings = (() => {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT V3 export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({ clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
+  return Object.freeze({backups,backup,restoreBackup, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, exportData, importData });
 })();

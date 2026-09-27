@@ -14,6 +14,7 @@ test('settings stay mutable in the userscript realm when native clones are Xray-
       } });
     }
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../vendor/exp-core/exp-core.js'),'utf8').match(/const ExtraPotionsTools = \(\(\) => \{[\s\S]*?\n\}\)\(\);/)[0]+';ExtraPotionsCore.createSettingsRecovery=ExtraPotionsTools.createSettingsRecovery;',context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/settings.js'), 'utf8'), context);
   const settings = context.EXP.Settings;
   const loaded = settings.load();
