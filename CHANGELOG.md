@@ -1,3 +1,8 @@
+## 3.4.5 — 2026-09-26
+
+- Aligns automated release verification with the bundled exp-core 3.3.8.
+- Preserves the Original swatch, menu controls, and refreshed feature guide.
+
 ## 3.4.4 — 2026-09-26
 
 - Adds an Original palette swatch, selected by default for fresh settings.

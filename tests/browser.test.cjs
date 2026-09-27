@@ -261,7 +261,8 @@ test('first run is Original and menu is a six-row Dropper-style shell', async (t
   assert.equal(facts.noticeTitle, 'SHIFT Changelog');
   assert.equal(facts.noticeVersion, `v${pkg.version}`);
   assert.ok(facts.noticeBullets.length >= 2 && facts.noticeBullets.length <= 4, JSON.stringify(facts.noticeBullets));
-  assert.ok(facts.noticeBullets.some((item) => /Firefox|settings/i.test(item)));
+  const currentChangelog = fs.readFileSync(path.join(__dirname, '../CHANGELOG.md'), 'utf8').split(/\r?\n## /)[0];
+  assert.deepEqual(facts.noticeBullets, [...currentChangelog.matchAll(/^- (.+)$/gm)].map(match => match[1]));
   assert.equal(facts.noticePlacement, 'menu');
   assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));

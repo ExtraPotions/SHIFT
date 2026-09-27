@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.4';
+EXP.VERSION = '3.4.5';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.5': ['Aligns automated release verification with the bundled exp-core 3.3.8.','Preserves the Original swatch, menu controls, and refreshed feature guide.'],
     '3.4.4': ["Adds an Original palette swatch, selected by default for fresh settings.","Bundles exp-core 3.3.8 with section arrangement and viewport-safe menus.","Refreshes the README and feature screenshots in a horizontal gallery."],
     '3.4.3': ["Adds a readability inspector and a reversible bypass for selected page elements.","Restores inline repairs from both color engines while preserving unrelated styles.","Adds settings backups, rollback, and compatibility details through exp-core 3.3.7."],
     '3.4.2': ["Bundles exp-core 3.3.6 with shared menu coordination and default donation controls.","Preserves Firefox-safe settings and closes peer launcher menus without stealing focus."],
