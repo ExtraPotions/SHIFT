@@ -1,6 +1,8 @@
-## Unreleased
+## 3.4.3 — 2026-09-26
 
-- Adds local settings backups and rollback, current-page product compatibility, and an Inspect readability tool in System. Select a page element to see computed colors, font and original SHIFT-owned inline values. Temporarily bypass its subtree, then resume without reloading. The bypass does not promise to undo colors inherited from ancestors or independent site changes.
+- Adds a readability inspector and a reversible bypass for selected page elements.
+- Restores inline repairs from both color engines while preserving unrelated styles.
+- Adds settings backups, rollback, and compatibility details through exp-core 3.3.7.
 
 ## 3.4.2 — 2026-09-26
 

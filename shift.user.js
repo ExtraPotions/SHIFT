@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.2
+// @version      3.4.3
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -38,7 +38,7 @@
 'use strict';
 const EXP = Object.create(null);
 
-// Generated from the approved Dropper v3.3.4 install artifact. Do not edit.
+// Generated from the approved Dropper v3.3.5 install artifact. Do not edit.
 const DropperReference = (() => {
 const LAUNCHER_ORDER_KEY = "exp:v3:launcher-order";
 const LAUNCHER_GRID_DELTA_KEY = "exp:v3:launcher-grid-delta";
@@ -1558,12 +1558,12 @@ const ExtraPotionsTools = (() => {
   return Object.freeze({createSettingsRecovery,compatibilitySnapshot,createCompatibilityControls,createRecoveryControls});
 })();
 
-// Product-neutral host for the code extracted from Dropper 3.3.4.
+// Product-neutral host for the code extracted from Dropper 3.3.5.
 // Product engines own their settings, content, and actions. Core owns shared UI.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.6';
-  const sourceVersion = '3.3.4';
+  const version = '3.3.7';
+  const sourceVersion = '3.3.5';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
   const protocol = 'exp-core-coordination-v1';
   const gridProtocol = 'exp-launcher-grid-v3';
@@ -2105,7 +2105,7 @@ const ExtraPotionsCore = (() => {
     const versionButton=panel.querySelector('.version,[data-exp-part="version"]');
     const menuNotices=[...themeRoot.querySelectorAll('.update-notice,.changelog')].map(notice=>createMenuNotice({host,shadow,panel,notice,versionButton:notice.classList.contains('changelog')?versionButton:null,manageVersion:false,durationMs:30000}));
     if (launcherSrc) panel.querySelectorAll('.header-icon img').forEach(image => image.src = launcherSrc);
-    host.dataset.coreVersion = version; host.dataset.coreSource = 'Dropper/3.3.4';
+    host.dataset.coreVersion = version; host.dataset.coreSource = 'Dropper/3.3.5';
     let choices = themes(productTheme), selected = choices.at(-1), open = false, destroyed = false, timer = 0, deadline = 0, frame = 0;
     const removers = [];
     const on = (node,type,fn,opts) => { node.addEventListener(type,fn,opts); removers.push(() => node.removeEventListener(type,fn,opts)); };
@@ -4329,10 +4329,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.2';
+EXP.VERSION = '3.4.3';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.3': ["Adds a readability inspector and a reversible bypass for selected page elements.","Restores inline repairs from both color engines while preserving unrelated styles.","Adds settings backups, rollback, and compatibility details through exp-core 3.3.7."],
     '3.4.2': ["Bundles exp-core 3.3.6 with shared menu coordination and default donation controls.","Preserves Firefox-safe settings and closes peer launcher menus without stealing focus."],
     '3.4.1': ["Fixes Firefox settings initialization and editable settings drafts in userscript sandboxes.","Bundles exp-core 3.3.5 with Firefox-safe settings copies and idle menu mutation fixes."],
     '3.4.0': [
