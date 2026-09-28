@@ -1,11 +1,9 @@
 ExtraPotionsCore.registerSuiteProduct?.({
   productId: 'shift',
   productVersion: EXP.VERSION,
-  capabilities: ['appearance.theme', 'appearance.readability', 'appearance.site-profile'],
 });
 ExtraPotionsCore.registerPresentationProvider?.({
   productId: 'shift',
-  phases: ["theme"],
 });
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);
 const SHIFT_MANIFEST = Object.freeze({
