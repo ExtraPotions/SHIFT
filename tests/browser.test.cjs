@@ -254,7 +254,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.equal(facts.panelHidden, false);
   assert.equal(facts.navCount, 3);
   assert.equal(facts.checkboxCount, 0);
-  assert.equal(facts.switchCount, 4); // Section visibility switches live inside the collapsed System editor.
+  assert.equal(facts.switchCount, 2); // Appearance and Advanced can be hidden; System remains the recovery surface.
   assert.equal(facts.visibleBodies, 0);
   assert.equal(facts.width, 260);
   assert.equal(facts.noticeOutside, true);
@@ -294,16 +294,20 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
 
   const expanded = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
-    shadow.querySelector('[data-section="readability"]').click();
+    shadow.querySelector('[data-section="appearance"]').click();
+    const readability = [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Readability'));
+    readability?.click();
     return {
       switchCount: shadow.querySelectorAll('[role="switch"]').length,
       visibleBodies: [...shadow.querySelectorAll('.route-body')].filter((body) => !body.hidden).length,
       nested: shadow.querySelectorAll('.route-body:not([hidden]) details').length,
+      readabilityOpen: Boolean(readability?.parentElement.open),
     };
   });
   assert.ok(expanded.switchCount >= 2);
   assert.equal(expanded.visibleBodies, 1);
-  assert.equal(expanded.nested, 0);
+  assert.equal(expanded.nested, 2);
+  assert.equal(expanded.readabilityOpen, true);
 
   const reopened = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
@@ -314,7 +318,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       marker: shadow.querySelector('.fl-tool-header.last-opened')?.textContent.replace(/[▸▾]/g, '').trim(),
     };
   });
-  assert.deepEqual(reopened, { visibleBodies: 0, marker: 'Readability' });
+  assert.deepEqual(reopened, { visibleBodies: 0, marker: 'Appearance' });
 
   const launcherChrome = await root.evaluate((host) => {
     const shadow = host.shadowRoot;
@@ -330,29 +334,47 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: 38 });
 });
 
-test('Appearance owns palette, surfaces and motion; Readability owns text', async (t) => {
+test('Appearance keeps readability nested while Advanced keeps effects nested', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => {
+  const initial = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
+    const readability = [...shadow.querySelectorAll('details')].find((item) => item.querySelector(':scope > summary')?.textContent.includes('Readability'));
+    return {
+      themeStrength: Boolean(shadow.querySelector('[aria-label="Theme Strength"]')),
+      surfaces: Boolean(shadow.querySelector('[aria-label="Surface Intelligence"]')),
+      motion: Boolean(shadow.querySelector('[aria-label="Reduce motion"]')),
+      readabilityOpen: Boolean(readability?.open),
+    };
   });
-  const appearanceLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.ok(appearanceLabels.includes('Theme Strength'));
-  assert.ok(appearanceLabels.includes('Surface Intelligence'));
-  assert.equal(appearanceLabels.includes('Reduce motion'), true);
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="readability"]').click());
-  const readabilityLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.equal(readabilityLabels.includes('Reduce motion'), false);
-  assert.ok(readabilityLabels.includes('Text contrast'));
-  assert.ok(readabilityLabels.includes('Focus visibility'));
-  assert.equal(readabilityLabels.includes('Surface Intelligence'), false);
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="effects"]').click());
-  const effectsLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.ok(effectsLabels.includes('Reduce shadows'));
-  assert.equal(effectsLabels.includes('Text contrast'), false);
+  assert.deepEqual(initial, { themeStrength:true, surfaces:true, motion:true, readabilityOpen:false });
+
+  const readability = await root.evaluate((node) => {
+    const shadow = node.shadowRoot;
+    const disclosure = [...shadow.querySelectorAll('details')].find((item) => item.querySelector(':scope > summary')?.textContent.includes('Readability'));
+    disclosure.querySelector(':scope > summary').click();
+    return {
+      open: disclosure.open,
+      textContrast: Boolean(shadow.querySelector('[aria-label="Text contrast"]')),
+      focusVisibility: Boolean(shadow.querySelector('[aria-label="Focus visibility"]')),
+    };
+  });
+  assert.deepEqual(readability, { open:true, textContrast:true, focusVisibility:true });
+
+  const effects = await root.evaluate((node) => {
+    const shadow = node.shadowRoot;
+    shadow.querySelector('[data-section="advanced"]').click();
+    const disclosure = [...shadow.querySelectorAll('details')].find((item) => item.querySelector(':scope > summary')?.textContent.includes('Effects & integrations'));
+    disclosure.querySelector(':scope > summary').click();
+    return {
+      open: disclosure.open,
+      reduceShadows: Boolean(shadow.querySelector('[aria-label="Reduce shadows"]')),
+    };
+  });
+  assert.deepEqual(effects, { open:true, reduceShadows:true });
 });
 
 test('appearance selects and swatches live-commit with real engine effects', async (t) => {
@@ -1237,7 +1259,7 @@ test('route headers do not carry restated helper tips', async (t) => {
       })),
     };
   });
-  assert.ok(tips.headers.length >= 4);
+  assert.ok(tips.headers.length >= 3);
   assert.ok(tips.headers.every((item) => !item.tip && !item.hasTooltip), JSON.stringify(tips.headers));
   assert.ok(tips.rows.length > 0);
   assert.ok(tips.rows.every((item) => !item.tip && !item.hasTooltip), JSON.stringify(tips.rows));
