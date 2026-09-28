@@ -5607,6 +5607,10 @@ ExtraPotionsCore.registerSuiteProduct?.({
   productVersion: EXP.VERSION,
   capabilities: ['appearance.theme', 'appearance.readability', 'appearance.site-profile'],
 });
+ExtraPotionsCore.registerPresentationProvider?.({
+  productId: 'shift',
+  phases: ["theme"],
+});
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);
 const SHIFT_MANIFEST = Object.freeze({
   id: 'shift', version: EXP.VERSION, coreRange: '^3.3.3',

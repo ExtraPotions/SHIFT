@@ -21,3 +21,11 @@ test('generated SHIFT userscript carries the same suite declaration', () => {
   assert.match(built, /productId:\s*'shift'/u);
   assert.match(built, /appearance\.theme/u);
 });
+
+
+test('SHIFT declares its presentation interoperability phase', () => {
+  const source = read('src/main.js');
+  assert.match(source, /registerPresentationProvider\\?\\./u);
+  assert.match(source, /productId:\\s*'shift'/u);
+  assert.match(source, /'theme'/u);
+});
