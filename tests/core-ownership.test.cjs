@@ -28,9 +28,8 @@ test('SHIFT does not redefine Core-owned shared infrastructure', () => {
 });
 
 test('SHIFT consumes the public ExtraPotionsCore boundary', () => {
-  assert.match(source, /ExtraPotionsCore\./u);
-  assert.match(source, /registerLauncher\(/u);
-  assert.match(source, /createProductNotice\(/u);
-  assert.match(source, /createDiagnosticsReport\(/u);
-  assert.match(source, /createReleaseUpdateChecker\(/u);
+  assert.match(source, /ExtraPotionsCore\.createLifecycle\(/u);
+  assert.match(source, /ExtraPotionsCore\.createProductNotice\(/u);
+  assert.match(source, /ExtraPotionsCore\.createDiagnosticsReport\(/u);
+  assert.match(source, /ExtraPotionsCore\.createReleaseUpdateChecker\(/u);
 });
