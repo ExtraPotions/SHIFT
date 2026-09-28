@@ -1063,7 +1063,8 @@ test('excluding a site restores stylesheet backgrounds without a white canvas', 
   await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'ember');
   await root.evaluate((node) => {
     const shadow = node.shadowRoot;
-    shadow.querySelector('[data-section="profiles"]').click();
+    shadow.querySelector('[data-section="advanced"]').click();
+    [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Profiles & sites'))?.click();
     const row = [...shadow.querySelectorAll('.row, .setting-row, .identity, .mini-row')].find((item) => /Enable SHIFT on this site/i.test(item.textContent || ''));
     const toggle = row?.querySelector('[role="switch"]');
     if (toggle?.getAttribute('aria-checked') === 'true') toggle.click();
