@@ -19,7 +19,7 @@ test('legacy release-note files and screenshots are removed', () => {
   assert.deepEqual(screenshots.sort(), ['appearance-demo.png', 'appearance-menu.png', 'current-fixture.png', 'effects-menu.png', 'menu-overview.png', 'readability-menu.png', 'readability.png', 'recovery-menu.png']);
 });
 
-test('CHANGELOG and in-app release notes use Dropper-style version headers and bullets', () => {
+test('CHANGELOG and in-app release notes use the shared Core release format', () => {
   const escapedVersion = pkg.version.replaceAll('.', '\\.');
   const header = new RegExp(`^## ${escapedVersion} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
   assert.match(changelog, header);
@@ -43,7 +43,7 @@ test('updates and manifest read the shared product version', () => {
   assert.equal(metadataVersion, pkg.version);
 });
 
-test('changelog uses the shared Dropper menu-width notice controller', () => {
+test('changelog uses the shared Core menu-width notice controller', () => {
   assert.match(script, /function createMenuNotice\(/);
   assert.match(script, /notice\.dataset\.placement = 'menu'/);
   assert.match(script, /ExtraPotionsCore\.createProductNotice\(/);
