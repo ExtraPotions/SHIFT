@@ -31,5 +31,5 @@ test('SHIFT declares its presentation interoperability phase', () => {
 
 test('SHIFT uses the shared presentation contract at its existing engine gate', () => {
   const resolver = read('src/live-resolver.js');
-  assert.ok(resolver.includes("isPresentationSuppressed?.(el)"));
+  assert.ok(resolver.includes("globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el)"));
 });
