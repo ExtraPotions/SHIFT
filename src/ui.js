@@ -10,7 +10,7 @@ EXP.UI = (() => {
     skinVertical:'linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)'
   });
   const routes = [
-    ['appearance', 'Appearance'], ['readability', 'Readability'], ['effects', 'Effects & Integrations'], ['profiles', 'Profiles & Sites'], ['system', 'System']
+    ['appearance', 'Appearance'], ['advanced', 'Advanced'], ['system', 'System']
   ];
   let host;
   let shadow;
@@ -220,7 +220,9 @@ EXP.UI = (() => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
     motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
     fragment.append(motion);
-    fragment.append(surfaces, appearanceFooter());
+    fragment.append(surfaces);
+    fragment.append(ExtraPotionsCore.createDisclosure('Readability', renderReadability()));
+    fragment.append(appearanceFooter());
     return fragment;
   }
 
@@ -233,8 +235,6 @@ EXP.UI = (() => {
     readability.append(switchControl('Form readability', 'Improve fields and placeholder contrast.', saved.formReadability, (formReadability) => commit({ formReadability }, 'form-readability', formReadability ? 'Form readability on.' : 'Form readability off.')));
     readability.append(selectControl('Focus visibility', 'Visible keyboard focus without mouse-only effects.', saved.focusVisibility, [['site', 'Site default'], ['enhanced', 'Enhanced'], ['high', 'High']], (focusVisibility) => commit({ focusVisibility }, 'focus-visibility', `Focus visibility set to ${focusVisibility}.`)));
     fragment.append(readability);
-
-    fragment.append(appearanceFooter());
     return fragment;
   }
 
@@ -250,7 +250,7 @@ EXP.UI = (() => {
     const adapterValues = EXP.Adapters.settings();
     for (const [id, label] of EXP.Adapters.options()) adapterGroup.append(switchControl(label, `Site adapter control · ${id}`, Boolean(adapterValues[id]), (value) => { EXP.Adapters.setOption(id, value); setMessage(`${label} ${value ? 'enabled' : 'disabled'}.`); }));
     for (const [id, label] of EXP.Adapters.actions()) adapterGroup.append(actionRow(label, `Immediate site adapter action · ${id}`, () => { EXP.Adapters.runAction(id); setMessage(`${label} completed.`); }, label));
-    fragment.append(adapterGroup, appearanceFooter());
+    fragment.append(adapterGroup);
     return fragment;
   }
 
@@ -322,6 +322,15 @@ EXP.UI = (() => {
     return fragment;
   }
 
+  function renderAdvanced() {
+    const fragment = document.createDocumentFragment();
+    fragment.append(
+      ExtraPotionsCore.createDisclosure('Effects & integrations', renderEffects()),
+      ExtraPotionsCore.createDisclosure('Profiles & sites', renderProfilesSites())
+    );
+    return fragment;
+  }
+
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
@@ -385,9 +394,7 @@ EXP.UI = (() => {
 
     const renderers = {
       appearance: renderAppearance,
-      readability: renderReadability,
-      effects: renderEffects,
-      profiles: renderProfilesSites,
+      advanced: renderAdvanced,
       system: renderRecoveryData,
     };
 
