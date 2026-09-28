@@ -118,7 +118,8 @@ test('ManaPool is recognized as a site integration', async (t) => {
   const result = await page.evaluate(() => {
     const root = document.querySelector('#exp-shift-root');
     root.shadowRoot.querySelector('.launcher').click();
-    root.shadowRoot.querySelector('[data-section="effects"]').click();
+    root.shadowRoot.querySelector('[data-section="advanced"]').click();
+    [...root.shadowRoot.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Effects & integrations'))?.click();
     return root.shadowRoot.textContent;
   });
   assert.match(result, /ManaPool · healthy/);
