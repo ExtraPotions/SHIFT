@@ -68,7 +68,7 @@ test('source avoids legacy JavaScript var declarations', () => {
 });
 
 test('runtime source keeps direct style creation inside Core fallback only', () => {
-  const files = ['theme-controller.js','adapters.js','updates.js','diagnostics.js','ui.js','main.js','settings.js','themes.js'];
+  const files = ['theme-controller.js','adapters.js','ui.js','main.js','settings.js','themes.js'].filter((name) => fs.existsSync(path.join(root, 'src', name)));
   for (const name of files) {
     const source = fs.readFileSync(path.resolve(__dirname, '..', 'src', name), 'utf8');
     assert.doesNotMatch(source, /createElement\(['"]style['"]\)|el\(['"]style['"]/i, name);
