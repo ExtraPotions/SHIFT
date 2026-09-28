@@ -185,7 +185,9 @@ EXP.UI = (() => {
         const value = key === 'theme' ? (palette.name || settings.theme) : key === 'accent' ? (EXP.Themes.accentOptions(settings).find(([id])=>id===settings.accent)?.[1] || settings.accent) : typeof settings[key] === 'boolean' ? (settings[key] ? 'On' : 'Off') : String(settings[key]).replace(/^./, letter=>letter.toUpperCase());
         const line = el('p', { 'data-setting-source': key }, `${label}: ${value} — ${sources[key].label}`);
         line.append(button('View source', () => {
-          const destination = sources[key].kind === 'global' ? route : 'profiles';
+          const destination = sources[key].kind === 'global'
+            ? (route === 'effects' ? 'advanced' : 'appearance')
+            : 'advanced';
           const header = shadow.querySelector(`[data-section="${destination}"]`);
           const body = header?.parentElement.querySelector('.route-body');
           if (header?.parentElement) header.parentElement.hidden = false;
@@ -194,6 +196,8 @@ EXP.UI = (() => {
           const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
           const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
           const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
+          const disclosure = control?.closest('details');
+          if (disclosure) disclosure.open = true;
           (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
         }, 'secondary'));
         (['theme','accent'].includes(key) ? content : more).append(line);
