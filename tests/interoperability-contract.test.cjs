@@ -29,3 +29,9 @@ test('SHIFT declares its presentation interoperability phase', () => {
   assert.match(source, /productId:\\s*'shift'/u);
   assert.match(source, /'theme'/u);
 });
+
+
+test('SHIFT honors shared presentation suppression before live repair work', () => {
+  const source = read('src/live-resolver.js');
+  assert.match(source, /isPresentationSuppressed\\?\\.\\(el\\)/u);
+});
