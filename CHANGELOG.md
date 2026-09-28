@@ -1,3 +1,9 @@
+## 3.4.9 — 2026-09-27
+
+- Adds the shared themed outer menu border across the ExtraPotions suite.
+- Bundles exp-core 3.3.12 pinned to the verified Dropper 3.3.15 baseline.
+- Preserves SHIFT page-theme, readability, and site-adapter behavior.
+
 ## 3.4.8 — 2026-09-27
 
 - Lets every launcher move left, right, up, or down within the shared grid.
