@@ -26,7 +26,7 @@ test('SHIFT declares its presentation interoperability phase', () => {
   const source = read('src/main.js');
   assert.ok(source.includes('registerPresentationProvider?.({'));
   assert.ok(source.includes("productId: 'shift'"));
-  assert.ok(source.includes("'theme'"));
+  assert.ok(source.includes('"theme"'));
 });
 
 test('SHIFT uses the shared presentation contract at its existing engine gate', () => {
