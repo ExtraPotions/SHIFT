@@ -5602,6 +5602,11 @@ EXP.UI = (() => {
   return Object.freeze({ build });
 })();
 
+ExtraPotionsCore.registerSuiteProduct?.({
+  productId: 'shift',
+  productVersion: EXP.VERSION,
+  capabilities: ['appearance.theme', 'appearance.readability', 'appearance.site-profile'],
+});
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);
 const SHIFT_MANIFEST = Object.freeze({
   id: 'shift', version: EXP.VERSION, coreRange: '^3.3.3',
