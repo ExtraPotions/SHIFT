@@ -92,7 +92,7 @@ if (product === 'Dropper') {
 }
 
 let changelog = read('CHANGELOG.md');
-const heading = `## ${next} - ${date}\n\n`;
+const heading = `## ${next} — ${date}\n\n`;
 const body = [
   `- Updates the shared foundation to exp-core ${coreVersion}.`,
   '- Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.',
