@@ -73,7 +73,7 @@ EXP.LiveResolver = (() => {
   }
   function visible(el){
     try{
-      if(ExtraPotionsCore.isPresentationSuppressed?.(el))return false;
+      if(globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el))return false;
       const cs=getComputedStyle(el);
       if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)<=.01)return false;
       const r=el.getBoundingClientRect();
