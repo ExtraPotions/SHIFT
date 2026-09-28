@@ -10,28 +10,26 @@ const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 
 test('SHIFT declares its suite interoperability capabilities', () => {
   const source = read('src/main.js');
-  assert.match(source, /registerSuiteProduct\?\./u);
-  for (const capability of ['appearance.theme', 'appearance.readability', 'appearance.site-profile']) {
-    assert.match(source, new RegExp(capability.replace('.', '\\.')));
-  }
+  assert.ok(source.includes('registerSuiteProduct?.({'));
+  assert.ok(source.includes('appearance.theme'));
+  assert.ok(source.includes('appearance.readability'));
+  assert.ok(source.includes('appearance.site-profile'));
 });
 
 test('generated SHIFT userscript carries the same suite declaration', () => {
   const built = read('shift.user.js');
-  assert.match(built, /productId:\s*'shift'/u);
-  assert.match(built, /appearance\.theme/u);
+  assert.ok(built.includes("productId: 'shift'"));
+  assert.ok(built.includes('appearance.theme'));
 });
-
 
 test('SHIFT declares its presentation interoperability phase', () => {
   const source = read('src/main.js');
-  assert.match(source, /registerPresentationProvider\\?\\./u);
-  assert.match(source, /productId:\\s*'shift'/u);
-  assert.match(source, /'theme'/u);
+  assert.ok(source.includes('registerPresentationProvider?.({'));
+  assert.ok(source.includes("productId: 'shift'"));
+  assert.ok(source.includes("'theme'"));
 });
 
-
-test('SHIFT honors shared presentation suppression before live repair work', () => {
-  const source = read('src/live-resolver.js');
-  assert.match(source, /isPresentationSuppressed\\?\\.\\(el\\)/u);
+test('SHIFT uses the shared presentation contract at its existing engine gate', () => {
+  const resolver = read('src/live-resolver.js');
+  assert.ok(resolver.includes("isPresentationSuppressed?.(el)"));
 });
