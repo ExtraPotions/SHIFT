@@ -1,3 +1,9 @@
+## 3.4.12 — 2026-09-28
+
+- Updates the shared foundation to exp-core 3.3.17.
+- Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.
+- Leaves SHIFT product-specific engine behavior unchanged.
+
 ## 3.4.11 — 2026-09-28
 
 - Updates the shared foundation to exp-core 3.3.15.

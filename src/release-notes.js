@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.11';
+EXP.VERSION = '3.4.12';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.12': ['Updates the shared foundation to exp-core 3.3.17.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.11': ['Updates the shared foundation to exp-core 3.3.15.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.10': ['Updates the shared foundation to exp-core 3.3.13.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.9': ["Adds the shared themed outer menu border across the ExtraPotions suite.","Bundles exp-core 3.3.12 pinned to the verified Dropper 3.3.15 baseline.","Preserves SHIFT page-theme, readability, and site-adapter behavior."],
