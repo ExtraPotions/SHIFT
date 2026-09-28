@@ -35,10 +35,12 @@ test('CHANGELOG and in-app release notes use the shared Core release format', ()
 });
 
 test('updates and manifest read the shared product version', () => {
-  assert.match(script, /ExtraPotionsCore\.createReleaseUpdateChecker/);
-  assert.match(script, /currentVersion:\s*EXP\.VERSION/);
-  assert.match(script, /endpoint:\s*'https:\/\/api\.github\.com\/repos\/ExtraPotions\/SHIFT\/releases\/latest'/);
+  assert.match(script, /ExtraPotionsCore\.createProductServices/);
+  assert.match(script, /currentVersion:\s*\(\)\s*=>\s*EXP\.VERSION/);
+  assert.match(script, /repository:\s*'ExtraPotions\/SHIFT'/);
   assert.match(script, /version:\s*EXP\.VERSION/);
+  const core = fs.readFileSync(path.join(root, 'vendor', 'exp-core', 'exp-core.js'), 'utf8');
+  assert.match(core, /const ENDPOINT = String\(options\.endpoint \|\| \('https:\/\/api\.github\.com\/repos\/' \+ repository \+ '\/releases\/latest'\)\);/);
   const metadataVersion = script.match(/^\/\/ @version\s+(\S+)$/m)?.[1];
   assert.equal(metadataVersion, pkg.version);
 });
