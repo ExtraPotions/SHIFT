@@ -38,3 +38,12 @@ test('SHIFT uses the shared presentation contract at its existing engine gate', 
   const resolver = read('src/live-resolver.js');
   assert.ok(resolver.includes("globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el)"));
 });
+
+
+test('SHIFT dynamic stylesheet engine shares Core observation when available', () => {
+  const engine = read('src/dynamic-engine.js');
+  assert.ok(engine.includes('globalThis.ExtraPotionsCore?.observePageBatch'));
+  assert.ok(engine.includes("{productId:'shift'}"));
+  assert.ok(engine.includes('sharedObserverCleanup?.()'));
+  assert.ok(engine.includes('observer=new MutationObserver'));
+});
