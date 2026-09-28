@@ -84,7 +84,7 @@ jobs:
             { print }
           ' CHANGELOG.md > release-notes.md
           sha256sum shift.user.js > SHA256SUMS
-          (cd assets && sha256sum shift-launcher.svg) >> ../SHA256SUMS
+          (cd assets && sha256sum shift-launcher.svg) >> SHA256SUMS
           gh release create "$tag" shift.user.js assets/shift-launcher.svg SHA256SUMS \
             --target "$(git rev-parse HEAD)" \
             --title "SHIFT $tag" \
