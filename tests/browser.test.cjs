@@ -95,7 +95,8 @@ test('inline background shorthand survives Original boot and exclusion', async (
   assert.notEqual(themed, boot);
   await root.evaluate((node) => {
     const shadow = node.shadowRoot;
-    shadow.querySelector('[data-section="profiles"]').click();
+    shadow.querySelector('[data-section="advanced"]').click();
+    [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Profiles & sites'))?.click();
     const row = [...shadow.querySelectorAll('.row, .setting-row, .identity, .mini-row')].find((item) => /Enable SHIFT on this site/i.test(item.textContent || ''));
     const toggle = row?.querySelector('[role="switch"]');
     if (!toggle) throw new Error('missing site toggle');
@@ -206,7 +207,7 @@ test('appearance live-commits on selection and survives SPA traversal', async (t
   assert.deepEqual(await appearance(), { theme: 'pride', page: '#100a12', saved: true });
 });
 
-test('first run is Original and menu is a five-row Dropper-style shell', async (t) => {
+test('first run is Original and menu is a simplified three-row shell', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
 
@@ -251,7 +252,7 @@ test('first run is Original and menu is a five-row Dropper-style shell', async (
   });
 
   assert.equal(facts.panelHidden, false);
-  assert.equal(facts.navCount, 5);
+  assert.equal(facts.navCount, 3);
   assert.equal(facts.checkboxCount, 0);
   assert.equal(facts.switchCount, 4); // Section visibility switches live inside the collapsed System editor.
   assert.equal(facts.visibleBodies, 0);
@@ -268,7 +269,7 @@ test('first run is Original and menu is a five-row Dropper-style shell', async (
   assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
 
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
-  assert.deepEqual(labels, ['Appearance', 'Readability', 'Effects & Integrations', 'Profiles & Sites', 'System']);
+  assert.deepEqual(labels, ['Appearance', 'Advanced', 'System']);
 
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
@@ -540,7 +541,7 @@ test('supported-site adapter controls persist and invoke page effects', async (t
   await page.addScriptTag({ content: script });
   await page.waitForSelector('#exp-shift-root', { state: 'attached' });
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'effects').click(); });
+  await root.evaluate((node) => { const shadow=node.shadowRoot; shadow.querySelector('.launcher').click(); shadow.querySelector('[data-section="advanced"]').click(); [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Effects & integrations'))?.click(); });
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.group .label')].map((item) => item.textContent));
   assert.ok(labels.includes('Hide recommendations'));
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Hide recommendations'); row.querySelector('[role="switch"]').click(); });
@@ -618,26 +619,26 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#120807') && document.querySelectorAll('[data-exp-shift-live]').length > 0);
 });
 
-test('Appearance keeps controls flat with one optional explanation and no custom-theme editors', async (t) => {
+test('Appearance keeps primary controls visible and secondary readability collapsed', async (t) => {
   const { browser, page } = await fixture(); t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate(node => {const s=node.shadowRoot;s.querySelector('.launcher').click();s.querySelector('[data-section="appearance"]').click();});
   assert.equal(await root.locator('.appearance-group').count(),0);
-  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),1);
+  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),2);
   assert.equal(await root.locator('[data-shift-appearance-explanation]').evaluate(n=>n.open),false);
   assert.equal(await root.getByText('Create custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByText('Import custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByLabel('Theme Strength',{exact:true}).isVisible(),true);
   assert.equal(await root.getByLabel('Surface Intelligence',{exact:true}).isVisible(),true);
-  await root.evaluate(node => node.shadowRoot.querySelector('[data-section="readability"]').click());
+  await root.evaluate(node => { const shadow=node.shadowRoot; [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Readability'))?.click(); });
   assert.equal(await root.getByLabel('Text contrast',{exact:true}).isVisible(),true);
 });
 
-test('Profiles & Sites and System hold site and chrome controls', async (t) => {
+test('Advanced and System hold site and chrome controls', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); node.shadowRoot.querySelector('[data-section="profiles"]').click(); });
+  await root.evaluate((node) => { const shadow=node.shadowRoot; shadow.querySelector('.launcher').click(); shadow.querySelector('[data-section="advanced"]').click(); [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Profiles & sites'))?.click(); });
   const profileLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(profileLabels.includes('Enable SHIFT on this site'));
   assert.ok(profileLabels.includes('Current profile'));
