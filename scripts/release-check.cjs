@@ -8,6 +8,7 @@ for (const asset of ['shift-launcher.svg']) {
   if (!fs.existsSync(path.join(root, 'assets', asset))) throw new Error(`Missing SHIFT asset: ${asset}`);
 }
 const run = (args) => cp.execFileSync(process.execPath, args, { cwd: root, stdio: 'inherit' });
+run(['scripts/verify-exp-core-pin.cjs']);
 run(['scripts/build.cjs', '--check']);
 run(['--test', 'tests/*.test.cjs']);
 
