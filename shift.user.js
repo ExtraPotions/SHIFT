@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.10
+// @version      3.4.11
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -1680,7 +1680,7 @@ const ExpMenuArrangement = (() => {
 // exp-core owns shared UI, launcher, diagnostics, update, and coordination behavior.
 const ExtraPotionsCore = (() => {
   'use strict';
-  const version = '3.3.13';
+  const version = '3.3.15';
   const sourceVersion = version; // Backward-compatible alias for Core's own foundation version.
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
   const protocol = 'exp-core-coordination-v1';
@@ -2378,10 +2378,17 @@ const ExtraPotionsCore = (() => {
   function createReleaseUpdateChecker(options = {}) {
     const productId = String(options.productId || '').toLowerCase();
     const repository = String(options.repository || '');
-    const currentVersion = String(options.currentVersion || '');
+    const resolveCurrentVersion = typeof options.currentVersion === 'function'
+      ? () => String(options.currentVersion() || '')
+      : () => String(options.currentVersion || '');
     const enabled = typeof options.enabled === 'function' ? options.enabled : () => true;
     const onError = typeof options.onError === 'function' ? options.onError : () => {};
-    if (!productId || !repository || !currentVersion) throw new Error('Incomplete update checker configuration');
+    if (!productId || !repository) throw new Error('Incomplete update checker configuration');
+    function getCurrentVersion() {
+      const currentVersion = resolveCurrentVersion();
+      if (!currentVersion) throw new Error('Update checker current version unavailable');
+      return currentVersion;
+    }
 
     const ENDPOINT = String(options.endpoint || ('https://api.github.com/repos/' + repository + '/releases/latest'));
     const CACHE_KEY = 'exp:v3:' + productId + ':update-cache';
@@ -2429,6 +2436,7 @@ const ExtraPotionsCore = (() => {
       return next;
     }
     function snapshot(state, stateName) {
+      const currentVersion = getCurrentVersion();
       const next = normalize(state);
       const latest = String(next.lastRemoteVersion || '');
       return {
@@ -2462,6 +2470,7 @@ const ExtraPotionsCore = (() => {
       });
     }
     async function check(force = false) {
+      const currentVersion = getCurrentVersion();
       let state = normalize(readState());
       if (!enabled() && !force) return snapshot(state, 'disabled');
 
@@ -2528,7 +2537,7 @@ const ExtraPotionsCore = (() => {
     }
     function status() { return snapshot(readState()); }
     return Object.freeze({
-      CURRENT_VERSION: currentVersion,
+      get CURRENT_VERSION() { return getCurrentVersion(); },
       ENDPOINT,
       CHECK_INTERVAL,
       check,
@@ -2688,12 +2697,45 @@ const ExtraPotionsCore = (() => {
   if(document.documentElement)startGrid();else addEventListener('DOMContentLoaded',startGrid,{once:true});
   document.addEventListener('exp-core:coordination',scheduleGrid);
   addEventListener('resize',scheduleGrid,{passive:true});
-  const api = Object.freeze({...ExtraPotionsTools,version,sourceVersion,protocol,gridProtocol,reference:CoreFoundation,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),registerLauncher,layout:layoutGrid,replaceMenuContent,createDisclosure,createSystemGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,bindDiagnosticsControls:ExtraPotionsDiagnostics.bindControls,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,mountMenuArrangement:ExpMenuArrangement.mount,compareVersions:CoreFoundation.compareVersions});
+  // Core-owned product bootstrap for downstream consumers.
+  function createProductServices(options = {}) {
+    const productId = String(options.productId || '').toLowerCase();
+    const repository = String(options.repository || '');
+    const currentVersion = options.currentVersion;
+    if (!productId || !repository || (typeof currentVersion !== 'function' && !String(currentVersion || ''))) {
+      throw new Error('Incomplete product services configuration');
+    }
+    const lifecycle = createProductLifecycle(api);
+    const diagnostics = Object.freeze({
+      createDiagnosticsReport,
+      downloadDiagnostics,
+      createDiagnosticsControls,
+    });
+    const updates = createReleaseUpdateChecker({
+      productId,
+      repository,
+      currentVersion,
+      endpoint: options.endpoint,
+      enabled: options.enabled,
+      onError: options.onError,
+    });
+    return Object.freeze({ lifecycle, diagnostics, updates });
+  }
+
+  const api = Object.freeze({...ExtraPotionsTools,version,sourceVersion,protocol,gridProtocol,reference:CoreFoundation,css:canonicalCss,themes,create,createProduct,createSupportControl,createProductNotice,createLifecycle:()=>createProductLifecycle(api),createProductServices,registerLauncher,layout:layoutGrid,replaceMenuContent,createDisclosure,createSystemGrid,menuWidthForMode,cloneSettings,applyTextGradient,injectStyle,applyTheme,applyMatteToggleChrome,applyTwoColumnSettingsGrid,applyContentDrivenMenuLayout,createThemeSwatches,createFloatingNotice,createMenuNotice,createReleaseUpdateChecker,registerFloatingNotice,layoutFloatingNotices,claimNotice,consumeVersionChange,focusMenuSurface,registerDiagnosticsProduct:ExtraPotionsDiagnostics.registerProduct,productCompatibility:ExtraPotionsDiagnostics.compatibility,bindDiagnosticsControls:ExtraPotionsDiagnostics.bindControls,createDiagnosticsReport,downloadDiagnostics,createDiagnosticsControls,mountMenuArrangement:ExpMenuArrangement.mount,compareVersions:CoreFoundation.compareVersions});
   return api;
 })();
 
-// The verified, bundled Core owns lifecycle and shared services.
-EXP.Core = ExtraPotionsCore.createLifecycle();
+const services = ExtraPotionsCore.createProductServices({
+  productId: 'shift',
+  repository: 'ExtraPotions/SHIFT',
+  currentVersion: () => EXP.VERSION,
+  enabled: () => EXP.Settings.snapshot().updateNotifications,
+  onError: error => EXP.Core.safeError(error, 'shift-updates'),
+});
+EXP.Core = services.lifecycle;
+EXP.Diagnostics = services.diagnostics;
+EXP.Updates = services.updates;
 
 EXP.Settings = (() => {
   // Persisted settings are JSON data. Copy in this realm: native structuredClone may
@@ -4512,10 +4554,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.10';
+EXP.VERSION = '3.4.11';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.11': ['Updates the shared foundation to exp-core 3.3.15.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.10': ['Updates the shared foundation to exp-core 3.3.13.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.9': ["Adds the shared themed outer menu border across the ExtraPotions suite.","Bundles exp-core 3.3.12 pinned to the verified Dropper 3.3.15 baseline.","Preserves SHIFT page-theme, readability, and site-adapter behavior."],
     '3.4.8': ['Lets every launcher move left, right, up, or down within the shared grid.','Persists launcher order and supports Alt+Arrow keyboard reordering.','Bundles exp-core 3.3.11.'],
@@ -4859,22 +4902,6 @@ EXP.ReleaseNotes = (() => {
 
   return Object.freeze({ forVersion, renderChangelog });
 })();
-
-EXP.Updates = ExtraPotionsCore.createReleaseUpdateChecker({
-  productId: 'shift',
-  repository: 'ExtraPotions/SHIFT',
-  endpoint: 'https://api.github.com/repos/ExtraPotions/SHIFT/releases/latest',
-  currentVersion: EXP.VERSION,
-  enabled: () => EXP.Settings.snapshot().updateNotifications,
-  onError: error => EXP.Core.safeError(error, 'shift-updates'),
-});
-
-/* Diagnostics reports and controls use the Core-owned shared implementation. */
-EXP.Diagnostics = Object.freeze({
-  createDiagnosticsReport: (product, details) => ExtraPotionsCore.createDiagnosticsReport(product, details),
-  downloadDiagnostics: report => ExtraPotionsCore.downloadDiagnostics(report),
-  createDiagnosticsControls: (getReport, notify) => ExtraPotionsCore.createDiagnosticsControls(getReport, notify)
-});
 
 // Read-only inspection except for an explicit, reversible local repair bypass.
 EXP.Inspector = (() => {
@@ -5257,7 +5284,7 @@ EXP.UI = (() => {
     repairs.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
     repairs.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
     group.append(switchControl('Safe Mode', 'Suspend transformations and adapters while preserving configuration.', state.safeMode, (safeMode) => { onSettings({ ...state, safeMode }, 'safe-mode'); setMessage(safeMode ? 'Safe Mode active.' : 'Safe Mode disabled.'); }));
-    fragment.append(selectControl('Menu width', 'Dropper-style Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
+    fragment.append(selectControl('Menu width', 'Core Full, Compact, or Narrow layout.', state.menuWidth, [['full', 'Full'], ['compact', 'Compact'], ['narrow', 'Narrow']], (menuWidth) => { onSettings({ ...state, menuWidth }, 'menu-width'); product?.refresh(); setMessage(`Menu width set to ${menuWidth}.`); }));
     fragment.append(group);
     const data = ExtraPotionsCore.createDisclosure('Settings');
     data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-v3-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
