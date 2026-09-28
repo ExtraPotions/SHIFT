@@ -3879,6 +3879,7 @@ EXP.DynamicEngine = (() => {
 
 EXP.LiveResolver = (() => {
   let observer = null;
+  let sharedObserverCleanup = null;
   let timer = 0;
   let active = false;
   let theme = null;
@@ -4258,15 +4259,18 @@ EXP.LiveResolver = (() => {
     const roots=[...queuedRoots].filter(root=>root?.isConnected!==false);
     queuedRoots.clear();pass(roots.length?roots:null,true);
   }
-  function schedule(root){
-    if(root?.nodeType===1){
-      let covered=false;
-      for(const queued of [...queuedRoots]){
-        if(queued===root||queued.contains?.(root)){covered=true;stats.rootsCollapsed++;break;}
-        if(root.contains?.(queued)){queuedRoots.delete(queued);stats.rootsCollapsed++;}
-      }
-      if(!covered){queuedRoots.add(root);stats.rootsQueued++;}
+  function queueRoot(root){
+    if(root?.nodeType!==1)return false;
+    let covered=false;
+    for(const queued of [...queuedRoots]){
+      if(queued===root||queued.contains?.(root)){covered=true;stats.rootsCollapsed++;break;}
+      if(root.contains?.(queued)){queuedRoots.delete(queued);stats.rootsCollapsed++;}
     }
+    if(!covered){queuedRoots.add(root);stats.rootsQueued++;}
+    return !covered;
+  }
+  function schedule(root){
+    queueRoot(root);
     clearTimeout(timer);timer=setTimeout(flush,90);
   }
   const onScroll = () => { if(active)schedule(document.documentElement); };
@@ -4285,7 +4289,19 @@ EXP.LiveResolver = (() => {
     if(document.readyState==='complete')queueMicrotask(onWindowLoad);
     else addEventListener('load',onWindowLoad,{once:true});
     pass();
-    observer?.disconnect();
+    observer?.disconnect();observer=null;sharedObserverCleanup?.();sharedObserverCleanup=null;
+    const sharedAvailable=typeof globalThis.ExtraPotionsCore?.observePageBatch==='function';
+    if(sharedAvailable){
+      sharedObserverCleanup=globalThis.ExtraPotionsCore.observePageBatch((_batch,roots)=>{
+        for(const root of roots||[]){
+          if(root?.nodeType!==1||root.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))continue;
+          queueRoot(root);
+        }
+        if(queuedRoots.size){
+          clearTimeout(timer);timer=0;flush();
+        }
+      },{productId:'shift'});
+    }
     observer=new MutationObserver(mutations=>{
       for(const mutation of mutations){
         if(mutation.type==='attributes'){
@@ -4294,13 +4310,14 @@ EXP.LiveResolver = (() => {
           if(target?.nodeType===1&&!target.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))schedule(target);
           continue;
         }
+        if(sharedAvailable)continue;
         for(const node of mutation.addedNodes){
           if(node?.nodeType!==1||node.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))continue;
           schedule(node);
         }
       }
     });
-    observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','open']});
+    observer.observe(document.documentElement,{subtree:true,childList:!sharedAvailable,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','open']});
     document.addEventListener('scroll',onScroll,{capture:true,passive:true});
   }
   function refresh(nextTheme,nextOptions={}){
@@ -4336,7 +4353,7 @@ EXP.LiveResolver = (() => {
     document.removeEventListener('scroll',onScroll,true);
     document.removeEventListener('load',onStylesheetLoad,true);
     removeEventListener('load',onWindowLoad);
-    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
+    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();sharedObserverCleanup?.();sharedObserverCleanup=null;observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
     EXP.ColorEngine.clear();
   }
   function health(){
