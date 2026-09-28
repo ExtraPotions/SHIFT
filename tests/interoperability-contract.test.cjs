@@ -8,25 +8,30 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 
-test('SHIFT declares its suite interoperability capabilities', () => {
+test('SHIFT delegates its suite interoperability metadata to Core', () => {
   const source = read('src/main.js');
-  assert.ok(source.includes('registerSuiteProduct?.({'));
-  assert.ok(source.includes('appearance.theme'));
-  assert.ok(source.includes('appearance.readability'));
-  assert.ok(source.includes('appearance.site-profile'));
+  const suiteStart = source.indexOf('registerSuiteProduct?.({');
+  const presentationStart = source.indexOf('registerPresentationProvider?.({');
+  const diagnosticsStart = source.indexOf('registerDiagnosticsProduct');
+  assert.ok(suiteStart >= 0);
+  assert.ok(presentationStart > suiteStart);
+  assert.ok(diagnosticsStart > presentationStart);
+  const suiteBlock = source.slice(suiteStart, presentationStart);
+  const presentationBlock = source.slice(presentationStart, diagnosticsStart);
+  assert.ok(suiteBlock.includes("productId: 'shift'"));
+  assert.ok(suiteBlock.includes('productVersion: EXP.VERSION'));
+  assert.doesNotMatch(suiteBlock, /capabilities\s*:/u);
+  assert.ok(presentationBlock.includes("productId: 'shift'"));
+  assert.doesNotMatch(presentationBlock, /phases\s*:/u);
 });
 
-test('generated SHIFT userscript carries the same suite declaration', () => {
+test('generated SHIFT userscript carries the delegated interoperability registration', () => {
   const built = read('shift.user.js');
-  assert.ok(built.includes("productId: 'shift'"));
-  assert.ok(built.includes('appearance.theme'));
-});
-
-test('SHIFT declares its presentation interoperability phase', () => {
-  const source = read('src/main.js');
-  assert.ok(source.includes('registerPresentationProvider?.({'));
-  assert.ok(source.includes("productId: 'shift'"));
-  assert.ok(source.includes('"theme"'));
+  const suiteStart = built.indexOf('registerSuiteProduct?.({');
+  const presentationStart = built.indexOf('registerPresentationProvider?.({');
+  assert.ok(suiteStart >= 0);
+  assert.ok(presentationStart > suiteStart);
+  assert.ok(built.slice(suiteStart, presentationStart).includes("productId: 'shift'"));
 });
 
 test('SHIFT uses the shared presentation contract at its existing engine gate', () => {
