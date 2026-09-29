@@ -20,6 +20,10 @@ EXP.DynamicEngine = (() => {
     } catch { return 'x'; }
   };
   const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent,nativeDarkMode?'native-dark':'full'].join('|');
+  // Core marks every stylesheet it injects (see ExtraPotionsCore.injectStyle); a constructed
+  // sheet has no owner node, so the marker is an empty first rule.
+  const isOwnedSheet=(sheet)=>{try{return sheet.cssRules?.[0]?.selectorText==='.exp-owned-sheet-marker';}catch{return false;}};
+  // Fallback for products still running an older Core that does not mark its sheets.
   const SUITE_OWNED_SELECTOR=/exp-prisma|exp-ward|exp-core|[.]tdh-|#tdh-|data-exp-owned/;
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
   function guardSelectorText(selectorText){
@@ -282,7 +286,7 @@ EXP.DynamicEngine = (() => {
       let adopted=[];try{adopted=[...(root.adoptedStyleSheets||[])];}catch{}
       stats.adoptedSheets+=adopted.length;
       for(const sheet of [...normalSheets,...adopted]){
-        if(sheet.ownerNode?.dataset?.expOwned==='1')continue;
+        if(sheet.ownerNode?.dataset?.expOwned==='1'||isOwnedSheet(sheet))continue;
         try{void sheet.cssRules;processSheet(sheet,root,6000);live.add(sheet);stats.sheets++;}catch{stats.inaccessible++;processRemoteSheet(sheet,root);}
       }
     }
