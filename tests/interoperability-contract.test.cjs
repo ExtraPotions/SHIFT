@@ -45,3 +45,13 @@ test('SHIFT live resolver phase-orders child-list work through Core while retain
   assert.ok(resolver.includes("attributeFilter:['class','style','hidden','aria-hidden','open']"));
   assert.ok(resolver.includes('sharedObserverCleanup?.()'));
 });
+
+
+test('SHIFT publishes compact non-identifying suite state', () => {
+  const source = read('src/main.js');
+  assert.match(source, /publishSuiteState\?\.\('shift', 'shift\.state-changed'/u);
+  assert.match(source, /active:/u);
+  assert.match(source, /theme:/u);
+  assert.match(source, /safeMode:/u);
+  assert.match(source, /excluded:/u);
+});
