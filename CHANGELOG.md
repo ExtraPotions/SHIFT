@@ -1,3 +1,10 @@
+## 3.4.17 — 2026-09-29
+
+- Adds a Check for updates button that works without turning on update notifications.
+- Checks GitHub release information only when you press it and never installs anything.
+- Reports whether an update is available, the script is current, or the check failed.
+- Leaves everything else in the product unchanged.
+
 ## 3.4.16 — 2026-09-29
 
 - Keeps PRISMA highlights and other ExtraPotions products using their own colors under every SHIFT theme.

@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.16';
+EXP.VERSION = '3.4.17';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.17': ["Adds a Check for updates button that works without turning on update notifications.","Checks GitHub release information only when you press it and never installs anything.","Reports whether an update is available, the script is current, or the check failed.","Leaves everything else in the product unchanged."],
     '3.4.16': ["Keeps PRISMA highlights and other ExtraPotions products using their own colors under every SHIFT theme.","Stops the dynamic theme engine from rewriting rules that belong to PRISMA, WARD, and Dropper.","Leaves theming of the page itself unchanged.","Adds no new settings."],
     '3.4.15': ['Updates the shared foundation to exp-core 3.4.2.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.14': ['Updates the shared foundation to exp-core 3.4.1.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],

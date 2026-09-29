@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.16
+// @version      3.4.17
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -5327,10 +5327,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.16';
+EXP.VERSION = '3.4.17';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.17': ["Adds a Check for updates button that works without turning on update notifications.","Checks GitHub release information only when you press it and never installs anything.","Reports whether an update is available, the script is current, or the check failed.","Leaves everything else in the product unchanged."],
     '3.4.16': ["Keeps PRISMA highlights and other ExtraPotions products using their own colors under every SHIFT theme.","Stops the dynamic theme engine from rewriting rules that belong to PRISMA, WARD, and Dropper.","Leaves theming of the page itself unchanged.","Adds no new settings."],
     '3.4.15': ['Updates the shared foundation to exp-core 3.4.2.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.14': ['Updates the shared foundation to exp-core 3.4.1.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
@@ -6056,7 +6057,7 @@ EXP.UI = (() => {
 
     const about = chromeGroup;
     about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
-    if (state.updateNotifications) about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
+    about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
 
     return fragment;
   }
