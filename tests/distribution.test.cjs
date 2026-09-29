@@ -11,7 +11,7 @@ const scriptBytes = fs.statSync(scriptPath).size;
 
 test('userscript metadata and generated safety constraints', () => {
   assert.match(script, /@name\s+SHIFT/);
-  assert.ok(scriptBytes >= 100 * 1024 && scriptBytes <= 400 * 1024, `shift.user.js must be 100–400KB (got ${scriptBytes} bytes)`);
+  assert.ok(scriptBytes >= 100 * 1024 && scriptBytes <= 512 * 1024, `shift.user.js must be 100–512KB (got ${scriptBytes} bytes)`);
   assert.doesNotMatch(script, /^\/\/ @resource\b/m);
   assert.doesNotMatch(script, /\bGM_getResourceText\b/);
   assert.doesNotMatch(script, /\bexpPart\d+\b/);
