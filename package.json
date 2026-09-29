@@ -9,7 +9,8 @@
     "test": "node scripts/build.cjs && node --test tests/*.test.cjs",
     "release:check": "node scripts/release-check.cjs",
     "screenshots": "node scripts/build.cjs && node scripts/capture-screenshots.cjs",
-    "prepare:release:feature": "node scripts/prepare-feature-release.cjs && npm run build"
+    "prepare:release:feature": "node scripts/prepare-feature-release.cjs && npm run build",
+    "test:installed-browser": "node scripts/test-installed-browser.cjs"
   },
   "devDependencies": {
     "playwright": "1.55.1"
