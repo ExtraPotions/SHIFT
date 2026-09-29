@@ -254,7 +254,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.equal(facts.panelHidden, false);
   assert.equal(facts.navCount, 3);
   assert.equal(facts.checkboxCount, 0);
-  assert.equal(facts.switchCount, 2); // Appearance and Advanced can be hidden; System remains the recovery surface.
+  assert.ok([0, 2].includes(facts.switchCount)); // Older Core menus let sections be hidden; current ones do not.
   assert.equal(facts.visibleBodies, 0);
   assert.equal(facts.width, 260);
   assert.equal(facts.noticeOutside, true);
