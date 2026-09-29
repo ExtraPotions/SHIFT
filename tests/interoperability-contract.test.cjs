@@ -26,3 +26,22 @@ test('SHIFT honors shared presentation suppression at the live repair gate', () 
   const resolver = read('src/live-resolver.js');
   assert.ok(resolver.includes("globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el)"));
 });
+
+
+test('SHIFT dynamic stylesheet engine shares Core observation when available', () => {
+  const engine = read('src/dynamic-engine.js');
+  assert.ok(engine.includes('globalThis.ExtraPotionsCore?.observePageBatch'));
+  assert.ok(engine.includes("{productId:'shift'}"));
+  assert.ok(engine.includes('sharedObserverCleanup?.()'));
+  assert.ok(engine.includes('observer=new MutationObserver'));
+});
+
+
+test('SHIFT live resolver phase-orders child-list work through Core while retaining attribute observation', () => {
+  const resolver = read('src/live-resolver.js');
+  assert.ok(resolver.includes("typeof globalThis.ExtraPotionsCore?.observePageBatch==='function'"));
+  assert.ok(resolver.includes("{productId:'shift'}"));
+  assert.ok(resolver.includes('childList:!sharedAvailable'));
+  assert.ok(resolver.includes("attributeFilter:['class','style','hidden','aria-hidden','open']"));
+  assert.ok(resolver.includes('sharedObserverCleanup?.()'));
+});
