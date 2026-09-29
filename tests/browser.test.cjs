@@ -495,7 +495,7 @@ test('Pride palette differs materially from Ember with rainbow page and menu tre
       },
       sheet,
       menuStyle,
-      menuBg: getComputedStyle(shadow.querySelector('.exp-menu-surface')).backgroundImage,
+      menuBg: getComputedStyle(shadow.querySelector('[data-exp-part="dock"]')).backgroundImage,
       dividerBg: getComputedStyle(shadow.querySelector('.header-divider')).backgroundImage,
       dividerHeight: getComputedStyle(shadow.querySelector('.header-divider')).height,
       uiTheme: rootNode.dataset.uiTheme
