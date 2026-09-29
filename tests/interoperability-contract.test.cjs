@@ -55,3 +55,15 @@ test('SHIFT publishes compact non-identifying suite state', () => {
   assert.match(source, /safeMode:/u);
   assert.match(source, /excluded:/u);
 });
+
+test('SHIFT dynamic themes never rewrite rules owned by other ExtraPotions products', () => {
+  const engine = fs.readFileSync(path.join(__dirname, '..', 'src', 'dynamic-engine.js'), 'utf8');
+  const match = engine.match(/SUITE_OWNED_SELECTOR=(\/.*\/);/u);
+  assert.ok(match, 'dynamic engine declares a suite-owned selector guard');
+  const owned = new RegExp(match[1].slice(1, -1), 'u');
+  for (const selector of ['.exp-prisma-hit', '.exp-prisma-hit[data-style="gradient"]', '#exp-ward-root .panel', '.tdh-card', '#tdh-root', '[data-exp-owned="1"]']) {
+    assert.ok(owned.test(selector), selector);
+  }
+  for (const selector of ['body', 'a:hover', '.card', '.exp-shift-note']) assert.ok(!owned.test(selector), selector);
+  assert.match(engine, /if\(SUITE_OWNED_SELECTOR\.test\(rule\.selectorText\)\)continue;/u);
+});

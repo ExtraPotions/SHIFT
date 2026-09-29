@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.15
+// @version      3.4.16
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -4156,6 +4156,7 @@ EXP.DynamicEngine = (() => {
     } catch { return 'x'; }
   };
   const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent,nativeDarkMode?'native-dark':'full'].join('|');
+  const SUITE_OWNED_SELECTOR=/exp-prisma|exp-ward|exp-core|[.]tdh-|#tdh-|data-exp-owned/;
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
   function guardSelectorText(selectorText){
     const source=String(selectorText||''),parts=[];
@@ -4266,6 +4267,8 @@ EXP.DynamicEngine = (() => {
       try{
         if(rule.type===CSSRule.STYLE_RULE&&rule.selectorText&&rule.style){
           if(/data-exp-shift|exp-shift-root/.test(rule.selectorText))continue;
+          // Other ExtraPotions products own their colors; a theme must not recolor them.
+          if(SUITE_OWNED_SELECTOR.test(rule.selectorText))continue;
           const declarations=[];let bg=theme.page;
           const rawBg=rule.style.getPropertyValue('background-color')||rule.style.getPropertyValue('background');
           if(rawBg){const transformed=transformValue('background-color',rawBg,scope,theme.page);const token=transformed.match(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\))/i)?.[0];if(token)bg=token;}
@@ -5324,10 +5327,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.15';
+EXP.VERSION = '3.4.16';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.16': ["Keeps PRISMA highlights and other ExtraPotions products using their own colors under every SHIFT theme.","Stops the dynamic theme engine from rewriting rules that belong to PRISMA, WARD, and Dropper.","Leaves theming of the page itself unchanged.","Adds no new settings."],
     '3.4.15': ['Updates the shared foundation to exp-core 3.4.2.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.14': ['Updates the shared foundation to exp-core 3.4.1.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.13': ['Updates the shared foundation to exp-core 3.4.0.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],

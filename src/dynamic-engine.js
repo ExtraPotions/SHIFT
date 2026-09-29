@@ -20,6 +20,7 @@ EXP.DynamicEngine = (() => {
     } catch { return 'x'; }
   };
   const themeKey = (t) => [t.id,t.page,t.surface,t.raised,t.overlay,t.text,t.muted,t.accent,nativeDarkMode?'native-dark':'full'].join('|');
+  const SUITE_OWNED_SELECTOR=/exp-prisma|exp-ward|exp-core|[.]tdh-|#tdh-|data-exp-owned/;
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
   function guardSelectorText(selectorText){
     const source=String(selectorText||''),parts=[];
@@ -130,6 +131,8 @@ EXP.DynamicEngine = (() => {
       try{
         if(rule.type===CSSRule.STYLE_RULE&&rule.selectorText&&rule.style){
           if(/data-exp-shift|exp-shift-root/.test(rule.selectorText))continue;
+          // Other ExtraPotions products own their colors; a theme must not recolor them.
+          if(SUITE_OWNED_SELECTOR.test(rule.selectorText))continue;
           const declarations=[];let bg=theme.page;
           const rawBg=rule.style.getPropertyValue('background-color')||rule.style.getPropertyValue('background');
           if(rawBg){const transformed=transformValue('background-color',rawBg,scope,theme.page);const token=transformed.match(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\))/i)?.[0];if(token)bg=token;}

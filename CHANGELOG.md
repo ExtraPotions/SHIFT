@@ -1,3 +1,10 @@
+## 3.4.16 — 2026-09-29
+
+- Keeps PRISMA highlights and other ExtraPotions products using their own colors under every SHIFT theme.
+- Stops the dynamic theme engine from rewriting rules that belong to PRISMA, WARD, and Dropper.
+- Leaves theming of the page itself unchanged.
+- Adds no new settings.
+
 ## 3.4.15 — 2026-09-29
 
 - Updates the shared foundation to exp-core 3.4.2.
