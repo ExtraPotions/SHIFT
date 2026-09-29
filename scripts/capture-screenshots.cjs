@@ -74,11 +74,6 @@ async function main() {
     gem.click();
     const menu = shadow.querySelector('[data-route="menu"]');
     if (menu.getAttribute('aria-expanded') !== 'true') menu.click();
-    const width = [...shadow.querySelectorAll('select')].find((item) => item.getAttribute('aria-label') === 'Menu width');
-    if (!width) throw new Error('Missing Menu width control');
-    width.value = 'full';
-    width.dispatchEvent(new Event('change', { bubbles: true }));
-    const autoClose = shadow.querySelector('[role="switch"][aria-label="Automatic menu close"]');
     if (autoClose?.getAttribute('aria-checked') === 'true') autoClose.click();
     if (menu.getAttribute('aria-expanded') === 'true') menu.click();
     const toast = shadow.querySelector('.toast');

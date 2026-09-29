@@ -666,7 +666,7 @@ test('Advanced and System hold site and chrome controls', async (t) => {
   assert.ok(profileLabels.includes('Current profile'));
   await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
   const menuLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.ok(menuLabels.includes('Menu width'));
+  assert.equal(menuLabels.includes('Menu width'), false);
   assert.ok(menuLabels.includes('Update notifications'));
   assert.equal(menuLabels.includes('Safe Mode'), true);
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
