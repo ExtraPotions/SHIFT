@@ -10,12 +10,21 @@ let navigationCleanup;
 let processorCleanup;
 let shortcutCleanup;
 let engineStarted = false;
+const publishSuiteState = (state = EXP.Settings.effective()) => globalThis.ExtraPotionsCore?.publishSuiteState?.('shift', 'shift.state-changed', {
+  active: Boolean(engineStarted),
+  theme: String(state?.theme || 'unknown'),
+  safeMode: Boolean(state?.safeMode),
+  excluded: Boolean(state?.excluded),
+});
 const initialPageReady = () => document.readyState === 'complete'
   ? Promise.resolve()
   : new Promise((resolve) => addEventListener('load', resolve, { once: true }));
 const applyEngine = () => {
   if (!engineStarted) return null;
-  return EXP.Engine.apply(EXP.Settings.effective());
+  const state = EXP.Settings.effective();
+  const result = EXP.Engine.apply(state);
+  publishSuiteState(state);
+  return result;
 };
 const hooks = {
   async initialize() {
@@ -59,10 +68,12 @@ const hooks = {
     await initialPageReady();
     if (!engineStarted) {
       engineStarted = true;
-      EXP.Engine.start(EXP.Settings.effective());
-    } else EXP.Engine.apply(EXP.Settings.effective());
+      const state = EXP.Settings.effective();
+      EXP.Engine.start(state);
+      publishSuiteState(state);
+    } else applyEngine();
   },
-  async disable() { engineStarted = false; EXP.Engine.stop(); EXP.Adapters.disable(); },
+  async disable() { engineStarted = false; EXP.Engine.stop(); EXP.Adapters.disable(); publishSuiteState(); },
   async cleanup() { engineStarted = false; unsubscribe?.(); navigationCleanup?.(); processorCleanup?.(); shortcutCleanup?.(); EXP.Engine.stop(); EXP.Adapters.disable(); ui?.destroy(); }
 };
 
