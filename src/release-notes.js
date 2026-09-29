@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.14';
+EXP.VERSION = '3.4.15';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.15': ['Updates the shared foundation to exp-core 3.4.2.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.14': ['Updates the shared foundation to exp-core 3.4.1.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.13': ['Updates the shared foundation to exp-core 3.4.0.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.12': ['Updates the shared foundation to exp-core 3.3.17.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
