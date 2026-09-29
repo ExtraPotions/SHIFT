@@ -410,7 +410,6 @@ EXP.UI = (() => {
       artwork: ICON_URL,
       theme: PRODUCT_THEME,
       supportUrl: SUPPORT_URL,
-      priority: 100,
       getSettings: () => EXP.Settings.snapshot(),
       onSettings: (next, reason) => onSettings(next, reason),
       sections: routes.map(([id, label]) => ({

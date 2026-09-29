@@ -25,6 +25,7 @@ test('SHIFT does not redefine Core-owned shared infrastructure', () => {
   ]) {
     assert.doesNotMatch(source, pattern);
   }
+  assert.doesNotMatch(source, /\bpriority:\s*100\b/u);
 });
 
 test('SHIFT consumes the public ExtraPotionsCore boundary', () => {
