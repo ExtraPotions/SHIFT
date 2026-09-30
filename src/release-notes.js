@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.22';
+EXP.VERSION = '3.4.23';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.23': ['Updates the shared foundation to exp-core 3.4.7.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.22': ['Updates the shared foundation to exp-core 3.4.6.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.21': ['Updates the shared foundation to exp-core 3.4.5.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.20': ["Themes now recognize other ExtraPotions styles by the marker Core puts on them, not by a list of product names.","Keeps PRISMA, WARD, and Dropper colors untouched under every SHIFT theme.","Leaves theming of the page itself unchanged.","Adds no new settings."],
