@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.19
+// @version      3.4.20
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -4175,8 +4175,6 @@ EXP.DynamicEngine = (() => {
   // Core marks every stylesheet it injects (see ExtraPotionsCore.injectStyle); a constructed
   // sheet has no owner node, so the marker is an empty first rule.
   const isOwnedSheet=(sheet)=>{try{return sheet.cssRules?.[0]?.selectorText==='.exp-owned-sheet-marker';}catch{return false;}};
-  // Fallback for products still running an older Core that does not mark its sheets.
-  const SUITE_OWNED_SELECTOR=/exp-prisma|exp-ward|exp-core|[.]tdh-|#tdh-|data-exp-owned/;
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
   function guardSelectorText(selectorText){
     const source=String(selectorText||''),parts=[];
@@ -4287,8 +4285,6 @@ EXP.DynamicEngine = (() => {
       try{
         if(rule.type===CSSRule.STYLE_RULE&&rule.selectorText&&rule.style){
           if(/data-exp-shift|exp-shift-root/.test(rule.selectorText))continue;
-          // Other ExtraPotions products own their colors; a theme must not recolor them.
-          if(SUITE_OWNED_SELECTOR.test(rule.selectorText))continue;
           const declarations=[];let bg=theme.page;
           const rawBg=rule.style.getPropertyValue('background-color')||rule.style.getPropertyValue('background');
           if(rawBg){const transformed=transformValue('background-color',rawBg,scope,theme.page);const token=transformed.match(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\))/i)?.[0];if(token)bg=token;}
@@ -5347,10 +5343,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.19';
+EXP.VERSION = '3.4.20';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.20': ["Themes now recognize other ExtraPotions styles by the marker Core puts on them, not by a list of product names.","Keeps PRISMA, WARD, and Dropper colors untouched under every SHIFT theme.","Leaves theming of the page itself unchanged.","Adds no new settings."],
     '3.4.19': ['Updates the shared foundation to exp-core 3.4.4.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.18': ['Updates the shared foundation to exp-core 3.4.3.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.17': ["Adds a Check for updates button that works without turning on update notifications.","Checks GitHub release information only when you press it and never installs anything.","Reports whether an update is available, the script is current, or the check failed.","Leaves everything else in the product unchanged."],

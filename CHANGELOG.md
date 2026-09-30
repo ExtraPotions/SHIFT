@@ -1,3 +1,10 @@
+## 3.4.20 — 2026-09-30
+
+- Themes now recognize other ExtraPotions styles by the marker Core puts on them, not by a list of product names.
+- Keeps PRISMA, WARD, and Dropper colors untouched under every SHIFT theme.
+- Leaves theming of the page itself unchanged.
+- Adds no new settings.
+
 ## 3.4.19 — 2026-09-29
 
 - Updates the shared foundation to exp-core 3.4.4.
