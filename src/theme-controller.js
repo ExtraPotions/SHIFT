@@ -37,6 +37,12 @@ EXP.Engine = (() => {
     return EXP.ColorEngine.parse(raw);
   }
   function forcedColors(){try{return matchMedia('(forced-colors: active)').matches;}catch{return false;}}
+  // The color scheme the page had before SHIFT painted it. Embedded frames keep it: when a page's scheme differs
+  // from a frame's own, Chrome gives the frame an opaque backdrop, which hides whatever the frame was overlaying.
+  function nativeFrameScheme(){
+    const scheme=String(captureNativeBaseline()?.rootScheme||'').trim().toLowerCase();
+    return /^[a-z-]+( [a-z-]+)*$/.test(scheme)?scheme:'normal';
+  }
   function captureNativeBaseline(){
     if(nativeBaseline||!document.documentElement)return nativeBaseline;
     try{
@@ -198,6 +204,7 @@ EXP.Engine = (() => {
     return `@media screen{
       :root,html[${HOST_ATTR}],:host{${vars}}
       html[${HOST_ATTR}]{color-scheme:dark!important}
+      html[${HOST_ATTR}] :is(iframe,embed,object){color-scheme:${nativeFrameScheme()}!important}
       ${structural}
       html[${HOST_ATTR}] :is(img,picture,video,canvas,svg,[role="img"],[data-exp-shift-preserve]){filter:none!important}
       html[${HOST_ATTR}] [data-exp-shift-live]{${effects}}

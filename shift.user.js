@@ -5141,6 +5141,12 @@ EXP.Engine = (() => {
     return EXP.ColorEngine.parse(raw);
   }
   function forcedColors(){try{return matchMedia('(forced-colors: active)').matches;}catch{return false;}}
+  // The color scheme the page had before SHIFT painted it. Embedded frames keep it: when a page's scheme differs
+  // from a frame's own, Chrome gives the frame an opaque backdrop, which hides whatever the frame was overlaying.
+  function nativeFrameScheme(){
+    const scheme=String(captureNativeBaseline()?.rootScheme||'').trim().toLowerCase();
+    return /^[a-z-]+( [a-z-]+)*$/.test(scheme)?scheme:'normal';
+  }
   function captureNativeBaseline(){
     if(nativeBaseline||!document.documentElement)return nativeBaseline;
     try{
@@ -5302,6 +5308,7 @@ EXP.Engine = (() => {
     return `@media screen{
       :root,html[${HOST_ATTR}],:host{${vars}}
       html[${HOST_ATTR}]{color-scheme:dark!important}
+      html[${HOST_ATTR}] :is(iframe,embed,object){color-scheme:${nativeFrameScheme()}!important}
       ${structural}
       html[${HOST_ATTR}] :is(img,picture,video,canvas,svg,[role="img"],[data-exp-shift-preserve]){filter:none!important}
       html[${HOST_ATTR}] [data-exp-shift-live]{${effects}}
@@ -6422,11 +6429,24 @@ const hooks = {
 
 const product = EXP.Core.register(SHIFT_MANIFEST, hooks);
 
+// A frame from another origin (an extension overlay, an ad slot, a map, an embedded player) is laid out by the
+// page that hosts it, not by the viewer's theme. Painting one opaque hides whatever sits beneath it, such as the
+// video under a Twitch extension overlay, so SHIFT leaves foreign frames alone.
+const inForeignFrame = () => {
+  if (window.top === window.self) return false;
+  try {
+    const ancestors = location.ancestorOrigins;
+    if (ancestors && ancestors.length) return [...ancestors].some((origin) => origin !== location.origin);
+  } catch {}
+  try { void window.top.location.href; return false; } catch { return true; }
+};
+
 let booted = false;
 const bootOnce = () => {
   if (booted) return;
   if (!document.documentElement) { setTimeout(bootOnce, 25); return; }
   booted = true;
+  if (inForeignFrame()) return;
   try { EXP.Preload?.start(); } catch (error) { EXP.Core.safeError(error, 'shift-preload'); }
   product.initialize().then(() => product.enable()).catch((error) => EXP.Core.safeError(error, 'shift-boot'));
 };
