@@ -1,3 +1,9 @@
+## 3.4.24 — 2026-09-30
+
+- Fixes a blank video on streams that have an extension overlay, such as Fortnite streams: SHIFT no longer paints the overlay frame over the video.
+- SHIFT now leaves embedded frames from other websites (overlays, ads, maps, players) to the page that hosts them, and keeps them transparent.
+- Frames from the same website, and the page itself, are themed as before.
+
 ## 3.4.23 — 2026-09-30
 
 - Updates the shared foundation to exp-core 3.4.7.

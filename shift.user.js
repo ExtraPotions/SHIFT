@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.23
+// @version      3.4.24
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -5454,10 +5454,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.23';
+EXP.VERSION = '3.4.24';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.24': ["Fixes a blank video on streams that have an extension overlay, such as Fortnite streams: SHIFT no longer paints the overlay frame over the video.","SHIFT now leaves embedded frames from other websites (overlays, ads, maps, players) to the page that hosts them, and keeps them transparent.","Frames from the same website, and the page itself, are themed as before."],
     '3.4.23': ['Updates the shared foundation to exp-core 3.4.7.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.22': ['Updates the shared foundation to exp-core 3.4.6.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.21': ['Updates the shared foundation to exp-core 3.4.5.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
