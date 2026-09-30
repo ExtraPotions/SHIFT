@@ -608,7 +608,7 @@ test('launcher reflows when a higher-priority product joins after mount', async 
   assert.equal(after.left, before.left - 56, JSON.stringify(after));
 });
 
-test('launcher drag reorders products without moving the complete grid anchor', async (t) => {
+test('launcher drag moves the launcher group and Shift+drag reorders products', async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
@@ -619,12 +619,13 @@ test('launcher drag reorders products without moving the complete grid anchor', 
   await page.waitForSelector('#exp-shift-root', { state: 'attached' });
   await page.evaluate(() => localStorage.setItem('exp:v3:launcher-order', JSON.stringify(['prisma','shift'])));
   let box = await page.locator('#exp-shift-root').evaluate((node) => node.shadowRoot.querySelector('.launcher').getBoundingClientRect().toJSON());
-  await page.mouse.move(box.x + 24, box.y + 24); await page.mouse.down(); await page.mouse.move(box.x + 90, box.y + 24, { steps: 5 }); await page.mouse.up();
+  await page.keyboard.down('Shift'); await page.mouse.move(box.x + 24, box.y + 24); await page.mouse.down(); await page.mouse.move(box.x + 90, box.y + 24, { steps: 5 }); await page.mouse.up(); await page.keyboard.up('Shift');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('exp:v3:launcher-order') || '[]')[0] === 'shift');
+  assert.equal(await page.evaluate(() => localStorage.getItem('exp:v3:launcher-grid-delta')), null);
   box = await page.locator('#exp-shift-root').evaluate((node) => node.shadowRoot.querySelector('.launcher').getBoundingClientRect().toJSON());
   await page.mouse.move(box.x + 24, box.y + 24); await page.mouse.down(); await page.mouse.move(box.x + 24, 24, { steps: 8 }); await page.mouse.up();
-  assert.notEqual(await page.evaluate(() => document.documentElement.dataset.expLauncherAnchor), 'top');
-  assert.equal(await page.evaluate(() => localStorage.getItem('exp:v3:launcher-grid-delta')), null);
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.expLauncherAnchor), 'top');
+  assert.ok(Number(await page.evaluate(() => localStorage.getItem('exp:v3:launcher-grid-delta'))) < -100);
 });
 
 test('Safe Mode restores owned effects and can recover without losing appearance', async (t) => {
