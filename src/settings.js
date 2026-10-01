@@ -26,7 +26,6 @@ EXP.Settings = (() => {
     safeMode: false,
     shortcut: '',
     launcherPosition: 'automatic-end-bottom',
-    menuWidth: 'compact',
     menuAutoClose: true,
     menuNotifications: true,
     updateNotifications: false,
@@ -76,7 +75,7 @@ EXP.Settings = (() => {
       theme: EXP.Themes ? [...Object.keys(EXP.Themes.catalog), ...(candidate.customThemes || []).map((item) => item?.id).filter(Boolean)] : ['original'], accent: [...Object.keys(EXP.Themes?.accents || { 'site-default': null }), ...(candidate.customAccents || []).map((item) => item?.id).filter(Boolean)],
       themeStrength: ['soft', 'normal', 'strong'],
       surfaceLevel: ['off', 'conservative', 'balanced', 'aggressive'], linkVisibility: ['site', 'enhanced', 'high'], textContrast: ['normal', 'enhanced'],
-      focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom'], menuWidth: ['full', 'compact', 'narrow']
+      focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom']
     };
     for (const [name, allowed] of Object.entries(enums)) {
 	  const value = name === 'theme' ? normalizedTheme : candidate[name];

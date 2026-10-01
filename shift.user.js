@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.4.28
+// @version      3.4.29
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -3739,7 +3739,6 @@ EXP.Settings = (() => {
     safeMode: false,
     shortcut: '',
     launcherPosition: 'automatic-end-bottom',
-    menuWidth: 'compact',
     menuAutoClose: true,
     menuNotifications: true,
     updateNotifications: false,
@@ -3789,7 +3788,7 @@ EXP.Settings = (() => {
       theme: EXP.Themes ? [...Object.keys(EXP.Themes.catalog), ...(candidate.customThemes || []).map((item) => item?.id).filter(Boolean)] : ['original'], accent: [...Object.keys(EXP.Themes?.accents || { 'site-default': null }), ...(candidate.customAccents || []).map((item) => item?.id).filter(Boolean)],
       themeStrength: ['soft', 'normal', 'strong'],
       surfaceLevel: ['off', 'conservative', 'balanced', 'aggressive'], linkVisibility: ['site', 'enhanced', 'high'], textContrast: ['normal', 'enhanced'],
-      focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom'], menuWidth: ['full', 'compact', 'narrow']
+      focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom']
     };
     for (const [name, allowed] of Object.entries(enums)) {
 	  const value = name === 'theme' ? normalizedTheme : candidate[name];
@@ -5567,10 +5566,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.4.28';
+EXP.VERSION = '3.4.29';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.29': ["Removes retired menu-width preferences from stored settings without resetting other preferences.","Keeps the existing shared menu size and tests rendered layout instead of obsolete width-mode labels."],
     '3.4.28': ['Updates the shared foundation to exp-core 3.4.11.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.27': ['Updates the shared foundation to exp-core 3.4.10.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.26': ["Updates to exp-core 3.4.9.","Install Update now always installs the latest published release, never unreleased code.","The SHIFT menu now closes when you click outside it, like the rest of the suite."],
