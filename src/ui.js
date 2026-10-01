@@ -55,8 +55,8 @@ EXP.UI = (() => {
       text,
       details,
       kind: available ? 'available' : kicker === 'Update Complete' ? 'complete' : 'current',
-      releaseUrl: 'https://github.com/ExtraPotions/SHIFT/releases',
-      actionUrl: available ? 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js' : '',
+      releaseUrl: EXP.Updates.RELEASE_URL,
+      actionUrl: available ? EXP.Updates.INSTALL_URL : '',
       actionText: 'Install Update',
       showAction: available,
     });
@@ -432,8 +432,8 @@ EXP.UI = (() => {
       shadow,
       panel,
       versionButton: product.versionButton,
-      releaseUrl: 'https://github.com/ExtraPotions/SHIFT/releases',
-      installUrl: 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/shift.user.js',
+      releaseUrl: EXP.Updates.RELEASE_URL,
+      installUrl: EXP.Updates.INSTALL_URL,
       onVersion: () => {
         if (updateNotice?.hidden === false && updateNotice.dataset.noticeKind === 'current') {
           hideUpdateNotice();
