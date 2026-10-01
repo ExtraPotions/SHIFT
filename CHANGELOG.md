@@ -1,3 +1,9 @@
+## 3.4.26 — 2026-10-01
+
+- Updates to exp-core 3.4.9.
+- Install Update now always installs the latest published release, never unreleased code.
+- The SHIFT menu now closes when you click outside it, like the rest of the suite.
+
 ## 3.4.25 — 2026-10-01
 
 - Updates the shared foundation to exp-core 3.4.8.
