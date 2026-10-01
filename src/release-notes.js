@@ -1,7 +1,8 @@
-EXP.VERSION = '3.4.26';
+EXP.VERSION = '3.4.27';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.4.27': ['Updates the shared foundation to exp-core 3.4.10.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.26': ["Updates to exp-core 3.4.9.","Install Update now always installs the latest published release, never unreleased code.","The SHIFT menu now closes when you click outside it, like the rest of the suite."],
     '3.4.25': ['Updates the shared foundation to exp-core 3.4.8.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.4.24': ["Fixes a blank video on streams that have an extension overlay, such as Fortnite streams: SHIFT no longer paints the overlay frame over the video.","SHIFT now leaves embedded frames from other websites (overlays, ads, maps, players) to the page that hosts them, and keeps them transparent.","Frames from the same website, and the page itself, are themed as before."],
