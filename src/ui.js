@@ -1,0 +1,525 @@
+EXP.UI = (() => {
+  const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
+  const SUPPORT_URL = 'https://ko-fi.com/expdare';
+  const PRODUCT_THEME = Object.freeze({
+    id:'shift', name:'SHIFT gem',
+    swatch:'linear-gradient(135deg,#b9fff9 0 34%,#20d9d3 34% 67%,#f23868 67%)',
+    bg:'#101719', panel:'#182326', line:'#344442', text:'#f2f8f7', muted:'#b8c9c7',
+    accent:'#26d9c7', accent2:'#f23868',
+    skin:'linear-gradient(135deg,#b9fff9,#20d9d3,#f23868)',
+    skinVertical:'linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)'
+  });
+  const routes = [
+    ['appearance', 'Appearance'], ['advanced', 'Advanced'], ['system', 'System']
+  ];
+  let host;
+  let shadow;
+  let launcher;
+  let panel;
+  let toast;
+  let toastTimer;
+  let product;
+  let noticeController;
+  let saved;
+  let onApply;
+  let onSettings;
+  let swatchStyle;
+  let updateNotice;
+  let lastVersionKey = 'exp:v3:shift:last-version-v2';
+
+  const el = (tag, attrs = {}, text) => {
+    const node = document.createElement(tag);
+    for (const [name, value] of Object.entries(attrs)) {
+      if (name === 'class') node.className = value;
+      else if (name === 'hidden') node.hidden = value;
+      else node.setAttribute(name, value);
+    }
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  function button(label, action, className = '') {
+    const node = el('button', { type: 'button', class: className }, label);
+    node.addEventListener('click', action);
+    return node;
+  }
+  function hideUpdateNotice() {
+    noticeController?.hide();
+  }
+
+  function showUpdateNotice({ kicker = "What's New", title = 'SHIFT Updated', version = EXP.VERSION, text = '', details = [], available = false } = {}) {
+    if (!noticeController) return;
+    noticeController.show({
+      kicker,
+      title,
+      version,
+      text,
+      details,
+      kind: available ? 'available' : kicker === 'Update Complete' ? 'complete' : 'current',
+      releaseUrl: EXP.Updates.RELEASE_URL,
+      actionUrl: available ? EXP.Updates.INSTALL_URL : '',
+      actionText: 'Install Update',
+      showAction: available,
+    });
+  }
+
+  async function checkUpdateNotice(force = false) {
+    const result = await EXP.Updates.check(force);
+    launcher?.classList.toggle('update-available', Boolean(result.available));
+    if (result.available && EXP.Core.claimNotice('shift',`available:${result.latest}`)) showUpdateNotice({
+      kicker: 'Update Available',
+      title: 'New SHIFT Version Available',
+      version: result.latest,
+      text: `v${result.latest} is ready to install.`,
+      details: Array.isArray(result.details) && result.details.length ? result.details : ['A newer SHIFT build is available.', 'Install the latest userscript for the newest fixes and improvements.'],
+      available: true,
+    });
+    return result;
+  }
+
+  function setMessage(message, kind = 'status') {
+    if (!toast) return;
+    toast.textContent = message; toast.dataset.kind = kind; toast.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { if (toast) toast.hidden = true; }, 2400);
+  }
+  function section(title) {
+    const node = el('section', { class: 'group' });
+    if (title) node.append(el('h3', {}, title));
+    return node;
+  }
+  function row(label, help) {
+    const node = el('div', { class: 'row' });
+    const copy = el('div', { class: 'copy' });
+    copy.append(el('span', { class: 'label' }, label));
+    node.append(copy);
+    return node;
+  }
+  function switchControl(label, help, value, change) {
+    const node = row(label, help);
+    const control = el('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(Boolean(value)), 'aria-label': label });
+    control.append(el('span', { 'aria-hidden': 'true' }));
+    control.addEventListener('click', () => { const next = control.getAttribute('aria-checked') !== 'true'; control.setAttribute('aria-checked', String(next)); change(next); });
+    node.append(control);
+    return node;
+  }
+  function selectControl(label, help, value, values, change) {
+    const node = row(label, help);
+    const select = el('select', { 'aria-label': label });
+    for (const [id, name] of values) { const option = el('option', { value: id }, name); option.selected = id === value; select.append(option); }
+    select.addEventListener('change', () => change(select.value));
+    node.append(select);
+    return node;
+  }
+  function colorControl(label, value, change) {
+    const node = row(label, '');
+    const input = el('input', { type:'color', value, 'aria-label':label });
+    input.addEventListener('input', () => change(input.value));
+    node.append(input); return node;
+  }
+  function actionRow(label, help, action, actionLabel = label) { const node = row(label, help); node.append(button(actionLabel, action, ['Reset','Reset site'].includes(actionLabel) ? 'action warn' : 'action')); return node; }
+
+  function applyMenuTheme(state) { ExtraPotionsCore.applyTheme(host, state.theme === "original" ? "shift" : state.theme); }
+
+  function commit(patch, reason = 'appearance', message = 'Appearance updated.') {
+    saved = onSettings({ ...saved, ...patch }, reason);
+    product?.renderActive();
+    setMessage(message);
+  }
+  function appearanceSwatches() {
+    const presets = [
+      { id:'original', name:'Original', theme:'original', accent:'site-default', swatch:'linear-gradient(135deg,#f4f4f4 0 50%,#252525 50% 100%)' },
+      { id:'ember', name:'Ember', theme:'ember', accent:'ember-default', swatch:'linear-gradient(135deg,#120807 0 38%,#c9512c 38% 69%,#b68a32 69% 100%)' },
+      { id:'midnight', name:'Midnight', theme:'midnight', accent:'midnight-default', swatch:'linear-gradient(135deg,#050a12 0 38%,#3563a3 38% 69%,#348f8b 69% 100%)' },
+      { id:'glacier', name:'Glacier', theme:'glacier', accent:'glacier-default', swatch:'linear-gradient(135deg,#061216 0 38%,#4a9eaa 38% 69%,#92b85b 69% 100%)' },
+      { id:'contrast', name:'High contrast', theme:'obsidian', accent:'contrast-default', swatch:'linear-gradient(135deg,#000000 0 48%,#ffffff 48% 78%,#ffd400 78% 100%)' },
+      { id:'verdant', name:'Verdant', theme:'verdant', accent:'verdant-default', swatch:'linear-gradient(135deg,#06110d 0 38%,#318c61 38% 69%,#2f7f86 69% 100%)' },
+      { id:'pride', name:'Pride', theme:'pride', accent:'pride-default', swatch:'linear-gradient(135deg,#c84e66 0%,#d07840 16.6%,#be9f37 33.3%,#3b8a5f 50%,#3d79a6 66.6%,#7455a4 100%)' },
+      { id:'crimson', name:'Crimson', theme:'crimson', accent:'crimson-default', swatch:'linear-gradient(135deg,#0c0508 0 38%,#941f2f 38% 69%,#2f746e 69% 100%)' },
+      { id:'shift', name:'SHIFT gem', theme:'shift', accent:'shift-default', swatch:'linear-gradient(135deg,#041313 0 38%,#1e938f 38% 69%,#c34766 69% 100%)' }
+    ];
+    const custom = saved.customThemes.map((theme) => ({ id:`custom:${theme.id}`, name:theme.name, theme:theme.id, accent:saved.accent, swatch:`linear-gradient(135deg,${theme.page} 50%,${theme.text} 50%)` }));
+    const choices = [...presets, ...custom];
+    const matched = choices.find((item) => item.theme === saved.theme && item.accent === saved.accent);
+    const current = matched?.id || (saved.theme === 'original' ? '' : `current:${saved.theme}:${saved.accent}`);
+    if (current && !choices.some((item) => item.id === current)) { const resolved=EXP.Themes.resolve(saved.theme,saved.accent,saved);choices.push({id:current,name:'Current imported palette',theme:saved.theme,accent:saved.accent,swatch:`linear-gradient(135deg,${resolved.page||'#171918'} 50%,${resolved.accent} 50%)`}); }
+    const line=el('div',{class:'row palette-row'});const dots=el('div',{class:'exp-theme-swatches'});const options={container:dots,themes:choices,value:current,onChange:(id)=>{const choice=choices.find((item)=>item.id===id);if(choice)commit({theme:choice.theme,accent:choice.accent},'theme-swatch',`${choice.name} applied.`);}};
+    const swatchCss = choices.map((theme) => `.exp-theme-swatch[data-swatch="${theme.id}"]{background:${theme.swatch}}`).join('');
+    if (swatchStyle) swatchStyle.textContent = swatchCss;
+    else swatchStyle = EXP.Core.injectStyle(shadow, swatchCss, { expShiftSwatches: '1' });
+    if(ExtraPotionsCore?.createThemeSwatches)ExtraPotionsCore.createThemeSwatches(options);else for(const theme of choices){const dot=el('button',{type:'button',class:`exp-theme-swatch${theme.id===current?' is-on':''}`,'aria-label':theme.name,'aria-pressed':String(theme.id===current),'data-swatch':theme.id});dot.title=theme.name;dot.addEventListener('click',()=>options.onChange(theme.id));dots.append(dot);}
+    line.style.setProperty('display','grid','important');
+    line.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+    dots.style.setProperty('flex-wrap','wrap','important');
+    dots.style.setProperty('width','100%','important');
+    line.append(dots);return line;
+  }
+
+  function appearanceFooter() {
+    const footer = el('div', { class: 'workspace-actions' });
+    const original = button('Hold to Show Original', () => {}, 'secondary');
+    const hold = (value) => EXP.Engine.holdOriginal(value);
+    original.addEventListener('pointerdown', () => hold(true));
+    for (const event of ['pointerup', 'pointercancel', 'pointerleave', 'blur']) original.addEventListener(event, () => hold(false));
+    original.addEventListener('keydown', (event) => { if (event.code === 'Space' || event.code === 'Enter') hold(true); });
+    original.addEventListener('keyup', () => hold(false));
+    footer.append(original);
+    return footer;
+  }
+
+  function paletteStudio() {
+    const state = EXP.Settings.snapshot();
+    const base = EXP.Themes.resolve(saved.theme, saved.accent, saved);
+    const draft = { name:'Custom palette', page:base.page||'#101414', surface:base.surface||'#182020', raised:base.raised||'#243030', overlay:base.overlay||'#304040', navigation:base.navigation||base.surface||'#182020', input:base.input||base.raised||'#243030', interactive:base.interactive||base.raised||'#243030', text:base.text||'#f2f6f5', muted:base.muted||'#aebcba', highlight:base.highlight||base.accent||'#26d9c7' };
+    const studio = el('details', { class:'exp-tools-card palette-studio' });studio.append(el('summary',{},'Palette Studio'));
+    const preview=el('div',{class:'palette-preview','aria-label':'Custom palette preview'}),contrast=el('p',{role:'status'});
+    const ratio=(one,two)=>{const lum=value=>{const values=[1,3,5].map(index=>parseInt(value.slice(index,index+2),16)/255).map(value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4);return values[0]*.2126+values[1]*.7152+values[2]*.0722;};const a=lum(one),b=lum(two);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);};
+    const paint=()=>{preview.style.cssText=`background:${draft.page};color:${draft.text};border:1px solid ${draft.muted};box-shadow:inset 0 0 0 6px ${draft.surface};`;preview.textContent='Page · Surface · Text · Accent';preview.style.setProperty('text-decoration','underline 3px '+draft.highlight);const value=Math.min(ratio(draft.text,draft.page),ratio(draft.text,draft.surface));contrast.textContent=`Text contrast: ${value.toFixed(2)}:1 · ${value>=4.5?'Meets normal-text contrast':'Choose lighter text or a darker surface before saving.'}`;};paint();studio.append(preview,contrast);
+    for(const [key,label] of [['page','Page'],['surface','Surface'],['raised','Raised surface'],['overlay','Overlay'],['navigation','Navigation'],['input','Input'],['interactive','Interactive'],['text','Text'],['muted','Muted text'],['highlight','Accent']])studio.append(colorControl(label,draft[key],value=>{draft[key]=value;paint();}));
+    studio.append(actionRow('Save custom palette','Creates a local palette and applies it immediately.',()=>{if(Math.min(ratio(draft.text,draft.page),ratio(draft.text,draft.surface))<4.5){setMessage('Improve text contrast before saving.');return;}const name=prompt('Palette name',draft.name);if(!name?.trim())return;const id=`custom-${Date.now().toString(36)}`;const theme={...draft,id,name:name.trim().slice(0,80)};const currentState=EXP.Settings.snapshot();const next={...currentState,customThemes:[...currentState.customThemes,theme],theme:id,accent:'site-default',currentProfile:'original',siteOverrides:{...currentState.siteOverrides,[location.hostname]:{...(currentState.siteOverrides[location.hostname]||{}),theme:id,accent:'site-default'}}};onSettings(next,'palette-studio-save');setMessage(`${theme.name} saved and applied.`);},'Save palette'));
+    studio.append(actionRow('Export palette draft','Exports colors only.',()=>download('shift-palette.json',JSON.stringify({product:'shift',generation:3,schema:1,type:'palette',palette:draft},null,2)),'Export draft'));
+    const file=el('input',{type:'file',accept:'.json,application/json','aria-label':'Import SHIFT palette'});file.hidden=true;file.addEventListener('change',async()=>{try{const payload=JSON.parse(await file.files[0].text());if(payload.product!=='shift'||payload.type!=='palette'||payload.generation!==3||payload.schema!==1||!Object.keys(draft).filter(key=>key!=='name').every(key=>EXP.Themes.hex(payload.palette?.[key])))throw new Error('Unsupported palette file.');for(const key of Object.keys(draft))draft[key]=key==='name'?String(payload.palette.name||'Custom palette').slice(0,80):payload.palette[key];for(const input of studio.querySelectorAll('input[type="color"]')){const key=[['Page','page'],['Surface','surface'],['Raised surface','raised'],['Overlay','overlay'],['Navigation','navigation'],['Input','input'],['Interactive','interactive'],['Text','text'],['Muted text','muted'],['Accent','highlight']].find(([label])=>label===input.getAttribute('aria-label'))?.[1];if(key)input.value=draft[key];}paint();setMessage('Palette draft imported; save to apply.');}catch(error){setMessage(error.message);}});studio.append(actionRow('Import palette','Review imported colors before saving.',()=>file.click(),'Import draft'),file);
+    const current=state.customThemes.find(item=>item.id===state.theme);if(current)studio.append(actionRow('Delete current custom palette','Profiles using it return to Original.',()=>{const customThemes=state.customThemes.filter(item=>item.id!==current.id);const profiles=state.profiles.map(profile=>profile.appearance?.theme===current.id?{...profile,appearance:{...profile.appearance,theme:'original',accent:'site-default'}}:profile);const siteOverrides=Object.fromEntries(Object.entries(state.siteOverrides).map(([host,site])=>[host,site.theme===current.id?{...site,theme:'original',accent:'site-default'}:site]));onSettings({...state,customThemes,profiles,siteOverrides,theme:'original',accent:'site-default'},'palette-studio-delete');setMessage('Custom palette deleted.');},'Delete palette'));
+    return studio;
+  }
+
+  function appearanceExplanation() {
+    const card = el('details', { class: 'exp-tools-card', 'data-shift-appearance-explanation': 'true' });
+    card.style.cssText = 'border:1px solid var(--theme-line);border-radius:7px;padding:8px;font-size:var(--exp-font-size-body,13px);line-height:1.5;overflow-wrap:anywhere';
+    card.append(el('summary', {}, 'Why this appearance?'));
+    const content = el('div');card.append(content);
+    function refresh() {
+      const { settings, sources } = EXP.Settings.explain();
+      const status = EXP.Engine.appearanceStatus();
+      const palette = EXP.Themes.resolve(settings.theme, settings.accent, settings);
+      const reason = settings.excluded ? 'SHIFT is excluded on this site. Page appearance changes are paused.'
+        : settings.safeMode ? 'Safe Mode is on. Page appearance changes are paused.'
+        : status.forcedColors ? 'Your browser’s forced colors mode is active. SHIFT leaves page colors alone.'
+        : status.originalHeld ? 'The temporary Original preview is active.'
+        : palette.original ? 'Original is selected. SHIFT leaves page colors unchanged.'
+        : !status.active ? 'The appearance engine is not active yet.'
+        : status.nativeDark ? 'The site already has a dark appearance. SHIFT preserves its main surfaces and applies limited readability adjustments.'
+        : 'SHIFT is applying the selected palette and appearance controls.';
+      content.replaceChildren(el('p', { role: 'status' }, reason));
+      content.append(el('p', {}, 'Priority: site override, then profile, then global settings. These are the effective values for this page.'));
+      const fields = [['theme','Palette','appearance'],['accent','Accent','appearance'],['themeStrength','Theme strength','appearance'],['surfaceLevel','Surface intelligence','appearance'],['repairSurfaces','Surface repair','appearance'],['preserveArt','Artwork preservation','appearance'],['reduceMotion','Reduced motion','appearance'],['linkVisibility','Link visibility','readability'],['textContrast','Text contrast','readability'],['mutedRecovery','Muted text recovery','readability'],['formReadability','Form readability','readability'],['focusVisibility','Focus visibility','readability'],['reduceShadows','Reduced shadows','effects'],['reduceTransparency','Reduced transparency','effects'],['simplifyGradients','Simplified gradients','effects'],['reduceBlur','Reduced blur','effects']];
+      const more = el('details');more.append(el('summary', {}, 'More appearance settings'));
+      for (const [key,label,route] of fields) {
+        const value = key === 'theme' ? (palette.name || settings.theme) : key === 'accent' ? (EXP.Themes.accentOptions(settings).find(([id])=>id===settings.accent)?.[1] || settings.accent) : typeof settings[key] === 'boolean' ? (settings[key] ? 'On' : 'Off') : String(settings[key]).replace(/^./, letter=>letter.toUpperCase());
+        const line = el('p', { 'data-setting-source': key }, `${label}: ${value} — ${sources[key].label}`);
+        line.append(button('View source', () => {
+          const destination = sources[key].kind === 'global'
+            ? (route === 'effects' ? 'advanced' : 'appearance')
+            : 'advanced';
+          const header = shadow.querySelector(`[data-section="${destination}"]`);
+          const body = header?.parentElement.querySelector('.route-body');
+          if (header?.parentElement) header.parentElement.hidden = false;
+          if (header?.getAttribute('aria-expanded') !== 'true') header?.click();
+          const scope = body || header?.parentElement;
+          const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
+          const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
+          const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
+          const disclosure = control?.closest('details');
+          if (disclosure) disclosure.open = true;
+          (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
+        }, 'secondary'));
+        (['theme','accent'].includes(key) ? content : more).append(line);
+      }
+      content.append(more, button('Refresh explanation', refresh, 'secondary'));
+    }
+    card.addEventListener('toggle', () => { if (card.open) refresh(); });
+    return card;
+  }
+
+  function renderAppearance() {
+    const fragment = document.createDocumentFragment();
+    const themes = section('Palette', 'Choose a semantic palette. Original leaves the page unchanged.');
+    themes.append(appearanceSwatches());
+    themes.append(selectControl('Theme Strength', 'Soft narrows depth differences; Strong increases raised-surface depth.', saved.themeStrength, [['soft', 'Soft'], ['normal', 'Normal'], ['strong', 'Strong']], (themeStrength) => commit({ themeStrength }, 'theme-strength', `Theme strength set to ${themeStrength}.`)));
+    fragment.append(themes, paletteStudio(), appearanceExplanation());
+
+    const surfaces = section('Surfaces', 'Host CSS themes the page and app shells first. Classification then repairs leftover gray boxes.');
+    surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));
+    surfaces.append(switchControl('Preserve artwork and charts', 'Never classify images, video, canvas, or SVG.', saved.preserveArt, (preserveArt) => commit({ preserveArt }, 'preserve-art', preserveArt ? 'Artwork preservation on.' : 'Artwork preservation off.')));
+    surfaces.append(switchControl('Repair unreadable surfaces', 'Repair leftover neutral boxes after host CSS paints the page.', saved.repairSurfaces, (repairSurfaces) => commit({ repairSurfaces }, 'repair-surfaces', repairSurfaces ? 'Surface repair on.' : 'Surface repair off.')));
+    const motion = section('Motion', 'Motion preferences apply immediately when you change them.');
+    motion.append(selectControl('Reduce motion', 'Follow the system preference or override it.', saved.reduceMotion, [['off', 'Off'], ['system', 'Follow system'], ['on', 'On']], (reduceMotion) => commit({ reduceMotion }, 'reduce-motion', `Reduce motion set to ${reduceMotion}.`)));
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Reduced motion requested' : 'Standard motion';
+    motion.append(actionRow('System preferences', reduced, () => setMessage(reduced), 'View'));
+    fragment.append(motion);
+    fragment.append(surfaces);
+    fragment.append(ExtraPotionsCore.createDisclosure('Readability', renderReadability()));
+    fragment.append(appearanceFooter());
+    return fragment;
+  }
+
+  function renderReadability() {
+    const fragment = document.createDocumentFragment();
+    const readability = section('Text & links', 'Page text, links, and form accessibility.');
+    readability.append(selectControl('Link visibility', 'Increase link distinction without changing status colors.', saved.linkVisibility, [['site', 'Site default'], ['enhanced', 'Enhanced'], ['high', 'High']], (linkVisibility) => commit({ linkVisibility }, 'link-visibility', `Link visibility set to ${linkVisibility}.`)));
+    readability.append(selectControl('Text contrast', 'Increase neutral text contrast.', saved.textContrast, [['normal', 'Normal'], ['enhanced', 'Enhanced']], (textContrast) => commit({ textContrast }, 'text-contrast', `Text contrast set to ${textContrast}.`)));
+    readability.append(switchControl('Muted text recovery', 'Repair muted text only when contrast is insufficient.', saved.mutedRecovery, (mutedRecovery) => commit({ mutedRecovery }, 'muted-recovery', mutedRecovery ? 'Muted text recovery on.' : 'Muted text recovery off.')));
+    readability.append(switchControl('Form readability', 'Improve fields and placeholder contrast.', saved.formReadability, (formReadability) => commit({ formReadability }, 'form-readability', formReadability ? 'Form readability on.' : 'Form readability off.')));
+    readability.append(selectControl('Focus visibility', 'Visible keyboard focus without mouse-only effects.', saved.focusVisibility, [['site', 'Site default'], ['enhanced', 'Enhanced'], ['high', 'High']], (focusVisibility) => commit({ focusVisibility }, 'focus-visibility', `Focus visibility set to ${focusVisibility}.`)));
+    fragment.append(readability);
+    return fragment;
+  }
+
+  function renderEffects() {
+    const fragment = document.createDocumentFragment();
+    const effects = section('Surface effects', 'Applies only to SHIFT-classified surfaces.');
+    for (const [key, label] of [['reduceShadows', 'Reduce shadows'], ['reduceTransparency', 'Reduce transparency'], ['simplifyGradients', 'Simplify gradients'], ['reduceBlur', 'Reduce blur']]) effects.append(switchControl(label, 'Applies only to SHIFT-classified surfaces.', saved[key], (value) => commit({ [key]: value }, key, `${label} ${value ? 'on' : 'off'}.`)));
+    fragment.append(effects);
+
+    const adapter = EXP.Adapters.health();
+    const adapterGroup = section('Site integrations', 'Enhanced Mode is additive; Generic Mode continues if an adapter fails.');
+    adapterGroup.append(actionRow(adapter.id ? `${adapter.name} · ${adapter.state}` : 'Generic Mode', adapter.reason, () => setMessage(adapter.controls.length ? `${adapter.controls.length} adapter controls available.` : 'No adapter controls on this site.'), 'Health'));
+    const adapterValues = EXP.Adapters.settings();
+    for (const [id, label] of EXP.Adapters.options()) adapterGroup.append(switchControl(label, `Site adapter control · ${id}`, Boolean(adapterValues[id]), (value) => { EXP.Adapters.setOption(id, value); setMessage(`${label} ${value ? 'enabled' : 'disabled'}.`); }));
+    for (const [id, label] of EXP.Adapters.actions()) adapterGroup.append(actionRow(label, `Immediate site adapter action · ${id}`, () => { EXP.Adapters.runAction(id); setMessage(`${label} completed.`); }, label));
+    fragment.append(adapterGroup);
+    return fragment;
+  }
+
+  function renderProfilesSites() {
+    const state = EXP.Settings.snapshot();
+    const effective = EXP.Settings.effective();
+    const fragment = document.createDocumentFragment();
+    const current = section('Current site', location.hostname || 'Local document');
+    current.append(switchControl('Enable SHIFT on this site', 'Disabling restores only SHIFT-owned page changes.', !effective.excluded, (enabled) => {
+      const exclusions = state.exclusions.filter((host) => host !== location.hostname);
+      if (!enabled) exclusions.push(location.hostname);
+      onSettings({ ...state, exclusions }, 'site-exclusion'); setMessage(enabled ? 'SHIFT enabled for this site.' : 'Site excluded.');
+    }));
+    const siteProfile = state.siteOverrides[location.hostname]?.profileId || 'inherit';
+    current.append(selectControl('Site profile', 'Inherit the global profile or assign one to this hostname.', siteProfile, [['inherit', 'Inherit global'], ...state.profiles.map((profile) => [profile.id, profile.name])], (profileId) => {
+      const siteOverrides = { ...state.siteOverrides, [location.hostname]: { ...(state.siteOverrides[location.hostname] || {}) } };
+      if (profileId === 'inherit') delete siteOverrides[location.hostname].profileId; else siteOverrides[location.hostname].profileId = profileId;
+      onSettings({ ...state, siteOverrides }, 'site-profile'); setMessage('Site profile updated.');
+    }));
+    current.append(actionRow('Use current appearance on this site', 'Creates a hostname override without changing the selected profile.', () => { const now = EXP.Settings.effective(); const siteOverrides = { ...state.siteOverrides, [location.hostname]: { ...(state.siteOverrides[location.hostname] || {}), theme: now.theme, accent: now.accent, themeStrength: now.themeStrength, surfaceLevel: now.surfaceLevel, linkVisibility: now.linkVisibility, textContrast: now.textContrast, focusVisibility: now.focusVisibility } }; onSettings({ ...state, siteOverrides }, 'site-appearance-override'); setMessage('Site appearance override saved.'); }, 'Save override'));
+    current.append(actionRow('Reset this site', 'Remove this site override and exclusion without changing global settings.', () => {
+      if (!confirm(`Reset SHIFT settings for ${location.hostname}?`)) return;
+      const siteOverrides = { ...state.siteOverrides }; delete siteOverrides[location.hostname];
+      onSettings({ ...state, siteOverrides, exclusions: state.exclusions.filter((host) => host !== location.hostname) }, 'site-reset'); setMessage('Site settings reset.');
+    }, 'Reset site'));
+    fragment.append(current, renderProfiles());
+    return fragment;
+  }
+
+  function renderProfiles() {
+    const state = EXP.Settings.snapshot();
+    const fragment = document.createDocumentFragment();
+    const group = section('Profiles', 'Profiles contain appearance only; site tools stay independent.');
+    group.append(selectControl('Current profile', 'Site overrides remain intact. Original resets global appearance.', state.currentProfile, state.profiles.map((profile) => [profile.id, profile.name]), (currentProfile) => { const reset = currentProfile === 'original' ? { theme: 'original', accent: 'site-default' } : {}; onSettings({ ...state, ...reset, currentProfile }, 'profile-select'); setMessage('Profile applied.'); }));
+    group.append(actionRow('Save current appearance', 'Create a custom profile from effective appearance.', () => {
+      const name = prompt('Profile name'); if (!name?.trim()) return;
+      const id = `profile-${Date.now().toString(36)}`;
+      const effective = EXP.Settings.effective();
+      const profile = { id, name: name.trim().slice(0, 80), appearance: { theme: effective.theme, accent: effective.accent, surfaceLevel: effective.surfaceLevel, linkVisibility: effective.linkVisibility }, builtIn: false };
+      onSettings({ ...state, profiles: [...state.profiles, profile], currentProfile: id }, 'profile-create'); setMessage('Profile created.');
+    }, 'New profile'));
+    const current = state.profiles.find((profile) => profile.id === state.currentProfile);
+    if (current) {
+      group.append(actionRow('Duplicate current profile', 'Creates a new stable identity.', () => { const name = prompt('Duplicate profile name', `${current.name} copy`); if (!name?.trim()) return; const copy = { ...EXP.Settings.clone(current), id: `profile-${Date.now().toString(36)}`, name: name.trim().slice(0, 80), builtIn: false }; onSettings({ ...state, profiles: [...state.profiles, copy], currentProfile: copy.id }, 'profile-duplicate'); setMessage('Profile duplicated.'); }, 'Duplicate'));
+      group.append(actionRow('Export current profile', 'Includes appearance only.', () => download(`${current.id}.json`, JSON.stringify({ product: 'shift', generation: 3, schema: 1, type: 'profile', profile: current }, null, 2)), 'Export'));
+    }
+    if (current && !current.builtIn) {
+      group.append(actionRow('Rename current profile', 'Assignments retain the same stable identity.', () => { const name = prompt('Profile name', current.name); if (!name?.trim()) return; onSettings({ ...state, profiles: state.profiles.map((profile) => profile.id === current.id ? { ...profile, name: name.trim().slice(0, 80) } : profile) }, 'profile-rename'); setMessage('Profile renamed.'); }, 'Rename'));
+      group.append(actionRow('Delete current profile', 'Assignments return to Original.', () => {
+        if (!confirm(`Delete profile “${current.name}”?`)) return;
+        const siteOverrides = Object.fromEntries(Object.entries(state.siteOverrides).map(([host, value]) => [host, value.profileId === current.id ? { ...value, profileId: 'original' } : value]));
+        onSettings({ ...state, profiles: state.profiles.filter((profile) => profile.id !== current.id), currentProfile: 'original', siteOverrides }, 'profile-delete'); setMessage('Profile deleted.');
+      }, 'Delete'));
+    }
+    const importRow = row('Import profile', 'Validates product, generation, schema, and appearance references.');
+    const importInput = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT profile' });
+    importInput.hidden = true;
+    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = EXP.Settings.clone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    importRow.append(button('Import', () => importInput.click(), 'action'), importInput); group.append(importRow);
+    const actions = el('div', { class: 'button-grid profile-actions' });
+    for (const item of [...group.querySelectorAll(':scope > .row')]) {
+      const action = item.querySelector('button.action'); if (!action) continue;
+      action.title = item.querySelector('.label')?.textContent || action.textContent;
+      const file = item.querySelector('input[type="file"]'); if (file) group.append(file);
+      actions.append(action); item.remove();
+    }
+    if (state.exclusions.length) group.append(actionRow('Excluded sites', state.exclusions.join(', '), () => { const hostName = prompt('Hostname to remove from exclusions', state.exclusions[0]); if (!hostName) return; onSettings({ ...state, exclusions: state.exclusions.filter((item) => item !== hostName.trim()) }, 'exclusion-manager'); setMessage('Exclusions updated.'); }, 'Manage'));
+    group.append(actions); fragment.append(group);
+    return fragment;
+  }
+
+  function renderAdvanced() {
+    const fragment = document.createDocumentFragment();
+    fragment.append(
+      ExtraPotionsCore.createDisclosure('Effects & integrations', renderEffects()),
+      ExtraPotionsCore.createDisclosure('Profiles & sites', renderProfilesSites())
+    );
+    return fragment;
+  }
+
+  function renderMenuUpdates() {
+    const state = EXP.Settings.snapshot();
+    const fragment = document.createDocumentFragment();
+    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');
+    chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
+    fragment.append(chromeGroup);
+
+    const about = chromeGroup;
+    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
+    about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
+
+    return fragment;
+  }
+
+  function renderRecoveryData() {
+    const state = EXP.Settings.snapshot();
+    const health = EXP.Engine.health();
+    const fragment = document.createDocumentFragment();
+    const group = section();
+    const repairs = ExtraPotionsCore.createDisclosure('Maintenance');
+    const tools = ExtraPotionsCore.createSystemGrid();
+    repairs.append(EXP.Inspector.createControls(()=>product?.open()));
+    tools.append(ExtraPotionsCore.createSuiteSiteControls(), ExtraPotionsCore.createCompatibilityControls());
+    group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
+    repairs.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
+    repairs.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
+    group.append(switchControl('Safe Mode', 'Suspend transformations and adapters while preserving configuration.', state.safeMode, (safeMode) => { onSettings({ ...state, safeMode }, 'safe-mode'); setMessage(safeMode ? 'Safe Mode active.' : 'Safe Mode disabled.'); }));
+    fragment.append(group);
+    const data = ExtraPotionsCore.createDisclosure('Settings');
+    data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
+    const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
+    const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
+    input.hidden = true;
+    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    importRow.append(button('Import', () => input.click(), 'action'), input); data.append(importRow);
+    data.append(actionRow('Reset SHIFT', 'Deletes SHIFT settings, profiles, and site overrides only.', () => {
+      if (!confirm('Reset all SHIFT configuration?')) return;
+      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
+    }, 'Reset'));
+    tools.prepend(renderMenuUpdates(), repairs, data);
+    fragment.append(tools);
+    return fragment;
+  }
+
+  function download(name, value) {
+    const url = URL.createObjectURL(new Blob([value], { type: 'application/json' }));
+    const link = el('a', { href: url, download: name }); link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  function applyPosition() {
+    if (host) host.dataset.position = 'automatic-end-bottom';
+  }
+
+  function build(initial, callbacks) {
+    if (window.top !== window.self) return { update() {}, toggle() {}, destroy() {} };
+    saved = EXP.Settings.clone(initial);
+    onApply = callbacks.apply;
+    onSettings = callbacks.settings;
+
+    const renderers = {
+      appearance: renderAppearance,
+      advanced: renderAdvanced,
+      system: renderRecoveryData,
+    };
+
+    product = ExtraPotionsCore.createProduct({
+      id: 'shift',
+      name: 'SHIFT',
+      version: EXP.VERSION,
+      subtitle: 'Adaptive themes and readability',
+      artwork: ICON_URL,
+      theme: PRODUCT_THEME,
+      supportUrl: SUPPORT_URL,
+      getSettings: () => EXP.Settings.snapshot(),
+      onSettings: (next, reason) => onSettings(next, reason),
+      sections: routes.map(([id, label]) => ({
+        id,
+        label,
+        render: () => renderers[id](),
+      })),
+    });
+
+    ({ host, shadow, launcher, panel } = product);
+    applyPosition();
+
+    EXP.Core.injectStyle(shadow, STYLE, { expShiftProductUi: '1' });
+
+    toast = el('div', { class: 'toast', role: 'status', 'aria-live': 'polite', hidden: true });
+    const nav = panel.querySelector('nav');
+    if (nav) nav.before(toast);
+    else panel.append(toast);
+
+    noticeController = ExtraPotionsCore.createProductNotice({
+      host,
+      shadow,
+      panel,
+      versionButton: product.versionButton,
+      releaseUrl: EXP.Updates.RELEASE_URL,
+      installUrl: EXP.Updates.INSTALL_URL,
+      onVersion: () => {
+        if (updateNotice?.hidden === false && updateNotice.dataset.noticeKind === 'current') {
+          hideUpdateNotice();
+          return;
+        }
+        showUpdateNotice({
+          kicker: 'Current Version',
+          title: 'SHIFT Changelog',
+          version: EXP.VERSION,
+          text: `What's new in v${EXP.VERSION}.`,
+          details: EXP.ReleaseNotes.forVersion(EXP.VERSION),
+          available: false,
+        });
+      },
+    });
+    updateNotice = noticeController.element;
+
+    applyMenuTheme(EXP.Settings.effective());
+
+    try {
+      const previous = EXP.Core.consumeVersionChange('shift', EXP.VERSION, lastVersionKey);
+      if (previous) {
+        showUpdateNotice({
+          kicker: 'Update Complete',
+          title: 'SHIFT Updated',
+          version: EXP.VERSION,
+          text: `Updated from v${previous} to v${EXP.VERSION}.`,
+          details: EXP.ReleaseNotes.forVersion(EXP.VERSION),
+        });
+      }
+    } catch {}
+
+    if (initial.updateNotifications) {
+      checkUpdateNotice(false).catch((error) => EXP.Core.safeError(error, 'shift-update-ui'));
+    }
+
+    return {
+      update(next) {
+        saved = EXP.Settings.clone(next);
+        applyPosition();
+        applyMenuTheme(EXP.Settings.effective());
+        product?.renderActive();
+        product?.refresh();
+      },
+      toggle() { product?.toggle(); },
+      destroy() {
+        EXP.Inspector.destroy();
+        clearTimeout(toastTimer);
+        noticeController?.destroy();
+        product?.destroy();
+        product = noticeController = null;
+        host = shadow = launcher = panel = toast = updateNotice = swatchStyle = null;
+      },
+    };
+  }
+
+  const STYLE = `
+    .fl-tool-body .diagnostics-controls .action{font-size:var(--exp-font-size-small,11px)!important;padding:4px!important;min-height:28px!important;line-height:1.2!important}
+    .fl-tool-body .row.palette-row.mini-row{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:7px!important}
+    .fl-tool-body .row.palette-row>.copy{grid-column:1/-1;min-width:0;width:100%;margin:0!important}
+    .fl-tool-body .row.palette-row>.exp-theme-swatches{grid-column:1/-1;display:flex!important;flex-wrap:wrap!important;width:100%;min-width:0;gap:5px;justify-content:flex-start}
+    .profile-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px;padding:8px 0}
+    .profile-actions>*{min-width:0}
+    .palette-studio{display:grid;gap:6px}.palette-studio>summary{grid-column:1/-1}.palette-studio>.row{display:flex!important}.palette-studio input[type="color"]{width:42px;height:28px;padding:2px;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-inset)}.palette-preview{grid-column:1/-1;min-height:54px;border-radius:7px;padding:18px 12px 8px;text-align:center;font-size:var(--exp-font-size-small,11px);font-weight:700}
+    .status{display:none}
+  `;
+  return Object.freeze({ build });
+})();
