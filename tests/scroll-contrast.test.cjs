@@ -4,7 +4,7 @@ const {chromium}=require('playwright');
 test('scrolling reaches contrast repairs beyond a long page scan limit and stops cleanly',async t=>{
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
  await page.setContent('<main>'+('<span style="display:block;height:20px">Filler</span>'.repeat(3000))+'<div id="late" style="height:100px;background:#fff;color:#fff"><span>Late content</span></div></main>');
- const source=['themes.js','color-engine.js','site-fixes.js','live-resolver.js'].map(f=>fs.readFileSync(path.join(__dirname,'../src',f),'utf8')).join('\n');
+ const source=fs.readFileSync(path.join(__dirname,'../vendor/exp-core/exp-core.js'),'utf8')+'\n'+['themes.js','color-engine.js','site-fixes.js','live-resolver.js'].map(f=>fs.readFileSync(path.join(__dirname,'../src',f),'utf8')).join('\n');
  await page.addScriptTag({content:`const EXP={};${source};window.expTest=EXP;EXP.LiveResolver.start(EXP.Themes.resolve('midnight','site-default'));`});
  assert.equal(await page.locator('#late').getAttribute('data-exp-shift-live'),null);
  await page.locator('#late').scrollIntoViewIfNeeded();

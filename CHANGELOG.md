@@ -1,3 +1,9 @@
+## 3.5.3 — 2026-10-03
+
+- Show a clear System status with safe retry for a suspended theme repair.
+- Choose Standard, Large, or Extra Large menus on each site.
+- Verify Amazon search, product, cart, and orders theme readability while preserving artwork and purchasing controls.
+
 ## 3.5.2 — 2026-10-02
 
 - Use product names without the retired V3 integration label in settings prompts and import messages.

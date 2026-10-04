@@ -3,6 +3,8 @@ EXP.LiveResolver = (() => {
   let sharedObserverCleanup = null;
   let timer = 0;
   let active = false;
+  const recovery=ExtraPotionsCore.createRecoveryGuard();
+  let recoveryContext=location.href;
   let theme = null;
   let fix = null;
   let options = { repairSurfaces:true, surfaceLevel:'conservative', nativeDark:false };
@@ -326,7 +328,15 @@ EXP.LiveResolver = (() => {
     if(out.length>=limit)return;
     try{for(const el of root.querySelectorAll?.(selector)||[]){if(visible(el))out.push(el);if(out.length>=limit)break;}}catch{}
   }
-  function pass(roots=null,mutation=false){
+  function pass(roots=null,mutation=false,force=false){
+    if(location.href!==recoveryContext){recovery.clearContext(recoveryContext);recoveryContext=location.href;}
+    if(!active||ExtraPotionsCore.suiteSitePaused())return false;
+    if(!force&&recovery.snapshot('repair',recoveryContext).suspended)return false;
+    try {passUnprotected(roots,mutation);recovery.succeeded('repair',recoveryContext);return true;}
+    catch(error){if(force)throw error;recovery.failed('repair',recoveryContext);EXP.Core.safeError(error,'shift.repair');return false;}
+  }
+  function retry(){return recovery.retry('repair',recoveryContext,()=>{if(!active||ExtraPotionsCore.suiteSitePaused()||EXP.Settings.snapshot().safeMode)return false;return pass(null,false,true);});}
+  function passUnprotected(roots=null,mutation=false){
     if(!active||!theme)return;
     const started=performance.now(),resolvedBefore=stats.resolved;
     let examined=0;
@@ -369,7 +379,7 @@ EXP.LiveResolver = (() => {
         stats.scanned++;examined++;repairText(el,'text');
       }
     }
-    for(const processor of processors){try{processor(sourceRoots);}catch(error){EXP.Core.safeError(error,'shift-processor');}}
+    for(const processor of processors)processor(sourceRoots);
     stats.lastExamined=examined;
     stats.lastChanged=Math.max(0,stats.resolved-resolvedBefore);
     stats.lastDurationMs=Math.round((performance.now()-started)*10)/10;
@@ -478,10 +488,10 @@ EXP.LiveResolver = (() => {
     EXP.ColorEngine.clear();
   }
   function health(){
-    return {...stats,site:fix?.id||null,active,ownedRepairs:[...ledger.keys()].filter(el=>el?.isConnected).length,queued:queuedRoots.size};
+    return {...stats,recovery:recovery.snapshot('repair',recoveryContext),site:fix?.id||null,active,ownedRepairs:[...ledger.keys()].filter(el=>el?.isConnected).length,queued:queuedRoots.size};
   }
   function addProcessor(processor){processors.add(processor);return()=>processors.delete(processor);}
   function scan(){schedule(document.documentElement);}
   function fullScan(){const previous=options.surfaceLevel;options={...options,surfaceLevel:'aggressive'};pass();options={...options,surfaceLevel:previous};}
-  return Object.freeze({start,refresh,stop,health,scan,fullScan,addProcessor,inspectElement,restoreElement});
+  return Object.freeze({retry,start,refresh,stop,health,scan,fullScan,addProcessor,inspectElement,restoreElement});
 })();

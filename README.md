@@ -20,9 +20,12 @@ Open Appearance and choose Original or a palette. Adjust Readability to your pre
 
 ## What you can do
 
+- **System status:** see Working, Waiting, Paused, or Needs attention, with a reason and a safe recovery action when available.
+- **Theme status:** see whether the selected appearance is working, paused, or needs a safe retry in System. Original appearance is a valid choice.
+
 - **Keep your settings:** saved preferences and existing settings exports remain supported as product naming is simplified.
 
-- **Readable menus:** labels and controls use 13px text, with an 11px minimum for small captions, notices, and supporting details.
+- **Readable menus:** choose Standard, Large, or Extra Large from System > Menu preferences. The choice applies to ExtraPotions menus on this site.
 
 - **Palette Studio:** build a custom palette, check text contrast, and import or export your colors.
 - **Saved element choices:** preserve a selected element’s original appearance on a site and clear those choices when needed.

@@ -1,4 +1,11 @@
 EXP.UI = (() => {
+  let healthControl;
+  function systemHealthSnapshot() {
+    const settings=EXP.Settings.snapshot(),data=EXP.Engine.health(),checkedAt=Date.now();
+    if(settings.safeMode||ExtraPotionsCore.suiteSitePaused())return {state:'paused',reason:'Page appearance changes are paused.',checkedAt};
+    if(data.liveResolver?.recovery?.suspended)return {state:'attention',reason:'Live appearance repair stopped after repeated failures.',checkedAt,action:{label:'Retry',run:()=>{if(!EXP.Settings.snapshot().safeMode&&!ExtraPotionsCore.suiteSitePaused())return EXP.LiveResolver.retry();}}};
+    return {state:'working',reason:settings.theme==='original'||data.mode==='original'?'Original appearance is selected. This is a valid appearance choice.':'Appearance and readability changes are active.',checkedAt};
+  }
   const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
   const PRODUCT_THEME = Object.freeze({
@@ -359,12 +366,12 @@ EXP.UI = (() => {
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
-    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');
+    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');chromeGroup.append(ExtraPotionsCore.createMenuSizeControls());
     chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
     fragment.append(chromeGroup);
 
     const about = chromeGroup;
-    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata at most once daily and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
+    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata when needed and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
     about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
 
     return fragment;
@@ -375,6 +382,7 @@ EXP.UI = (() => {
     const health = EXP.Engine.health();
     const fragment = document.createDocumentFragment();
     const group = section();
+    healthControl?.dispose();healthControl=ExtraPotionsCore.createHealthControls(systemHealthSnapshot,setMessage);group.append(healthControl.element);
     const repairs = ExtraPotionsCore.createDisclosure('Maintenance');
     const tools = ExtraPotionsCore.createSystemGrid();
     repairs.append(EXP.Inspector.createControls(()=>product?.open()));
@@ -501,7 +509,7 @@ EXP.UI = (() => {
       },
       toggle() { product?.toggle(); },
       destroy() {
-        EXP.Inspector.destroy();
+        healthControl?.dispose();EXP.Inspector.destroy();
         clearTimeout(toastTimer);
         noticeController?.destroy();
         product?.destroy();
