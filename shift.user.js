@@ -2816,12 +2816,14 @@ const ExtraPotionsCore = (() => {
       return { top, right:Math.round(right), width, side };
     };
     if (reserved) {
-      const room = anchorTop ? innerHeight - reserved.bottom - 16 : reserved.top - 16;
+      const blockers=geometry.launchers.filter(box=>box.left<reserved.right&&box.right>reserved.right-width);
+      const edge=anchorTop?Math.max(reserved.bottom,...blockers.map(box=>box.bottom)):Math.min(reserved.top,...blockers.map(box=>box.top));
+      const room = anchorTop ? innerHeight - edge - 16 : edge - 16;
       if (room >= 200 && reserved.right - 8 >= width) {
         panel.style.maxHeight = room + 'px';
         const h = panel.offsetHeight;
         host.dataset.openDirection = anchorTop ? 'down' : 'up';
-        return finish('reserved', innerWidth - reserved.right, anchorTop ? reserved.bottom + 8 : reserved.top - 8 - h, h);
+        return finish('reserved', innerWidth - reserved.right, anchorTop ? edge + 8 : edge - 8 - h, h);
       }
     }
     if (gridLeft - 16 >= width) {
@@ -2831,7 +2833,7 @@ const ExtraPotionsCore = (() => {
       return finish('beside', innerWidth - gridLeft + 8, anchorTop ? own.top : own.bottom - h, h);
     }
     // Stacked menus clear the launcher and any reserved surface in its row.
-    const band = [...geometry.launchers, ...(reserved ? [reserved] : [])].filter(box => box.bottom > own.top - 1 && box.top < own.bottom + 1)
+    const band = [...geometry.launchers, ...(reserved ? [reserved] : [])].filter(box => box.left < innerWidth - 12 && box.right > innerWidth - 12 - width)
       .reduce((all, box) => ({ top:Math.min(all.top, box.top), bottom:Math.max(all.bottom, box.bottom) }), { top:own.top, bottom:own.bottom });
     const below = innerHeight - band.bottom - 16, above = band.top - 16;
     const up = anchorTop ? below < 160 && above > below : !(above < 160 && below > above);
@@ -5159,6 +5161,7 @@ EXP.LiveResolver = (() => {
     if(!force&&recovery.snapshot('repair',recoveryContext).suspended)return false;
     try {passUnprotected(roots,mutation);recovery.succeeded('repair',recoveryContext);return true;}
     catch(error){if(force)throw error;recovery.failed('repair',recoveryContext);EXP.Core.safeError(error,'shift.repair');return false;}
+    finally {EXP.UI?.refreshHealth?.();}
   }
   function retry(){return recovery.retry('repair',recoveryContext,()=>{if(!active||ExtraPotionsCore.suiteSitePaused()||EXP.Settings.snapshot().safeMode)return false;return pass(null,false,true);});}
   function passUnprotected(roots=null,mutation=false){
@@ -5682,6 +5685,9 @@ EXP.Adapters = (() => {
       process() { markRecommendations(/you might also like|recommended|more from|related songs/i); document.querySelectorAll('main h2').forEach((heading) => { if (heading.textContent.trim() === 'Latest') heading.closest('section')?.setAttribute('data-exp-shift-home-section', 'latest'); }); }
     }
   };
+  const recovery=ExtraPotionsCore.createRecoveryGuard();
+  let recoveryContext=location.href;
+  const feature=()=>active?.[0]||'none';
   let active;
   let style;
   let status = { id: null, state: 'inactive', reason: 'Generic Mode' };
@@ -5697,15 +5703,24 @@ EXP.Adapters = (() => {
     const cssText = (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) || effective.safeMode || effective.excluded ? '' : active[1].css(settings());
     if (cssText) { style = EXP.Core.injectStyle(document, cssText, { expShiftAdapterStyle: '1' }); style.id = 'exp-shift-adapter-style'; }
   }
-  function initialize() { active = select(); status = active ? { id: active[0], name: active[1].name, state: 'healthy', reason: 'Enhanced Mode available' } : { id: null, state: 'inactive', reason: 'Generic Mode' }; apply(); return status; }
-  function process() { if (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) return; if (!active || status.state === 'failed') return; try { active[1].process?.(); status = { ...status, state: 'healthy', reason: 'Enhanced Mode active' }; } catch (error) { status = { ...status, state: 'degraded', reason: error.code || 'ADAPTER_PROCESSING' }; EXP.Core.safeError(error, `adapter-${active[0]}`); } }
+  function initialize() { if(location.href!==recoveryContext){recovery.clearContext(recoveryContext);recoveryContext=location.href;}active = select(); status = active ? { id: active[0], name: active[1].name, state: 'healthy', reason: 'Enhanced Mode available' } : { id: null, state: 'inactive', reason: 'Generic Mode' }; apply(); return status; }
+  function process(force=false) {
+    if(location.href!==recoveryContext){recovery.clearContext(recoveryContext);recoveryContext=location.href;}
+    const effective=EXP.Settings.effective();
+    if(ExtraPotionsCore.suiteSitePaused()||effective.safeMode||effective.excluded||!active||status.state==='failed')return false;
+    if(!force&&recovery.snapshot(feature(),recoveryContext).suspended)return false;
+    try {active[1].process?.();status={...status,state:'healthy',reason:'Enhanced Mode active'};recovery.succeeded(feature(),recoveryContext);return true;}
+    catch(error){status={...status,state:'degraded',reason:error.code||'ADAPTER_PROCESSING'};if(force)throw error;recovery.failed(feature(),recoveryContext);EXP.Core.safeError(error,`adapter-${active[0]}`);return false;}
+    finally {EXP.UI?.refreshHealth?.();}
+  }
+  function retry(){return recovery.retry(feature(),recoveryContext,()=>process(true));}
   function disable() { style?.remove(); style = null; document.querySelectorAll('[data-exp-shift-collapsed]').forEach((node) => node.removeAttribute('data-exp-shift-collapsed')); status = active ? { ...status, state: 'inactive', reason: 'Adapter suspended' } : status; }
-  function health() { return { ...status, controls: active?.[1].options.map(([id]) => id) || [], actions: active?.[1].actions?.map(([id]) => id) || [] }; }
+  function health() { return { ...status,recovery:recovery.snapshot(feature(),recoveryContext), controls: active?.[1].options.map(([id]) => id) || [], actions: active?.[1].actions?.map(([id]) => id) || [] }; }
   function options() { return active?.[1].options || []; }
   function actions() { return active?.[1].actions || []; }
   function runAction(id) { if (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) return false; const action = active?.[1].actions?.find(([candidate]) => candidate === id); if (!action) return false; action[2](); process(); return true; }
   function setOption(id, value) { if (!active || !active[1].options.some(([candidate]) => candidate === id)) return; const state = EXP.Settings.snapshot(); const adapterSettings = { ...state.adapterSettings, [active[0]]: { ...(state.adapterSettings[active[0]] || {}), [id]: Boolean(value) } }; EXP.Settings.update({ adapterSettings }, `adapter-${active[0]}-${id}`); apply(); process(); }
-  return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
+  return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, retry, health, options, actions, runAction, settings, setOption });
 })();
 
 EXP.VERSION = '3.5.3';
@@ -6126,10 +6141,12 @@ EXP.Inspector = (() => {
 EXP.UI = (() => {
   let healthControl;
   function systemHealthSnapshot() {
-    const settings=EXP.Settings.snapshot(),data=EXP.Engine.health(),checkedAt=Date.now();
+    const settings=EXP.Settings.effective(),data=EXP.Engine.health(),adapter=EXP.Adapters?.health?.()||{},checkedAt=Date.now();
     if(settings.safeMode||ExtraPotionsCore.suiteSitePaused())return {state:'paused',reason:'Page appearance changes are paused.',checkedAt};
+    if(settings.excluded||data.mode==='Excluded')return {state:'waiting',reason:'Appearance changes are excluded on this page.',checkedAt};
+    if(adapter.state==='degraded'||adapter.state==='failed'||adapter.recovery?.suspended)return {state:'attention',reason:'Site-specific appearance features need attention. Generic theme repair remains independent.',checkedAt,action:{label:'Retry site features',run:()=>EXP.Adapters.retry()}};
     if(data.liveResolver?.recovery?.suspended)return {state:'attention',reason:'Live appearance repair stopped after repeated failures.',checkedAt,action:{label:'Retry',run:()=>{if(!EXP.Settings.snapshot().safeMode&&!ExtraPotionsCore.suiteSitePaused())return EXP.LiveResolver.retry();}}};
-    return {state:'working',reason:settings.theme==='original'||data.mode==='original'?'Original appearance is selected. This is a valid appearance choice.':'Appearance and readability changes are active.',checkedAt};
+    return {state:'working',reason:data.mode==='Original'?'Original appearance is selected. This is a valid appearance choice.':'Appearance and readability changes are active.',checkedAt};
   }
   const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
@@ -6654,7 +6671,7 @@ EXP.UI = (() => {
     .palette-studio{display:grid;gap:6px}.palette-studio>summary{grid-column:1/-1}.palette-studio>.row{display:flex!important}.palette-studio input[type="color"]{width:42px;height:28px;padding:2px;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-inset)}.palette-preview{grid-column:1/-1;min-height:54px;border-radius:7px;padding:18px 12px 8px;text-align:center;font-size:var(--exp-font-size-small,11px);font-weight:700}
     .status{display:none}
   `;
-  return Object.freeze({ build });
+  return Object.freeze({ build,refreshHealth:()=>healthControl?.refresh() });
 })();
 
 ExtraPotionsCore.registerDiagnosticsProduct('shift', EXP.VERSION);

@@ -334,6 +334,7 @@ EXP.LiveResolver = (() => {
     if(!force&&recovery.snapshot('repair',recoveryContext).suspended)return false;
     try {passUnprotected(roots,mutation);recovery.succeeded('repair',recoveryContext);return true;}
     catch(error){if(force)throw error;recovery.failed('repair',recoveryContext);EXP.Core.safeError(error,'shift.repair');return false;}
+    finally {EXP.UI?.refreshHealth?.();}
   }
   function retry(){return recovery.retry('repair',recoveryContext,()=>{if(!active||ExtraPotionsCore.suiteSitePaused()||EXP.Settings.snapshot().safeMode)return false;return pass(null,false,true);});}
   function passUnprotected(roots=null,mutation=false){

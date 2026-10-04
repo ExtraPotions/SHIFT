@@ -1,10 +1,12 @@
 EXP.UI = (() => {
   let healthControl;
   function systemHealthSnapshot() {
-    const settings=EXP.Settings.snapshot(),data=EXP.Engine.health(),checkedAt=Date.now();
+    const settings=EXP.Settings.effective(),data=EXP.Engine.health(),adapter=EXP.Adapters?.health?.()||{},checkedAt=Date.now();
     if(settings.safeMode||ExtraPotionsCore.suiteSitePaused())return {state:'paused',reason:'Page appearance changes are paused.',checkedAt};
+    if(settings.excluded||data.mode==='Excluded')return {state:'waiting',reason:'Appearance changes are excluded on this page.',checkedAt};
+    if(adapter.state==='degraded'||adapter.state==='failed'||adapter.recovery?.suspended)return {state:'attention',reason:'Site-specific appearance features need attention. Generic theme repair remains independent.',checkedAt,action:{label:'Retry site features',run:()=>EXP.Adapters.retry()}};
     if(data.liveResolver?.recovery?.suspended)return {state:'attention',reason:'Live appearance repair stopped after repeated failures.',checkedAt,action:{label:'Retry',run:()=>{if(!EXP.Settings.snapshot().safeMode&&!ExtraPotionsCore.suiteSitePaused())return EXP.LiveResolver.retry();}}};
-    return {state:'working',reason:settings.theme==='original'||data.mode==='original'?'Original appearance is selected. This is a valid appearance choice.':'Appearance and readability changes are active.',checkedAt};
+    return {state:'working',reason:data.mode==='Original'?'Original appearance is selected. This is a valid appearance choice.':'Appearance and readability changes are active.',checkedAt};
   }
   const ICON_URL = 'https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg';
   const SUPPORT_URL = 'https://ko-fi.com/expdare';
@@ -529,5 +531,5 @@ EXP.UI = (() => {
     .palette-studio{display:grid;gap:6px}.palette-studio>summary{grid-column:1/-1}.palette-studio>.row{display:flex!important}.palette-studio input[type="color"]{width:42px;height:28px;padding:2px;border:1px solid var(--theme-line);border-radius:6px;background:var(--theme-inset)}.palette-preview{grid-column:1/-1;min-height:54px;border-radius:7px;padding:18px 12px 8px;text-align:center;font-size:var(--exp-font-size-small,11px);font-weight:700}
     .status{display:none}
   `;
-  return Object.freeze({ build });
+  return Object.freeze({ build,refreshHealth:()=>healthControl?.refresh() });
 })();

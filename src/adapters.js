@@ -43,6 +43,9 @@ EXP.Adapters = (() => {
       process() { markRecommendations(/you might also like|recommended|more from|related songs/i); document.querySelectorAll('main h2').forEach((heading) => { if (heading.textContent.trim() === 'Latest') heading.closest('section')?.setAttribute('data-exp-shift-home-section', 'latest'); }); }
     }
   };
+  const recovery=ExtraPotionsCore.createRecoveryGuard();
+  let recoveryContext=location.href;
+  const feature=()=>active?.[0]||'none';
   let active;
   let style;
   let status = { id: null, state: 'inactive', reason: 'Generic Mode' };
@@ -58,13 +61,22 @@ EXP.Adapters = (() => {
     const cssText = (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) || effective.safeMode || effective.excluded ? '' : active[1].css(settings());
     if (cssText) { style = EXP.Core.injectStyle(document, cssText, { expShiftAdapterStyle: '1' }); style.id = 'exp-shift-adapter-style'; }
   }
-  function initialize() { active = select(); status = active ? { id: active[0], name: active[1].name, state: 'healthy', reason: 'Enhanced Mode available' } : { id: null, state: 'inactive', reason: 'Generic Mode' }; apply(); return status; }
-  function process() { if (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) return; if (!active || status.state === 'failed') return; try { active[1].process?.(); status = { ...status, state: 'healthy', reason: 'Enhanced Mode active' }; } catch (error) { status = { ...status, state: 'degraded', reason: error.code || 'ADAPTER_PROCESSING' }; EXP.Core.safeError(error, `adapter-${active[0]}`); } }
+  function initialize() { if(location.href!==recoveryContext){recovery.clearContext(recoveryContext);recoveryContext=location.href;}active = select(); status = active ? { id: active[0], name: active[1].name, state: 'healthy', reason: 'Enhanced Mode available' } : { id: null, state: 'inactive', reason: 'Generic Mode' }; apply(); return status; }
+  function process(force=false) {
+    if(location.href!==recoveryContext){recovery.clearContext(recoveryContext);recoveryContext=location.href;}
+    const effective=EXP.Settings.effective();
+    if(ExtraPotionsCore.suiteSitePaused()||effective.safeMode||effective.excluded||!active||status.state==='failed')return false;
+    if(!force&&recovery.snapshot(feature(),recoveryContext).suspended)return false;
+    try {active[1].process?.();status={...status,state:'healthy',reason:'Enhanced Mode active'};recovery.succeeded(feature(),recoveryContext);return true;}
+    catch(error){status={...status,state:'degraded',reason:error.code||'ADAPTER_PROCESSING'};if(force)throw error;recovery.failed(feature(),recoveryContext);EXP.Core.safeError(error,`adapter-${active[0]}`);return false;}
+    finally {EXP.UI?.refreshHealth?.();}
+  }
+  function retry(){return recovery.retry(feature(),recoveryContext,()=>process(true));}
   function disable() { style?.remove(); style = null; document.querySelectorAll('[data-exp-shift-collapsed]').forEach((node) => node.removeAttribute('data-exp-shift-collapsed')); status = active ? { ...status, state: 'inactive', reason: 'Adapter suspended' } : status; }
-  function health() { return { ...status, controls: active?.[1].options.map(([id]) => id) || [], actions: active?.[1].actions?.map(([id]) => id) || [] }; }
+  function health() { return { ...status,recovery:recovery.snapshot(feature(),recoveryContext), controls: active?.[1].options.map(([id]) => id) || [], actions: active?.[1].actions?.map(([id]) => id) || [] }; }
   function options() { return active?.[1].options || []; }
   function actions() { return active?.[1].actions || []; }
   function runAction(id) { if (typeof ExtraPotionsCore !== 'undefined' && ExtraPotionsCore.suiteSitePaused?.()) return false; const action = active?.[1].actions?.find(([candidate]) => candidate === id); if (!action) return false; action[2](); process(); return true; }
   function setOption(id, value) { if (!active || !active[1].options.some(([candidate]) => candidate === id)) return; const state = EXP.Settings.snapshot(); const adapterSettings = { ...state.adapterSettings, [active[0]]: { ...(state.adapterSettings[active[0]] || {}), [id]: Boolean(value) } }; EXP.Settings.update({ adapterSettings }, `adapter-${active[0]}-${id}`); apply(); process(); }
-  return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, health, options, actions, runAction, settings, setOption });
+  return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, retry, health, options, actions, runAction, settings, setOption });
 })();
