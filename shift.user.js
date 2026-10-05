@@ -5712,7 +5712,7 @@ EXP.VERSION = '3.5.3';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
-    '3.5.3': ["Show a clear System status with safe retry for a suspended theme repair.","Choose Standard, Large, or Extra Large menus on each site.","Verify Amazon search, product, cart, and orders theme readability while preserving artwork and purchasing controls."],
+    '3.5.3': ["Choose six website themes with saved choices migrated: Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast.","Keep SHIFT's signature menu colors when changing website themes or using other products.","Choose Standard, Large, or Extra Large menus and use System status for safe retry.","Improve Amazon theme readability while preserving artwork and purchasing controls."],
     '3.5.2': ["Use product names without the retired V3 integration label in settings prompts and import messages.","Keep existing saved settings and settings exports compatible."],
     '3.5.1': ["Make small menu text easier to read, including captions, version badges, notices, and diagnostic details.","Use consistent sizes for labels and controls across the menu."],
     '3.5.0': ["Create, preview, import, and export custom colors in Palette Studio with a text-contrast check.","Preserve selected elements on a site and reuse those choices when page content changes.","Pause ExtraPotions page features together from System > Site control."],

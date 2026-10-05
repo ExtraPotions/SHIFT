@@ -1,8 +1,9 @@
 ## 3.5.3 — 2026-10-03
 
-- Show a clear System status with safe retry for a suspended theme repair.
-- Choose Standard, Large, or Extra Large menus on each site.
-- Verify Amazon search, product, cart, and orders theme readability while preserving artwork and purchasing controls.
+- Choose six website themes with saved choices migrated: Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast.
+- Keep SHIFT's signature menu colors when changing website themes or using other products.
+- Choose Standard, Large, or Extra Large menus and use System status for safe retry.
+- Improve Amazon theme readability while preserving artwork and purchasing controls.
 
 ## 3.5.2 — 2026-10-02
 
