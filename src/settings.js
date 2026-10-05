@@ -41,6 +41,7 @@ EXP.Settings = (() => {
   const listeners = new Set();
   const key = (name) => `${PREFIX}:${name}`;
   function rawRead(name) {
+    if(ExtraPotionsCore.productDataResetting?.('shift'))return undefined;
     const storageKey = key(name);
     try {
       if (typeof GM_getValue === 'function') {
@@ -60,6 +61,7 @@ EXP.Settings = (() => {
     return memory.get(storageKey);
   }
   function rawWrite(name, value) {
+    if(ExtraPotionsCore.productDataResetting?.('shift'))return;
     const storageKey = key(name);
     memory.set(storageKey, value);
     try { if (typeof GM_setValue === 'function') GM_setValue(storageKey, value); } catch {}
@@ -115,7 +117,7 @@ EXP.Settings = (() => {
     return snapshot();
   }
   function snapshot() { return clone(state || defaults); }
-  function replace(next, reason = 'replace') { const valid = validate(next);  rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
+  function replace(next, reason = 'replace') { if(ExtraPotionsCore.productDataResetting?.('shift'))return snapshot(); const valid = validate(next);  rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
   function hostExcluded(hostname, exclusions = []) {
@@ -144,5 +146,11 @@ EXP.Settings = (() => {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT export'), { code: 'IMPORT_SCHEMA' });
     return replace(payload.settings, 'import');
   }
-  return Object.freeze({clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, importData });
+  function resetAll() {
+    ExtraPotionsCore.clearProductData('shift');
+    memory.clear();state = clone(defaults);
+    for (const listener of listeners) listener(snapshot(), 'product-reset');
+    return snapshot();
+  }
+  return Object.freeze({resetAll, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, importData });
 })();

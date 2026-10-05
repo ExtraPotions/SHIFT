@@ -635,9 +635,11 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
   await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click(); });
   await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
-  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'system').click());
+  await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'advanced').click());
+  await root.getByText('Page tools',{exact:true}).click();
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => !(document.querySelector('#exp-shift-page-style')?.textContent) && document.querySelectorAll('[data-exp-shift-live]').length === 0);
+  await root.getByText('Page tools',{exact:true}).click();
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#0c0508') && document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
 });
@@ -665,14 +667,17 @@ test('Advanced and System hold site and chrome controls', async (t) => {
   const profileLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.ok(profileLabels.includes('Enable SHIFT on this site'));
   assert.ok(profileLabels.includes('Current profile'));
+  assert.ok(profileLabels.includes('Safe Mode'));
+  assert.ok(profileLabels.includes('Export SHIFT settings'));
   await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
   const menuLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.equal(menuLabels.includes('Menu width'), false);
   assert.ok(menuLabels.includes('Update notifications'));
-  assert.equal(menuLabels.includes('Safe Mode'), true);
+  assert.equal(menuLabels.includes('Safe Mode'), false);
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
-  assert.ok(recoveryLabels.includes('Safe Mode'));
-  assert.ok(recoveryLabels.includes('Export SHIFT settings'));
+  assert.equal(recoveryLabels.includes('Safe Mode'),false);
+  assert.equal(recoveryLabels.includes('Export SHIFT settings'),false);
+  assert.deepEqual(await root.locator('[data-exp-product-system] > [data-exp-system-item]').evaluateAll(nodes=>nodes.map(n=>n.dataset.expSystemItem)),['timeline','diagnostics','issue','preferences','reset']);
   assert.equal(recoveryLabels.includes('Update notifications'), true);
 });
 

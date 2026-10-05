@@ -20,6 +20,8 @@ Open Appearance and choose Original site, Follow system, or one of six website t
 
 ## What you can do
 
+- **Simple System menu:** open Product Timeline, show or copy diagnostics, create a GitHub issue, adjust menu preferences, or reset this product after two confirmations.
+
 - **System status:** see Working, Waiting, Paused, or Needs attention, with a reason and a safe recovery action when available.
 - **Theme status:** see whether the selected appearance is working, paused, or needs a safe retry in System. Original appearance is a valid choice.
 
@@ -30,7 +32,6 @@ Open Appearance and choose Original site, Follow system, or one of six website t
 - **Six website themes:** Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast. Each includes coordinated colors for surfaces, text, links, and controls.
 - **Distinct product menus:** the SHIFT menu keeps its signature appearance when you change a website theme or use other ExtraPotions products.
 - **Saved element choices:** preserve a selected element’s original appearance on a site and clear those choices when needed.
-- **Site control:** pause page features across active ExtraPotions products from System, temporarily or until you resume.
 - **Original by default:** no color choice is required. Return to Original to remove the applied page theme.
 - **Visual palettes:** choose colors for page surfaces, text, links, and controls while preserving media.
 - **Reading comfort:** adjust text, contrast, focus, and visual effects.

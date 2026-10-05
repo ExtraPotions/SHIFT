@@ -329,7 +329,9 @@ EXP.UI = (() => {
     const fragment = document.createDocumentFragment();
     fragment.append(
       ExtraPotionsCore.createDisclosure('Effects & integrations', renderEffects()),
-      ExtraPotionsCore.createDisclosure('Profiles & sites', renderProfilesSites())
+      ExtraPotionsCore.createDisclosure('Profiles & sites', renderProfilesSites()),
+      renderPageTools(),
+      renderSettingsTransfer()
     );
     return fragment;
   }
@@ -337,7 +339,7 @@ EXP.UI = (() => {
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
-    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu preferences');chromeGroup.append(ExtraPotionsCore.createMenuSizeControls());
+    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu Preferences');chromeGroup.append(ExtraPotionsCore.createMenuSizeControls());
     chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
     fragment.append(chromeGroup);
 
@@ -348,35 +350,34 @@ EXP.UI = (() => {
     return fragment;
   }
 
-  function renderRecoveryData() {
-    const state = EXP.Settings.snapshot();
-    const health = EXP.Engine.health();
-    const fragment = document.createDocumentFragment();
-    const group = section();
-    healthControl?.dispose();healthControl=ExtraPotionsCore.createHealthControls(systemHealthSnapshot,setMessage);group.append(healthControl.element);
-    const repairs = ExtraPotionsCore.createDisclosure('Maintenance');
-    const tools = ExtraPotionsCore.createSystemGrid();
-    repairs.append(EXP.Inspector.createControls(()=>product?.open()));
-    tools.append(ExtraPotionsCore.createSuiteSiteControls(), ExtraPotionsCore.createCompatibilityControls());
-    group.append(EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage));
-    repairs.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`, () => { EXP.Engine.scan(); setMessage('Repair pass scheduled.'); }, 'Quick scan'));
-    repairs.append(actionRow('Full coverage scan', 'Inspect up to 5,000 visible containers with the aggressive live-repair budget.', () => { EXP.Engine.fullScan(); setMessage('Full repair pass complete; health measurements updated.'); product?.renderActive(); }, 'Full scan'));
-    group.append(switchControl('Safe Mode', 'Suspend transformations and adapters while preserving configuration.', state.safeMode, (safeMode) => { onSettings({ ...state, safeMode }, 'safe-mode'); setMessage(safeMode ? 'Safe Mode active.' : 'Safe Mode disabled.'); }));
-    fragment.append(group);
-    const data = ExtraPotionsCore.createDisclosure('Settings');
+  function renderPageTools() {
+    const state=EXP.Settings.snapshot(),health=EXP.Engine.health();
+    const tools=ExtraPotionsCore.createDisclosure('Page tools');
+    tools.append(EXP.Inspector.createControls(()=>product?.open()));
+    tools.append(actionRow(`${health.mode} · ${health.owned} live repairs`, `${health.scanned} visible elements inspected in ${health.batches} passes; last ${health.lastDurationMs} ms.`,()=>{EXP.Engine.scan();setMessage('Repair pass scheduled.');},'Quick scan'));
+    tools.append(actionRow('Full coverage scan','Inspect up to 5,000 visible containers with the aggressive live-repair budget.',()=>{EXP.Engine.fullScan();setMessage('Full repair pass complete; health measurements updated.');product?.renderActive();},'Full scan'));
+    tools.append(switchControl('Safe Mode','Suspend transformations and adapters while preserving configuration.',state.safeMode,safeMode=>{onSettings({...state,safeMode},'safe-mode');setMessage(safeMode?'Safe Mode active.':'Safe Mode disabled.');}));
+    return tools;
+  }
+  function renderSettingsTransfer() {
+    const data = ExtraPotionsCore.createDisclosure('Settings transfer');
     data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
     input.hidden = true;
     input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => input.click(), 'action'), input); data.append(importRow);
-    data.append(actionRow('Reset SHIFT', 'Deletes SHIFT settings, profiles, and site overrides only.', () => {
-      if (!confirm('Reset all SHIFT configuration?')) return;
-      const next = EXP.Settings.replace(EXP.Settings.defaults, 'product-reset'); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('SHIFT reset complete.');
-    }, 'Reset'));
-    tools.prepend(renderMenuUpdates(), repairs, data);
-    fragment.append(tools);
-    return fragment;
+    return data;
+  }
+  function renderRecoveryData() {
+    healthControl?.dispose();
+    healthControl=ExtraPotionsCore.createProductTimeline('shift',systemHealthSnapshot,setMessage);
+    return ExtraPotionsCore.createProductSystem({id:'shift',version:EXP.VERSION,
+      timeline:healthControl.element,
+      diagnostics:EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage),
+      preferences:renderMenuUpdates().firstChild,
+      onReset:()=>{const next=EXP.Settings.resetAll();saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();location.reload();},notify:setMessage
+    });
   }
 
   function download(name, value) {

@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.3';
+EXP.VERSION = '3.5.4';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.4': ["Simplify System to Product Timeline, Show and Copy Diagnostics, issue reporting, Menu Preferences, and Reset All Settings.","Open GitHub Issues with a prefilled product and version template.","Require two confirmations before clearing this product settings and stored data."],
     '3.5.3': ["Choose six website themes with saved choices migrated: Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast.","Keep SHIFT's signature menu colors when changing website themes or using other products.","Choose Standard, Large, or Extra Large menus and use System status for safe retry.","Improve Amazon theme readability while preserving artwork and purchasing controls."],
     '3.5.2': ["Use product names without the retired V3 integration label in settings prompts and import messages.","Keep existing saved settings and settings exports compatible."],
     '3.5.1': ["Make small menu text easier to read, including captions, version badges, notices, and diagnostic details.","Use consistent sizes for labels and controls across the menu."],

@@ -37,7 +37,7 @@ const connects = [...artifact.matchAll(/^\/\/ @connect\s+(.+)$/gm)].map((match) 
 const allowedConnects = ['api.github.com', 'm.media-amazon.com', 'images-na.ssl-images-amazon.com', 'images-eu.ssl-images-amazon.com', 'images-fe.ssl-images-amazon.com', 'images.amazon.com'];
 if (JSON.stringify([...connects].sort()) !== JSON.stringify(allowedConnects.sort())) throw new Error(`Release blocked: unexpected @connect inventory: ${connects.join(', ') || 'none'}.`);
 const grants = [...artifact.matchAll(/^\/\/ @grant\s+(.+)$/gm)].map((match) => match[1].trim()).sort();
-const allowedGrants = ['GM_addElement', 'GM_addStyle', 'GM_getValue', 'GM_setValue', 'GM_xmlhttpRequest', 'unsafeWindow'].sort();
+const allowedGrants = ['GM_addElement', 'GM_addStyle', 'GM_getValue', 'GM_listValues', 'GM_deleteValue', 'GM_setValue', 'GM_xmlhttpRequest', 'unsafeWindow'].sort();
 if (JSON.stringify(grants) !== JSON.stringify(allowedGrants)) throw new Error(`Release blocked: userscript grant inventory changed: ${grants.join(', ')}.`);
 if (!artifact.includes("repository: 'ExtraPotions/SHIFT'") || !artifact.includes("'https://api.github.com/repos/' + repository + '/releases/latest'")) throw new Error('Release blocked: Core update metadata endpoint does not match the network inventory.');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));

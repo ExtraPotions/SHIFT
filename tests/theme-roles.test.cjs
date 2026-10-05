@@ -10,6 +10,12 @@ async function fixture(t){
   await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Midnight"]').click();
   return page;
 }
+async function toggleSafeMode(page){
+ const host=page.locator('#exp-shift-root'),header=host.locator('[data-section="advanced"]');
+ if(await header.getAttribute('aria-expanded')!=='true')await header.click();
+ const summary=host.getByText('Page tools',{exact:true});if(!await summary.evaluate(n=>n.parentElement.open))await summary.click();
+ await host.locator('[aria-label="Safe Mode"]').click();
+}
 test('component theme distinguishes table headings, state messages and controls without repainting unrelated information classes',async t=>{
   const page=await fixture(t);
   const css=()=>page.evaluate(()=>{const read=s=>{const c=getComputedStyle(document.querySelector(s));return {bg:c.backgroundColor,fg:c.color}};return {head:read('th'),cell:read('td'),success:read('.alert-success'),successText:read('.alert-success span'),danger:read('.alert-danger'),layout:read('.information-layout'),owned:read('#owned button'),preserved:read('#preserved'),button:read('#control')};});
@@ -21,9 +27,9 @@ test('component theme distinguishes table headings, state messages and controls 
 });
 test('Original and Safe Mode restore component role styling',async t=>{
   const page=await fixture(t);
-  await page.locator('#exp-shift-root [data-section="system"]').click();await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();
+  await toggleSafeMode(page);
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
-  await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();
+  await toggleSafeMode(page);
   await page.locator('#exp-shift-root [data-section="appearance"]').click();
   await page.locator('#exp-shift-root button').filter({hasText:/^Hold to Show Original$/}).dispatchEvent('pointerdown');
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
@@ -32,12 +38,13 @@ test('live contrast repair starts when leaving Original and resumes after Safe M
  const page=await fixture(t);
  await page.locator('#exp-shift-root [data-section="system"]').click();
  const active=async()=>{
+  const header=page.locator('#exp-shift-root [data-section="system"]');if(await header.getAttribute('aria-expanded')!=='true')await header.click();
   await page.locator('#exp-shift-root').getByRole('button',{name:'Show Diagnostics',exact:true}).click();
   const report=JSON.parse(await page.locator('#exp-shift-root .diag').textContent());
   await page.locator('#exp-shift-root').getByRole('button',{name:'Hide Diagnostics',exact:true}).click();
   return report.mode.liveResolver.active;
  };
  assert.equal(await active(),true);
- await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();assert.equal(await active(),false);
- await page.locator('#exp-shift-root [aria-label="Safe Mode"]').click();assert.equal(await active(),true);
+ await toggleSafeMode(page);assert.equal(await active(),false);
+ await toggleSafeMode(page);assert.equal(await active(),true);
 });

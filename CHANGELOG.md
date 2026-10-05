@@ -1,3 +1,9 @@
+## 3.5.4 — 2026-10-04
+
+- Simplify System to Product Timeline, Show and Copy Diagnostics, issue reporting, Menu Preferences, and Reset All Settings.
+- Open GitHub Issues with a prefilled product and version template.
+- Require two confirmations before clearing this product settings and stored data.
+
 ## 3.5.3 — 2026-10-03
 
 - Choose six website themes with saved choices migrated: Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast.
