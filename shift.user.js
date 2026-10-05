@@ -3009,16 +3009,15 @@ const ExtraPotionsCore = (() => {
     return dispose;
   }
   function themes(productTheme) {
-    const common = CoreFoundation.SHARED_UI_THEMES;
-    return Object.freeze([...common, CoreFoundation.CRIMSON_THEME, ...(productTheme ? [productTheme] : [CoreFoundation.UI_THEMES.at(-1)])].map(t => { const theme = semanticTheme(t); return Object.freeze({ ...theme, vars: Object.fromEntries(tokenNames.map(k => [k, theme[k]])) }); }));
+    return Object.freeze([productTheme || CoreFoundation.UI_THEMES.at(-1)].map(t => { const theme = semanticTheme(t); return Object.freeze({ ...theme, vars: Object.fromEntries(tokenNames.map(k => [k, theme[k]])) }); }));
   }
-  function createThemeSwatches({ container, themes: choices, value, onChange = () => {} }) {
+  function createThemeSwatches({ container, themes: choices, value, label = 'Menu Theme', onChange = () => {} }) {
     const root = resolveShadowRoot(container);
     if (root && !root.querySelector('style[data-exp-theme-swatches]')) {
       injectStyle(root, '.exp-theme-swatches{display:flex;align-items:center;gap:6px;min-height:28px;flex-wrap:wrap}.exp-theme-swatch{appearance:none;box-sizing:border-box!important;flex:0 0 22px!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;max-width:22px!important;max-height:22px!important;padding:0!important;border:2px solid var(--theme-line,var(--line,#41434d));border-radius:5px!important;cursor:pointer}.exp-theme-swatch:hover,.exp-theme-swatch:focus-visible{outline:2px solid var(--theme-accent,var(--accent,#8b5cf6));outline-offset:2px}.exp-theme-swatch.is-on{border-color:var(--theme-text,var(--text,#fff));box-shadow:0 0 0 2px var(--theme-accent,var(--accent,#8b5cf6))}', { expThemeSwatches: '1' });
       applyMatteToggleChrome(root);
     }
-    container.classList.add('exp-theme-swatches'); container.setAttribute('role', 'radiogroup'); container.setAttribute('aria-label', 'Menu Theme');
+    container.classList.add('exp-theme-swatches'); container.setAttribute('role', 'radiogroup'); container.setAttribute('aria-label', label);
     const buttons = choices.map(theme => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'exp-theme-swatch';
       for (const property of ['width','height','min-width','min-height','max-width','max-height']) button.style.setProperty(property, '22px', 'important');
@@ -3332,11 +3331,9 @@ const ExtraPotionsCore = (() => {
       host.dataset.uiTheme = selected.id;
     }
     function syncThemeOwner() {
-      const owner = menuThemeOwner();
-      const deprioritized = Boolean(owner && owner !== host);
-      host.dataset.expThemeDeprioritized = deprioritized ? '1' : '0';
-      host.dataset.expThemeOwner = owner?.dataset.productId || id;
-      paintTheme(deprioritized && menuPalette(owner) || localTheme);
+      host.dataset.expThemeDeprioritized = '0';
+      host.dataset.expThemeOwner = id;
+      paintTheme(localTheme);
     }
     function setTheme(value, supplied) {
       if (supplied) choices = supplied.map(t => semanticTheme({ ...t, ...t.vars, skin:t.skin || t.swatch, skinVertical:t.skinVertical || t.skin || t.swatch }));
@@ -3913,10 +3910,9 @@ EXP.Settings = (() => {
   function validate(candidate) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) throw Object.assign(new Error('Settings must be an object'), { code: 'SETTINGS_TYPE' });
     const result = clone(defaults);
-	const themeAliases = { warm: 'ember', discord: 'glacier', pine: 'verdant', obsidian: 'obsidian' };
-	const normalizedTheme = themeAliases[candidate.theme] || candidate.theme;
+    const normalizedTheme = candidate.theme === undefined ? defaults.theme : EXP.Themes?.normalizeTheme(candidate.theme) || candidate.theme;
     const enums = {
-      theme: EXP.Themes ? [...Object.keys(EXP.Themes.catalog), ...(candidate.customThemes || []).map((item) => item?.id).filter(Boolean)] : ['original'], accent: [...Object.keys(EXP.Themes?.accents || { 'site-default': null }), ...(candidate.customAccents || []).map((item) => item?.id).filter(Boolean)],
+      theme: Object.keys(EXP.Themes?.catalog || { original: {} }), accent: ['site-default'],
       themeStrength: ['soft', 'normal', 'strong'],
       surfaceLevel: ['off', 'conservative', 'balanced', 'aggressive'], linkVisibility: ['site', 'enhanced', 'high'], textContrast: ['normal', 'enhanced'],
       focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom']
@@ -3945,6 +3941,12 @@ EXP.Settings = (() => {
     if (Array.isArray(candidate.customThemes)) result.customThemes = candidate.customThemes.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && ['page', 'surface', 'raised', 'overlay', 'navigation', 'input', 'interactive', 'text', 'muted'].every((key) => EXP.Themes?.hex(item[key]))).slice(0, 50).map((item) => clone(item));
     if (Array.isArray(candidate.customAccents)) result.customAccents = candidate.customAccents.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && EXP.Themes?.hex(item.color)).slice(0, 50).map((item) => clone(item));
     if (typeof candidate.currentProfile === 'string' && result.profiles.some((profile) => profile.id === candidate.currentProfile)) result.currentProfile = candidate.currentProfile;
+    // Migrate every appearance scope; retained custom colors stay exportable.
+    for (const appearance of [...result.profiles.map(profile => profile.appearance), ...Object.values(result.siteOverrides)]) {
+      if (!appearance || typeof appearance !== 'object') continue;
+      if (typeof appearance.theme === 'string' && EXP.Themes) appearance.theme = EXP.Themes.normalizeTheme(appearance.theme);
+      if (appearance.accent !== undefined) appearance.accent = 'site-default';
+    }
     return result;
   }
   function load() {
@@ -3988,46 +3990,29 @@ EXP.Settings = (() => {
 
 EXP.Themes = (() => {
   const catalog = Object.freeze({
-    original: { name: 'Original', original: true },
-    system: { name: 'System', system: true },
-    ember: { name: 'Ember', page: '#120807', surface: '#24100c', raised: '#351914', overlay: '#47231c', text: '#f1ddd2', muted: '#b99787', highlight: '#e16a3b' },
-    midnight: { name: 'Midnight', page: '#050a12', surface: '#0c1726', raised: '#142238', overlay: '#1d2e49', text: '#d4deeb', muted: '#91a2b7', highlight: '#477abd' },
-    glacier: { name: 'Glacier', page: '#061216', surface: '#0d252a', raised: '#17363d', overlay: '#214952', text: '#d8ebee', muted: '#8fa9ae', highlight: '#67b7c1' },
-    obsidian: { name: 'High contrast', page: '#000000', surface: '#0a0a0a', raised: '#171717', overlay: '#242424', text: '#ffffff', muted: '#e0e0e0', highlight: '#ffd400' },
-    verdant: { name: 'Verdant', page: '#06110d', surface: '#0d2218', raised: '#173326', overlay: '#214735', text: '#d7e9df', muted: '#93aa9e', highlight: '#49a879' },
-    pride: {
-      name: 'Pride',
-      page: '#100a12',
-      pageFill: 'linear-gradient(180deg,#2a1930 0%,#100a12 42%)',
-      pageEdge: 'linear-gradient(90deg,#c84e66 0%,#d07840 16.6%,#be9f37 33.3%,#3b8a5f 50%,#3d79a6 66.6%,#7455a4 100%)',
-      surface: '#1d1222', raised: '#2a1930', overlay: '#39213f', navigation: '#18101c', input: '#25162b', interactive: '#312039',
-      text: '#f0ddea', muted: '#b89db4', highlight: '#dd6793'
-    },
-    crimson: { name: 'Crimson', page: '#0c0508', surface: '#1d090f', raised: '#2d1019', overlay: '#401725', text: '#e5d2d7', muted: '#ae8b94', highlight: '#b63243' },
-    shift: {
-      name: 'SHIFT gem',
-      page: '#041313',
-      pageFill: 'linear-gradient(180deg,#0d3032 0%,#041313 40%)',
-      pageEdge: 'linear-gradient(90deg,#1e938f,#3f6fa8 55%,#c34766)',
-      surface: '#082427', raised: '#10363a', overlay: '#17494f', navigation: '#071c1e', input: '#0d2d31', interactive: '#143d42',
-      text: '#d7eeec', muted: '#8aacaa', highlight: '#2eaaa5'
-    }
+    original: { name: 'Original site', original: true },
+    system: { name: 'Follow system', system: true },
+    midnight: { name: 'Midnight', page: '#050a12', surface: '#0c1726', raised: '#142238', overlay: '#1d2e49', text: '#d4deeb', muted: '#b5c3d6', highlight: '#91baff' },
+    amethyst: { name: 'Amethyst', page: '#100b18', surface: '#1c1329', raised: '#2a1d3d', overlay: '#38274c', text: '#f1eafa', muted: '#c4b4d7', highlight: '#c3a0ff' },
+    crimson: { name: 'Crimson', page: '#0c0508', surface: '#1d090f', raised: '#2d1019', overlay: '#401725', text: '#f2e2e7', muted: '#c4aeb6', highlight: '#f18c9c' },
+    verdant: { name: 'Verdant', page: '#06110d', surface: '#0d2218', raised: '#173326', overlay: '#214735', text: '#d7e9df', muted: '#b0c6bb', highlight: '#79cf9b' },
+    pride: { name: 'Pride', page: '#100a12', pageEdge: 'linear-gradient(90deg,#c84e66 0%,#d07840 16.6%,#be9f37 33.3%,#3b8a5f 50%,#3d79a6 66.6%,#7455a4 100%)', surface: '#1d1222', raised: '#2a1930', overlay: '#39213f', text: '#f0ddea', muted: '#cab5c6', highlight: '#ef9ccc' },
+    obsidian: { name: 'High contrast', page: '#000000', surface: '#0a0a0a', raised: '#171717', overlay: '#242424', text: '#ffffff', muted: '#e0e0e0', highlight: '#ffd400' }
   });
-  const accents = Object.freeze({
-    'site-default': null, teal: '#2f7f86', coral: '#c9512c', sky: '#477abd', mint: '#49a879', amber: '#b68a32', violet: '#7555a6', silver: '#bfbfbf', pride: '#dd6793', 'ember-default': '#e16a3b', 'midnight-default': '#477abd', 'glacier-default': '#67b7c1', 'contrast-default': '#ffd400', 'verdant-default': '#49a879', 'pride-default': '#dd6793', 'crimson-default': '#b63243', 'shift-default': '#2eaaa5'
-  });
-  const aliases = Object.freeze({ warm: 'ember', discord: 'glacier', pine: 'verdant' });
-  const hex = (value) => /^#[0-9a-f]{6}$/i.test(value || '');
-  function themeOptions(state) { return [...Object.entries(catalog).map(([id, item]) => [id, item.name]), ...(state?.customThemes || []).map((item) => [item.id, item.name])]; }
-  function accentOptions(state) { return [...Object.entries(accents).map(([id]) => [id, id === 'site-default' ? 'Site default' : id[0].toUpperCase() + id.slice(1)]), ...(state?.customAccents || []).map((item) => [item.id, item.name])]; }
-  function resolve(themeId, accentId, state = {}) {
-    themeId = aliases[themeId] || themeId;
-    let theme = catalog[themeId] || state.customThemes?.find((item) => item.id === themeId) || catalog.original;
-    if (theme.system) theme = matchMedia('(prefers-color-scheme: dark)').matches ? catalog.glacier : catalog.original;
-    const accent = accents[accentId] || state.customAccents?.find((item) => item.id === accentId)?.color || (theme.original ? '#287a74' : theme.highlight || '#2eaaa5');
-    return { ...theme, id: themeId, accent, highlight: theme.highlight || accent, navigation: theme.navigation || theme.surface, input: theme.input || theme.raised, interactive: theme.interactive || theme.raised };
+  const accents = Object.freeze({ 'site-default': null });
+  const aliases = Object.freeze({ warm: 'crimson', ember: 'crimson', discord: 'amethyst', glacier: 'amethyst', shift: 'amethyst', pine: 'verdant', contrast: 'obsidian' });
+  const hex = value => /^#[0-9a-f]{6}$/i.test(value || '');
+  function normalizeTheme(id) { return Object.hasOwn(aliases, id) ? aliases[id] : Object.hasOwn(catalog, id) ? id : 'midnight'; }
+  function themeOptions() { return Object.entries(catalog).map(([id, item]) => [id, item.name]); }
+  function accentOptions() { return [['site-default', 'Theme accent']]; }
+  function resolve(themeId) {
+    themeId = normalizeTheme(themeId);
+    let theme = catalog[themeId];
+    if (theme.system) theme = matchMedia('(prefers-color-scheme: dark)').matches ? catalog.midnight : catalog.original;
+    const accent = theme.highlight || '#287a74';
+    return { ...theme, id: themeId, accent, highlight: accent, navigation: theme.navigation || theme.surface, input: theme.input || theme.raised, interactive: theme.interactive || theme.raised };
   }
-  return Object.freeze({ catalog, accents, hex, resolve, themeOptions, accentOptions });
+  return Object.freeze({ catalog, accents, aliases, normalizeTheme, hex, resolve, themeOptions, accentOptions });
 })();
 
 EXP.Preload = (() => {
@@ -6258,15 +6243,10 @@ EXP.UI = (() => {
     node.append(select);
     return node;
   }
-  function colorControl(label, value, change) {
-    const node = row(label, '');
-    const input = el('input', { type:'color', value, 'aria-label':label });
-    input.addEventListener('input', () => change(input.value));
-    node.append(input); return node;
-  }
+
   function actionRow(label, help, action, actionLabel = label) { const node = row(label, help); node.append(button(actionLabel, action, ['Reset','Reset site'].includes(actionLabel) ? 'action warn' : 'action')); return node; }
 
-  function applyMenuTheme(state) { ExtraPotionsCore.applyTheme(host, state.theme === "original" ? "shift" : state.theme); }
+  function applyMenuTheme() { ExtraPotionsCore.applyTheme(host, 'shift'); }
 
   function commit(patch, reason = 'appearance', message = 'Appearance updated.') {
     saved = onSettings({ ...saved, ...patch }, reason);
@@ -6274,32 +6254,20 @@ EXP.UI = (() => {
     setMessage(message);
   }
   function appearanceSwatches() {
-    const presets = [
-      { id:'original', name:'Original', theme:'original', accent:'site-default', swatch:'linear-gradient(135deg,#f4f4f4 0 50%,#252525 50% 100%)' },
-      { id:'ember', name:'Ember', theme:'ember', accent:'ember-default', swatch:'linear-gradient(135deg,#120807 0 38%,#c9512c 38% 69%,#b68a32 69% 100%)' },
-      { id:'midnight', name:'Midnight', theme:'midnight', accent:'midnight-default', swatch:'linear-gradient(135deg,#050a12 0 38%,#3563a3 38% 69%,#348f8b 69% 100%)' },
-      { id:'glacier', name:'Glacier', theme:'glacier', accent:'glacier-default', swatch:'linear-gradient(135deg,#061216 0 38%,#4a9eaa 38% 69%,#92b85b 69% 100%)' },
-      { id:'contrast', name:'High contrast', theme:'obsidian', accent:'contrast-default', swatch:'linear-gradient(135deg,#000000 0 48%,#ffffff 48% 78%,#ffd400 78% 100%)' },
-      { id:'verdant', name:'Verdant', theme:'verdant', accent:'verdant-default', swatch:'linear-gradient(135deg,#06110d 0 38%,#318c61 38% 69%,#2f7f86 69% 100%)' },
-      { id:'pride', name:'Pride', theme:'pride', accent:'pride-default', swatch:'linear-gradient(135deg,#c84e66 0%,#d07840 16.6%,#be9f37 33.3%,#3b8a5f 50%,#3d79a6 66.6%,#7455a4 100%)' },
-      { id:'crimson', name:'Crimson', theme:'crimson', accent:'crimson-default', swatch:'linear-gradient(135deg,#0c0508 0 38%,#941f2f 38% 69%,#2f746e 69% 100%)' },
-      { id:'shift', name:'SHIFT gem', theme:'shift', accent:'shift-default', swatch:'linear-gradient(135deg,#041313 0 38%,#1e938f 38% 69%,#c34766 69% 100%)' }
-    ];
-    const custom = saved.customThemes.map((theme) => ({ id:`custom:${theme.id}`, name:theme.name, theme:theme.id, accent:saved.accent, swatch:`linear-gradient(135deg,${theme.page} 50%,${theme.text} 50%)` }));
-    const choices = [...presets, ...custom];
-    const matched = choices.find((item) => item.theme === saved.theme && item.accent === saved.accent);
-    const current = matched?.id || (saved.theme === 'original' ? '' : `current:${saved.theme}:${saved.accent}`);
-    if (current && !choices.some((item) => item.id === current)) { const resolved=EXP.Themes.resolve(saved.theme,saved.accent,saved);choices.push({id:current,name:'Current imported palette',theme:saved.theme,accent:saved.accent,swatch:`linear-gradient(135deg,${resolved.page||'#171918'} 50%,${resolved.accent} 50%)`}); }
-    const line=el('div',{class:'row palette-row'});const dots=el('div',{class:'exp-theme-swatches'});const options={container:dots,themes:choices,value:current,onChange:(id)=>{const choice=choices.find((item)=>item.id===id);if(choice)commit({theme:choice.theme,accent:choice.accent},'theme-swatch',`${choice.name} applied.`);}};
-    const swatchCss = choices.map((theme) => `.exp-theme-swatch[data-swatch="${theme.id}"]{background:${theme.swatch}}`).join('');
-    if (swatchStyle) swatchStyle.textContent = swatchCss;
-    else swatchStyle = EXP.Core.injectStyle(shadow, swatchCss, { expShiftSwatches: '1' });
-    if(ExtraPotionsCore?.createThemeSwatches)ExtraPotionsCore.createThemeSwatches(options);else for(const theme of choices){const dot=el('button',{type:'button',class:`exp-theme-swatch${theme.id===current?' is-on':''}`,'aria-label':theme.name,'aria-pressed':String(theme.id===current),'data-swatch':theme.id});dot.title=theme.name;dot.addEventListener('click',()=>options.onChange(theme.id));dots.append(dot);}
+    const choices = EXP.Themes.themeOptions().filter(([id]) => !['original', 'system'].includes(id)).map(([id, name]) => {
+      const palette = EXP.Themes.resolve(id);
+      return { id, name, swatch: palette.pageEdge || 'linear-gradient(135deg,' + palette.page + ' 50%,' + palette.highlight + ' 50%)' };
+    });
+    const line = el('div', { class:'row palette-row' });
+    const dots = el('div', { class:'exp-theme-swatches' });
+    ExtraPotionsCore.createThemeSwatches({ container:dots, themes:choices, value:saved.theme, label:'Website theme', onChange:id => commit({ theme:id, accent:'site-default' }, 'theme-swatch', choices.find(item => item.id === id).name + ' applied.') });
+    const css = choices.map(theme => '.exp-theme-swatch[data-swatch="' + theme.id + '"]{background:' + theme.swatch + '}').join('');
+    if (swatchStyle) swatchStyle.textContent = css;
+    else swatchStyle = EXP.Core.injectStyle(shadow, css, { expShiftSwatches:'1' });
     line.style.setProperty('display','grid','important');
     line.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
-    dots.style.setProperty('flex-wrap','wrap','important');
-    dots.style.setProperty('width','100%','important');
-    line.append(dots);return line;
+    line.append(dots);
+    return line;
   }
 
   function appearanceFooter() {
@@ -6314,21 +6282,6 @@ EXP.UI = (() => {
     return footer;
   }
 
-  function paletteStudio() {
-    const state = EXP.Settings.snapshot();
-    const base = EXP.Themes.resolve(saved.theme, saved.accent, saved);
-    const draft = { name:'Custom palette', page:base.page||'#101414', surface:base.surface||'#182020', raised:base.raised||'#243030', overlay:base.overlay||'#304040', navigation:base.navigation||base.surface||'#182020', input:base.input||base.raised||'#243030', interactive:base.interactive||base.raised||'#243030', text:base.text||'#f2f6f5', muted:base.muted||'#aebcba', highlight:base.highlight||base.accent||'#26d9c7' };
-    const studio = el('details', { class:'exp-tools-card palette-studio' });studio.append(el('summary',{},'Palette Studio'));
-    const preview=el('div',{class:'palette-preview','aria-label':'Custom palette preview'}),contrast=el('p',{role:'status'});
-    const ratio=(one,two)=>{const lum=value=>{const values=[1,3,5].map(index=>parseInt(value.slice(index,index+2),16)/255).map(value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4);return values[0]*.2126+values[1]*.7152+values[2]*.0722;};const a=lum(one),b=lum(two);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);};
-    const paint=()=>{preview.style.cssText=`background:${draft.page};color:${draft.text};border:1px solid ${draft.muted};box-shadow:inset 0 0 0 6px ${draft.surface};`;preview.textContent='Page · Surface · Text · Accent';preview.style.setProperty('text-decoration','underline 3px '+draft.highlight);const value=Math.min(ratio(draft.text,draft.page),ratio(draft.text,draft.surface));contrast.textContent=`Text contrast: ${value.toFixed(2)}:1 · ${value>=4.5?'Meets normal-text contrast':'Choose lighter text or a darker surface before saving.'}`;};paint();studio.append(preview,contrast);
-    for(const [key,label] of [['page','Page'],['surface','Surface'],['raised','Raised surface'],['overlay','Overlay'],['navigation','Navigation'],['input','Input'],['interactive','Interactive'],['text','Text'],['muted','Muted text'],['highlight','Accent']])studio.append(colorControl(label,draft[key],value=>{draft[key]=value;paint();}));
-    studio.append(actionRow('Save custom palette','Creates a local palette and applies it immediately.',()=>{if(Math.min(ratio(draft.text,draft.page),ratio(draft.text,draft.surface))<4.5){setMessage('Improve text contrast before saving.');return;}const name=prompt('Palette name',draft.name);if(!name?.trim())return;const id=`custom-${Date.now().toString(36)}`;const theme={...draft,id,name:name.trim().slice(0,80)};const currentState=EXP.Settings.snapshot();const next={...currentState,customThemes:[...currentState.customThemes,theme],theme:id,accent:'site-default',currentProfile:'original',siteOverrides:{...currentState.siteOverrides,[location.hostname]:{...(currentState.siteOverrides[location.hostname]||{}),theme:id,accent:'site-default'}}};onSettings(next,'palette-studio-save');setMessage(`${theme.name} saved and applied.`);},'Save palette'));
-    studio.append(actionRow('Export palette draft','Exports colors only.',()=>download('shift-palette.json',JSON.stringify({product:'shift',generation:3,schema:1,type:'palette',palette:draft},null,2)),'Export draft'));
-    const file=el('input',{type:'file',accept:'.json,application/json','aria-label':'Import SHIFT palette'});file.hidden=true;file.addEventListener('change',async()=>{try{const payload=JSON.parse(await file.files[0].text());if(payload.product!=='shift'||payload.type!=='palette'||payload.generation!==3||payload.schema!==1||!Object.keys(draft).filter(key=>key!=='name').every(key=>EXP.Themes.hex(payload.palette?.[key])))throw new Error('Unsupported palette file.');for(const key of Object.keys(draft))draft[key]=key==='name'?String(payload.palette.name||'Custom palette').slice(0,80):payload.palette[key];for(const input of studio.querySelectorAll('input[type="color"]')){const key=[['Page','page'],['Surface','surface'],['Raised surface','raised'],['Overlay','overlay'],['Navigation','navigation'],['Input','input'],['Interactive','interactive'],['Text','text'],['Muted text','muted'],['Accent','highlight']].find(([label])=>label===input.getAttribute('aria-label'))?.[1];if(key)input.value=draft[key];}paint();setMessage('Palette draft imported; save to apply.');}catch(error){setMessage(error.message);}});studio.append(actionRow('Import palette','Review imported colors before saving.',()=>file.click(),'Import draft'),file);
-    const current=state.customThemes.find(item=>item.id===state.theme);if(current)studio.append(actionRow('Delete current custom palette','Profiles using it return to Original.',()=>{const customThemes=state.customThemes.filter(item=>item.id!==current.id);const profiles=state.profiles.map(profile=>profile.appearance?.theme===current.id?{...profile,appearance:{...profile.appearance,theme:'original',accent:'site-default'}}:profile);const siteOverrides=Object.fromEntries(Object.entries(state.siteOverrides).map(([host,site])=>[host,site.theme===current.id?{...site,theme:'original',accent:'site-default'}:site]));onSettings({...state,customThemes,profiles,siteOverrides,theme:'original',accent:'site-default'},'palette-studio-delete');setMessage('Custom palette deleted.');},'Delete palette'));
-    return studio;
-  }
 
   function appearanceExplanation() {
     const card = el('details', { class: 'exp-tools-card', 'data-shift-appearance-explanation': 'true' });
@@ -6380,10 +6333,11 @@ EXP.UI = (() => {
 
   function renderAppearance() {
     const fragment = document.createDocumentFragment();
-    const themes = section('Palette', 'Choose a semantic palette. Original leaves the page unchanged.');
+    const themes = section('Website theme', 'Six palettes for websites. The SHIFT menu keeps its own colors.');
+    themes.append(selectControl('Display mode', 'Keep the original site, follow your system, or use a theme.', ['original','system'].includes(saved.theme) ? saved.theme : 'themed', [['original','Original site'],['system','Follow system'],['themed','Use theme']], mode => commit({theme: mode === 'themed' ? 'midnight' : mode, accent:'site-default'}, 'display-mode')));
     themes.append(appearanceSwatches());
     themes.append(selectControl('Theme Strength', 'Soft narrows depth differences; Strong increases raised-surface depth.', saved.themeStrength, [['soft', 'Soft'], ['normal', 'Normal'], ['strong', 'Strong']], (themeStrength) => commit({ themeStrength }, 'theme-strength', `Theme strength set to ${themeStrength}.`)));
-    fragment.append(themes, paletteStudio(), appearanceExplanation());
+    fragment.append(themes, appearanceExplanation());
 
     const surfaces = section('Surfaces', 'Host CSS themes the page and app shells first. Classification then repairs leftover gray boxes.');
     surfaces.append(selectControl('Surface Intelligence', 'Live repair depth after the base theme and stylesheet pass. Off still themes the page and component roles.', saved.surfaceLevel, [['off', 'Off'], ['conservative', 'Conservative'], ['balanced', 'Balanced'], ['aggressive', 'Aggressive']], (surfaceLevel) => commit({ surfaceLevel }, 'surface-level', `Surface intelligence set to ${surfaceLevel}.`)));

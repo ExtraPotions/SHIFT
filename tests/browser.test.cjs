@@ -88,9 +88,9 @@ test('inline background shorthand survives Original boot and exclusion', async (
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Ember"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
   });
-  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'ember');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'crimson');
   const themed = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   assert.notEqual(themed, boot);
   await root.evaluate((node) => {
@@ -306,7 +306,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   });
   assert.ok(expanded.switchCount >= 2);
   assert.equal(expanded.visibleBodies, 1);
-  assert.equal(expanded.nested, 3);
+  assert.equal(expanded.nested, 2);
   assert.equal(expanded.readabilityOpen, true);
 
   const reopened = await root.evaluate((node) => {
@@ -383,13 +383,13 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
   const palettes = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.exp-theme-swatch')].map((item) => item.getAttribute('aria-label')));
-  assert.deepEqual(palettes, ['Original', 'Ember', 'Midnight', 'Glacier', 'High contrast', 'Verdant', 'Pride', 'Crimson', 'SHIFT gem']);
-  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').getAttribute('aria-pressed')), 'true');
+  assert.deepEqual(palettes, ['Midnight', 'Amethyst', 'Crimson', 'Verdant', 'Pride', 'High contrast']);
+  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[aria-label="Display mode"]').value), 'original');
   assert.equal(await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('button')].some((item) => item.textContent === 'Apply' || item.textContent === 'Cancel')), false);
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click());
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page'));
-  await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
-  assert.ok(await page.locator('[data-exp-shift-live]').count() > 0);
+  await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
+  assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
   await root.evaluate((node) => {
     const select = [...node.shadowRoot.querySelectorAll('select')].find((item) => item.getAttribute('aria-label') === 'Theme Strength');
     select.value = 'strong';
@@ -399,15 +399,15 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   assert.equal(await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('select')].find((item) => item.getAttribute('aria-label') === 'Theme Strength')?.value), 'strong');
   await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click());
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#050a12'));
-  await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
-  assert.ok(await page.locator('[data-exp-shift-live]').count() > 0);
+  await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
+  assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
   assert.equal(await page.locator('img[data-exp-shift-live]').count(), 0);
-  await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').click());
+  await root.evaluate(node=>(()=>{const select=node.shadowRoot.querySelector('[aria-label="Display mode"]');select.value='original';select.dispatchEvent(new Event('change',{bubbles:true}));})());
   await page.waitForFunction(()=>window.GM_getValue('exp:v3:shift:settings').theme==='original' && document.querySelectorAll('[data-exp-shift-live]').length===0);
-  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[data-swatch=original]').getAttribute('aria-pressed')), 'true');
+  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[aria-label="Display mode"]').value), 'original');
 });
 
-test('Pride and SHIFT gem palettes recolor the live page when constructable sheets are inert', async (t) => {
+test('Pride and Amethyst palettes recolor the live page when constructable sheets are inert', async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
@@ -429,8 +429,8 @@ test('Pride and SHIFT gem palettes recolor the live page when constructable shee
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
   await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Pride"]').click());
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100a12'));
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#041313'));
+  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100b18'));
   assert.notEqual(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgba(0, 0, 0, 0)');
 });
 
@@ -460,14 +460,14 @@ test('Pride paints a muted rainbow highlight and a pink accent', async (t) => {
   assert.match(sheet, /#d07840/);
   assert.match(sheet, /#3b8a5f/);
   assert.match(sheet, /#7455a4/);
-  assert.match(sheet, /--exp-shift-accent:#dd6793/);
-  assert.match(sheet, /--exp-shift-highlight:#dd6793/);
+  assert.match(sheet, /--exp-shift-accent:#ef9ccc/);
+  assert.match(sheet, /--exp-shift-highlight:#ef9ccc/);
   assert.match(sheet, /--exp-shift-page:#100a12/);
   assert.match(sheet, /linear-gradient\(90deg,#c84e66/);
-  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('a')).color), 'rgb(221, 103, 147)');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('a')).color), 'rgb(239, 156, 204)');
 });
 
-test('Pride palette differs materially from Ember with rainbow page and menu treatment', async (t) => {
+test('Pride palette differs materially from Crimson with rainbow page and menu treatment', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
@@ -503,19 +503,19 @@ test('Pride palette differs materially from Ember with rainbow page and menu tre
   });
   assert.equal(pride.vars.page, '#100a12');
   assert.equal(pride.vars.surface, '#1d1222');
-  assert.equal(pride.vars.accent, '#dd6793');
-  assert.equal(pride.vars.highlight, '#dd6793');
+  assert.equal(pride.vars.accent, '#ef9ccc');
+  assert.equal(pride.vars.highlight, '#ef9ccc');
   assert.match(pride.sheet, /#c84e66/);
   assert.match(pride.sheet, /#3d79a6/);
   assert.match(pride.menuBg, /linear-gradient/);
   assert.match(pride.dividerBg, /linear-gradient/);
-  assert.match(pride.dividerBg, /200,\s*78,\s*102|#c84e66/i);
-  assert.match(pride.dividerBg, /61,\s*121,\s*166|#3d79a6/i);
+  assert.doesNotMatch(pride.dividerBg, /200,\s*78,\s*102|#c84e66/i);
+  assert.equal(pride.uiTheme, 'shift');
   assert.doesNotMatch(pride.dividerBg, /rgba\(0,\s*0,\s*0,\s*0\).*200/i);
   assert.equal(pride.dividerHeight, '2px');
-  assert.equal(pride.uiTheme, 'pride');
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#120807'));
+  assert.equal(pride.uiTheme, 'shift');
+  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#0c0508'));
   const ember = await page.evaluate(() => ({
     page: getComputedStyle(document.body).backgroundColor,
     vars: {
@@ -525,9 +525,9 @@ test('Pride palette differs materially from Ember with rainbow page and menu tre
     },
     sheet: document.querySelector('#exp-shift-page-style')?.textContent || ''
   }));
-  assert.equal(ember.vars.page, '#120807');
-  assert.equal(ember.vars.surface, '#24100c');
-  assert.equal(ember.vars.accent, '#e16a3b');
+  assert.equal(ember.vars.page, '#0c0508');
+  assert.equal(ember.vars.surface, '#1d090f');
+  assert.equal(ember.vars.accent, '#f18c9c');
   assert.doesNotMatch(ember.sheet, /#c84e66/);
   assert.notEqual(pride.page, ember.page);
   assert.notEqual(pride.vars.page, ember.vars.page);
@@ -633,13 +633,13 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Ember"]').click(); });
-  await page.waitForFunction(() => document.querySelectorAll('[data-exp-shift-live]').length > 0);
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click(); });
+  await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
   await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'system').click());
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => !(document.querySelector('#exp-shift-page-style')?.textContent) && document.querySelectorAll('[data-exp-shift-live]').length === 0);
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#120807') && document.querySelectorAll('[data-exp-shift-live]').length > 0);
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#0c0508') && document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
 });
 
 test('Appearance keeps primary controls visible and secondary readability collapsed', async (t) => {
@@ -647,7 +647,7 @@ test('Appearance keeps primary controls visible and secondary readability collap
   const root = page.locator('#exp-shift-root');
   await root.evaluate(node => {const s=node.shadowRoot;s.querySelector('.launcher').click();s.querySelector('[data-section="appearance"]').click();});
   assert.equal(await root.locator('.appearance-group').count(),0);
-  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),3);
+  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),2);
   assert.equal(await root.locator('[data-shift-appearance-explanation]').evaluate(n=>n.open),false);
   assert.equal(await root.getByText('Create custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByText('Import custom theme',{exact:true}).count(),0);
@@ -760,9 +760,9 @@ test('everywhere CSS variables theme common chrome without waiting for surface m
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim() === '#041313');
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim() === '#100b18');
   const painted = await page.evaluate(() => {
     const css = (id) => getComputedStyle(document.getElementById(id));
     return {
@@ -779,8 +779,8 @@ test('everywhere CSS variables theme common chrome without waiting for surface m
       sheet: document.querySelector('#exp-shift-page-style')?.textContent || ''
     };
   });
-  assert.equal(painted.pageVar, '#041313');
-  assert.equal(painted.accentVar, '#2eaaa5');
+  assert.equal(painted.pageVar, '#100b18');
+  assert.equal(painted.accentVar, '#c3a0ff');
   assert.match(painted.sheet, /:root,html\[data-exp-shift\],:host/);
   assert.match(painted.sheet, /\.MuiPaper-root/);
   assert.match(painted.sheet, /\.bg-white/);
@@ -912,9 +912,9 @@ test('content wrappers like Greasy Fork .width keep readable contrast', async (t
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(4, 19, 19)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
   const facts = await page.evaluate(() => {
     const luminance = (color) => {
       const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
@@ -973,9 +973,9 @@ test('common layout wrappers stay transparent over hero art', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(4, 19, 19)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
   const facts = await page.evaluate(() => {
     const opaque = (bg) => {
       const match = String(bg || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/i);
@@ -1025,9 +1025,9 @@ test('transparent section/article stay clear over hero art', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(4, 19, 19)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
   await page.waitForTimeout(400);
   const facts = await page.evaluate(() => {
     const opaque = (bg) => {
@@ -1081,9 +1081,9 @@ test('excluding a site restores stylesheet backgrounds without a white canvas', 
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Ember"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
   });
-  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'ember');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'crimson');
   await root.evaluate((node) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('[data-section="advanced"]').click();
@@ -1134,19 +1134,19 @@ test('host CSS themes SPA app shells that never use landmarks', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(4, 19, 19)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
   const painted = await page.evaluate(() => ({
     html: getComputedStyle(document.documentElement).backgroundColor,
     body: getComputedStyle(document.body).backgroundColor,
     shell: getComputedStyle(document.getElementById('root')).backgroundColor,
     host: document.documentElement.getAttribute('data-exp-shift')
   }));
-  assert.equal(painted.html, 'rgb(4, 19, 19)');
-  assert.equal(painted.body, 'rgb(4, 19, 19)');
+  assert.equal(painted.html, 'rgb(16, 11, 24)');
+  assert.equal(painted.body, 'rgb(16, 11, 24)');
   assert.notEqual(painted.shell, 'rgb(255, 255, 255)');
-  assert.equal(painted.host, 'shift');
+  assert.equal(painted.host, 'amethyst');
 });
 
 test('page stylesheet is restored after the site steals it', async (t) => {
@@ -1282,7 +1282,7 @@ test('3.1 color engine transforms stylesheet hierarchy', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const themed = await page.evaluate(() => ({
@@ -1339,7 +1339,7 @@ test('3.1 color engine transforms inline colors and semantic variables', async (
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Ember"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
   });
   await page.waitForFunction(() => document.getElementById('inline').hasAttribute('data-exp-shift-inline'));
   const themed = await page.evaluate(() => {
@@ -1412,7 +1412,7 @@ test('3.1 color engine transforms adopted stylesheets without replacing site she
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Ember"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
   });
   await page.waitForFunction(() => document.getElementById('adopted-host').shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const facts = await page.evaluate(() => {
@@ -1439,7 +1439,7 @@ test('3.1 avoids inline rewriting on explicit native dark pages', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
   await page.waitForTimeout(500);
   const facts = await page.evaluate(() => ({
@@ -1451,7 +1451,7 @@ test('3.1 avoids inline rewriting on explicit native dark pages', async (t) => {
   assert.ok(facts.generated <= 2, JSON.stringify(facts));
   assert.equal(facts.inlineRepair, false, JSON.stringify(facts));
   assert.notEqual(facts.cardBg, 'rgb(255, 255, 255)', JSON.stringify(facts));
-  assert.equal(facts.host, 'shift');
+  assert.equal(facts.host, 'amethyst');
   await root.locator('[data-shift-appearance-explanation]>summary').click();
   await root.locator('[data-shift-appearance-explanation] [role="status"]').waitFor();
   assert.match(await root.locator('[data-shift-appearance-explanation]').textContent(), /site already has a dark appearance/);
@@ -1485,7 +1485,7 @@ test('3.1 contrast-aware foreground repair keeps transformed text readable', asy
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
   await page.waitForFunction(() => document.getElementById('contrast-card').hasAttribute('data-exp-shift-inline'));
   const ratio = await page.evaluate(() => {
@@ -1538,7 +1538,7 @@ test('3.1 transforms pseudo-element chrome and CSS gradients while preserving UR
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="SHIFT gem"]').click();
+    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const facts = await page.evaluate(() => ({

@@ -16,7 +16,7 @@ Keep a site’s original appearance or choose a color palette, then adjust readi
 2. [Install SHIFT](https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js) and confirm in your userscript manager.
 3. Refresh a page you want to use and open the product launcher.
 
-Open Appearance and choose Original or a palette. Adjust Readability to your preference, then use Profiles & Sites for individual websites.
+Open Appearance and choose Original site, Follow system, or one of six website themes. Adjust Readability to your preference, then use Profiles & Sites for individual websites.
 
 ## What you can do
 
@@ -27,7 +27,8 @@ Open Appearance and choose Original or a palette. Adjust Readability to your pre
 
 - **Readable menus:** choose Standard, Large, or Extra Large from System > Menu preferences. The choice applies to ExtraPotions menus on this site.
 
-- **Palette Studio:** build a custom palette, check text contrast, and import or export your colors.
+- **Six website themes:** Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast. Each includes coordinated colors for surfaces, text, links, and controls.
+- **Distinct product menus:** the SHIFT menu keeps its signature appearance when you change a website theme or use other ExtraPotions products.
 - **Saved element choices:** preserve a selected element’s original appearance on a site and clear those choices when needed.
 - **Site control:** pause page features across active ExtraPotions products from System, temporarily or until you resume.
 - **Original by default:** no color choice is required. Return to Original to remove the applied page theme.
@@ -39,7 +40,7 @@ Open Appearance and choose Original or a palette. Adjust Readability to your pre
 
 ## See it in action
 
-Screenshots show the product with sample content. [View Palette Studio](docs/screenshots/palette-studio.png).
+Screenshots show the product with sample content.
 
 <table>
   <tr>

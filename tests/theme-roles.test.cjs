@@ -17,7 +17,7 @@ test('component theme distinguishes table headings, state messages and controls 
   await page.locator('#control').hover();assert.notEqual((await css()).button.bg,before.button.bg);
   await page.evaluate(()=>{const row=document.querySelector('thead tr');row.insertAdjacentHTML('beforeend','<th id="late">Late header</th>');});
   assert.equal(await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor),before.head.bg);
-  await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Ember"]').click();assert.notEqual((await css()).head.bg,before.head.bg);
+  await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Crimson"]').click();assert.notEqual((await css()).head.bg,before.head.bg);
 });
 test('Original and Safe Mode restore component role styling',async t=>{
   const page=await fixture(t);

@@ -69,10 +69,9 @@ EXP.Settings = (() => {
   function validate(candidate) {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) throw Object.assign(new Error('Settings must be an object'), { code: 'SETTINGS_TYPE' });
     const result = clone(defaults);
-	const themeAliases = { warm: 'ember', discord: 'glacier', pine: 'verdant', obsidian: 'obsidian' };
-	const normalizedTheme = themeAliases[candidate.theme] || candidate.theme;
+    const normalizedTheme = candidate.theme === undefined ? defaults.theme : EXP.Themes?.normalizeTheme(candidate.theme) || candidate.theme;
     const enums = {
-      theme: EXP.Themes ? [...Object.keys(EXP.Themes.catalog), ...(candidate.customThemes || []).map((item) => item?.id).filter(Boolean)] : ['original'], accent: [...Object.keys(EXP.Themes?.accents || { 'site-default': null }), ...(candidate.customAccents || []).map((item) => item?.id).filter(Boolean)],
+      theme: Object.keys(EXP.Themes?.catalog || { original: {} }), accent: ['site-default'],
       themeStrength: ['soft', 'normal', 'strong'],
       surfaceLevel: ['off', 'conservative', 'balanced', 'aggressive'], linkVisibility: ['site', 'enhanced', 'high'], textContrast: ['normal', 'enhanced'],
       focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom']
@@ -101,6 +100,12 @@ EXP.Settings = (() => {
     if (Array.isArray(candidate.customThemes)) result.customThemes = candidate.customThemes.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && ['page', 'surface', 'raised', 'overlay', 'navigation', 'input', 'interactive', 'text', 'muted'].every((key) => EXP.Themes?.hex(item[key]))).slice(0, 50).map((item) => clone(item));
     if (Array.isArray(candidate.customAccents)) result.customAccents = candidate.customAccents.filter((item) => item && validTheme(item.id) && typeof item.name === 'string' && item.name.trim() && item.name.length <= 80 && EXP.Themes?.hex(item.color)).slice(0, 50).map((item) => clone(item));
     if (typeof candidate.currentProfile === 'string' && result.profiles.some((profile) => profile.id === candidate.currentProfile)) result.currentProfile = candidate.currentProfile;
+    // Migrate every appearance scope; retained custom colors stay exportable.
+    for (const appearance of [...result.profiles.map(profile => profile.appearance), ...Object.values(result.siteOverrides)]) {
+      if (!appearance || typeof appearance !== 'object') continue;
+      if (typeof appearance.theme === 'string' && EXP.Themes) appearance.theme = EXP.Themes.normalizeTheme(appearance.theme);
+      if (appearance.accent !== undefined) appearance.accent = 'site-default';
+    }
     return result;
   }
   function load() {
