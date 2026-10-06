@@ -306,7 +306,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   });
   assert.ok(expanded.switchCount >= 2);
   assert.equal(expanded.visibleBodies, 1);
-  assert.equal(expanded.nested, 2);
+  assert.equal(expanded.nested, 3, 'Appearance holds the explanation, Readability, and Menu Preferences');
   assert.equal(expanded.readabilityOpen, true);
 
   const reopened = await root.evaluate((node) => {
@@ -649,7 +649,7 @@ test('Appearance keeps primary controls visible and secondary readability collap
   const root = page.locator('#exp-shift-root');
   await root.evaluate(node => {const s=node.shadowRoot;s.querySelector('.launcher').click();s.querySelector('[data-section="appearance"]').click();});
   assert.equal(await root.locator('.appearance-group').count(),0);
-  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),2);
+  assert.equal(await root.locator('.route-body:not([hidden]) details').count(),3);
   assert.equal(await root.locator('[data-shift-appearance-explanation]').evaluate(n=>n.open),false);
   assert.equal(await root.getByText('Create custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByText('Import custom theme',{exact:true}).count(),0);
@@ -669,16 +669,16 @@ test('Advanced and System hold site and chrome controls', async (t) => {
   assert.ok(profileLabels.includes('Current profile'));
   assert.ok(profileLabels.includes('Safe Mode'));
   assert.ok(profileLabels.includes('Export SHIFT settings'));
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="appearance"]').click());
   const menuLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.equal(menuLabels.includes('Menu width'), false);
-  assert.ok(menuLabels.includes('Update notifications'));
-  assert.equal(menuLabels.includes('Safe Mode'), false);
+  assert.ok(menuLabels.includes('Update notifications'), 'Menu Preferences live in Appearance');
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.equal(recoveryLabels.includes('Safe Mode'),false);
   assert.equal(recoveryLabels.includes('Export SHIFT settings'),false);
-  assert.deepEqual(await root.locator('[data-exp-product-system] > [data-exp-system-item]').evaluateAll(nodes=>nodes.map(n=>n.dataset.expSystemItem)),['timeline','diagnostics','issue','preferences','reset']);
-  assert.equal(recoveryLabels.includes('Update notifications'), true);
+  assert.deepEqual(await root.locator('[data-exp-product-system] > [data-exp-system-item]').evaluateAll(nodes=>nodes.map(n=>n.dataset.expSystemItem)),['status','support','reset']);
+  assert.equal(recoveryLabels.includes('Update notifications'), false);
 });
 
 test('update metadata remains offline by default and requests only after opt in', async (t) => {
@@ -686,7 +686,7 @@ test('update metadata remains offline by default and requests only after opt in'
   t.after(() => browser.close());
   assert.equal(await page.evaluate(() => window.__updateRequests), 0);
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'system').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'appearance').click(); });
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Update notifications'); row.querySelector('[role="switch"]').click(); });
   await page.waitForFunction(() => window.__updateRequests === 1);
   assert.equal(await page.evaluate(() => window.__updateRequests), 1);
@@ -1253,7 +1253,7 @@ test('route headers do not carry restated helper tips', async (t) => {
   const tips = await root.evaluate((host) => {
     const shadow = host.shadowRoot;
     shadow.querySelector('.launcher').click();
-    shadow.querySelector('[data-section="system"]')?.click();
+    shadow.querySelector('[data-section="appearance"]')?.click();
     return {
       headers: [...shadow.querySelectorAll('.fl-tool-header')].map((node) => ({
         tip: node.dataset.tip || '',
