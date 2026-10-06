@@ -226,6 +226,7 @@ EXP.UI = (() => {
     fragment.append(surfaces);
     fragment.append(ExtraPotionsCore.createDisclosure('Readability', renderReadability()));
     fragment.append(appearanceFooter());
+    fragment.append(renderMenuUpdates());
     return fragment;
   }
 
@@ -371,11 +372,11 @@ EXP.UI = (() => {
   }
   function renderRecoveryData() {
     healthControl?.dispose();
-    healthControl=ExtraPotionsCore.createProductTimeline('shift',systemHealthSnapshot,setMessage);
+    healthControl=ExtraPotionsCore.createProductTimeline('shift',systemHealthSnapshot,setMessage,{layout:'grouped'});
     return ExtraPotionsCore.createProductSystem({id:'shift',version:EXP.VERSION,
       timeline:healthControl.element,
       diagnostics:EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage),
-      preferences:renderMenuUpdates().firstChild,
+      layout:'grouped',
       onReset:()=>{const next=EXP.Settings.resetAll();saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();location.reload();},notify:setMessage
     });
   }

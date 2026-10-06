@@ -39,6 +39,7 @@ test('live contrast repair starts when leaving Original and resumes after Safe M
  await page.locator('#exp-shift-root [data-section="system"]').click();
  const active=async()=>{
   const header=page.locator('#exp-shift-root [data-section="system"]');if(await header.getAttribute('aria-expanded')!=='true')await header.click();
+  await page.locator('#exp-shift-root [data-exp-system-item="support"]').evaluate(n=>{n.open=true;});
   await page.locator('#exp-shift-root').getByRole('button',{name:'Show Diagnostics',exact:true}).click();
   const report=JSON.parse(await page.locator('#exp-shift-root .diag').textContent());
   await page.locator('#exp-shift-root').getByRole('button',{name:'Hide Diagnostics',exact:true}).click();
