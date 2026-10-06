@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SHIFT
 // @namespace    https://github.com/ExtraPotions
-// @version      3.5.4
+// @version      3.5.5
 // @description  Accessible semantic themes that paint host pages first, with conservative classification and site enhancements.
 // @icon         https://raw.githubusercontent.com/ExtraPotions/SHIFT/main/assets/shift-launcher.svg
 // @tag          accessibility
@@ -5841,10 +5841,11 @@ EXP.Adapters = (() => {
   return Object.freeze({ catalog: definitions, select, initialize, apply, process, disable, retry, health, options, actions, runAction, settings, setOption });
 })();
 
-EXP.VERSION = '3.5.4';
+EXP.VERSION = '3.5.5';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.5': ['Updates the shared foundation to exp-core 3.7.0.','Rebuilds shared UI, launcher, diagnostics, notices, and coordination from the pinned Core release.','Leaves SHIFT product-specific engine behavior unchanged.'],
     '3.5.4': ["Simplify System to Product Timeline, Show and Copy Diagnostics, issue reporting, Menu Preferences, and Reset All Settings.","Open GitHub Issues with a prefilled product and version template.","Require two confirmations before clearing this product settings and stored data."],
     '3.5.3': ["Choose six website themes with saved choices migrated: Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast.","Keep SHIFT's signature menu colors when changing website themes or using other products.","Choose Standard, Large, or Extra Large menus and use System status for safe retry.","Improve Amazon theme readability while preserving artwork and purchasing controls."],
     '3.5.2': ["Use product names without the retired V3 integration label in settings prompts and import messages.","Keep existing saved settings and settings exports compatible."],
