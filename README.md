@@ -2,6 +2,8 @@
 
 # SHIFT
 
+Current release: **3.5.9**.
+
 **Site colors and readability, on your terms**
 
 Keep a site’s original appearance or choose a color palette, then adjust reading comfort for the pages you use.
