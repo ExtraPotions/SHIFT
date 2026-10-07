@@ -12,7 +12,7 @@ const prepare = fs.readFileSync(path.join(root, 'scripts', 'prepare-core-release
 test('SHIFT delegates Core rollout orchestration to exp-core', () => {
   assert.match(workflow, /uses: ExtraPotions\/exp-core\/\.github\/workflows\/consumer-rollout\.yml@main/u);
   assert.match(workflow, /product: SHIFT/u);
-  assert.match(workflow, /node-version: "22"/u);
+  assert.match(workflow, /node-version: "24"/u);
   assert.match(workflow, /script-asset: shift\.user\.js/u);
   assert.match(workflow, /icon-asset: assets\/shift-launcher\.svg/u);
   assert.match(workflow, /release-sections: 1/u);

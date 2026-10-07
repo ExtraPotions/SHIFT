@@ -30,7 +30,7 @@ jobs:
     with:
       tag: ${{ github.event.client_payload.tag || inputs.tag || '' }}
       product: SHIFT
-      node-version: "22"
+      node-version: "24"
       script-asset: shift.user.js
       icon-asset: assets/shift-launcher.svg
       release-sections: 1
