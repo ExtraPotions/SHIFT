@@ -28,3 +28,25 @@ for(const native of [false,true]){
   else assert.notEqual(await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
  });
 }
+
+for(const optedIn of [false,true]) {
+ test('sensitive document-start policy gates paint and saved inspection (optIn='+optedIn+')',async t=>{
+  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
+  await page.route('**/*',r=>r.abort());
+  await page.addInitScript(optedIn=>{window.GM_getValue=(k,d)=>k==='exp:v3:shift:settings'?{theme:'midnight',surfaceLevel:'off',sensitiveSiteOptIns:optedIn?['MAIL.GOOGLE.COM.']:[],siteOverrides:{'mail.google.com':{preservedSelectors:['#private']}}}:d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};},optedIn);
+  await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:r.request().url().endsWith('/shift.js')?'text/javascript':'text/html',body:r.request().url().endsWith('/shift.js')?script:'<!doctype html><html><head><script src="/shift.js"></script><script>window.preloadPaint=!!document.querySelector("#exp-shift-preload");</script></head><body style="background:white;color:#111"><main id="private">Private message</main></body></html>'}));
+  await page.goto('https://mail.google.com/');await page.waitForSelector('#exp-shift-root',{state:'attached'});
+  assert.equal(await page.evaluate(()=>window.preloadPaint),optedIn);
+  assert.equal(await page.locator('#private').getAttribute('data-exp-shift-preserve'),optedIn?'saved':null);
+  if(!optedIn)assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
+ });
+}
+
+for(const guard of ['safe-mode','excluded','suite-paused']) {
+ test('sensitive opt-in cannot override preload safety gates ('+guard+')',async t=>{
+  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();await page.route('**/*',r=>r.abort());
+  await page.addInitScript(guard=>{localStorage.setItem('exp:v3:shift:settings',JSON.stringify({theme:'midnight',safeMode:guard==='safe-mode',exclusions:guard==='excluded'?['google.com']:[],sensitiveSiteOptIns:['mail.google.com'],siteOverrides:{'mail.google.com':{safeMode:false,preservedSelectors:['#private']}}}));if(guard==='suite-paused')localStorage.setItem('exp:v3:suite-site-pause:mail.google.com','1');window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};},guard);
+  await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:r.request().url().endsWith('/shift.js')?'text/javascript':'text/html',body:r.request().url().endsWith('/shift.js')?script:'<!doctype html><html><head><script src="/shift.js"></script><script>window.preloadPaint=!!document.querySelector("#exp-shift-preload");</script></head><body style="background:white;color:#111"><main id="private">Private message</main></body></html>'}));
+  await page.goto('https://mail.google.com/');await page.waitForSelector('#exp-shift-root',{state:'attached'});assert.equal(await page.evaluate(()=>window.preloadPaint),false);assert.equal(await page.locator('#private').getAttribute('data-exp-shift-preserve'),null);assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
+ });
+}

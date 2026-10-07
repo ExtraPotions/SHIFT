@@ -30,6 +30,7 @@ EXP.UI = (() => {
   let product;
   let noticeController;
   let saved;
+  let importDraft = null;
   let onApply;
   let onSettings;
   let swatchStyle;
@@ -263,10 +264,14 @@ EXP.UI = (() => {
     const effective = EXP.Settings.effective();
     const fragment = document.createDocumentFragment();
     const current = section('Current site', location.hostname || 'Local document');
-    current.append(switchControl('Enable SHIFT on this site', 'Disabling restores only SHIFT-owned page changes.', !effective.excluded, (enabled) => {
+    if (EXP.SitePolicy.isSensitive(location.hostname)) current.append(el('p', {}, 'This supported banking, healthcare or email site stays unchanged until you enable this exact hostname. Site exclusions and pauses still take priority. Coverage is not universal.'));
+    current.append(switchControl('Enable SHIFT on this site', 'Known banking, healthcare and email sites require exact-site permission. Coverage is not universal.', !effective.excluded, (enabled) => {
       const exclusions = state.exclusions.filter((host) => host !== location.hostname);
       if (!enabled) exclusions.push(location.hostname);
-      onSettings({ ...state, exclusions }, 'site-exclusion'); setMessage(enabled ? 'SHIFT enabled for this site.' : 'Site excluded.');
+      const host = EXP.SitePolicy.normalizeHost(location.hostname);
+      const sensitiveSiteOptIns = state.sensitiveSiteOptIns.filter(item => item !== host);
+      if (enabled && EXP.SitePolicy.isSensitive(host)) sensitiveSiteOptIns.push(host);
+      onSettings({ ...state, exclusions, sensitiveSiteOptIns }, 'site-exclusion'); setMessage(EXP.Settings.effective().excluded ? 'Site remains excluded.' : 'SHIFT enabled for this site.');
     }));
     const siteProfile = state.siteOverrides[location.hostname]?.profileId || 'inherit';
     current.append(selectControl('Site profile', 'Inherit the global profile or assign one to this hostname.', siteProfile, [['inherit', 'Inherit global'], ...state.profiles.map((profile) => [profile.id, profile.name])], (profileId) => {
@@ -278,7 +283,7 @@ EXP.UI = (() => {
     current.append(actionRow('Reset this site', 'Remove this site override and exclusion without changing global settings.', () => {
       if (!confirm(`Reset SHIFT settings for ${location.hostname}?`)) return;
       const siteOverrides = { ...state.siteOverrides }; delete siteOverrides[location.hostname];
-      onSettings({ ...state, siteOverrides, exclusions: state.exclusions.filter((host) => host !== location.hostname) }, 'site-reset'); setMessage('Site settings reset.');
+      onSettings({ ...state, siteOverrides, exclusions: state.exclusions.filter((host) => host !== location.hostname), sensitiveSiteOptIns: state.sensitiveSiteOptIns.filter(host => host !== EXP.SitePolicy.normalizeHost(location.hostname)) }, 'site-reset'); setMessage('Site settings reset.');
     }, 'Reset site'));
     fragment.append(current, renderProfiles());
     return fragment;
@@ -362,12 +367,17 @@ EXP.UI = (() => {
   }
   function renderSettingsTransfer() {
     const data = ExtraPotionsCore.createDisclosure('Settings transfer');
+    data.open = Boolean(importDraft);
     data.append(actionRow('Export SHIFT settings', 'Local JSON file; no upload.', () => download('shift-settings.json', JSON.stringify(EXP.Settings.exportData(), null, 2)), 'Export'));
     const importRow = row('Import SHIFT settings', 'Invalid files leave current settings unchanged.');
     const input = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT settings' });
     input.hidden = true;
-    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); const next = EXP.Settings.importData(payload); saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    input.addEventListener('change', async () => { try { const payload = JSON.parse(await input.files[0].text()); importDraft = EXP.Settings.prepareImport(payload); product?.renderActive(); setMessage('Import validated. Review and apply or cancel.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => input.click(), 'action'), input); data.append(importRow);
+    if (importDraft) {
+      data.append(el('p', {class:'import-preview'}, importDraft.sensitiveSiteOptIns.length ? `Sensitive-site permissions to restore (exact hostnames): ${importDraft.sensitiveSiteOptIns.join(', ')}` : 'No sensitive-site permissions will be restored.'));
+      data.append(button('Cancel import', () => { importDraft = null; product?.renderActive(); setMessage('Import cancelled.'); }, 'action'), button('Apply import', () => { const next = EXP.Settings.replace(importDraft, 'import'); importDraft = null; saved = EXP.Settings.clone(next); onApply(next); product?.renderActive(); setMessage('Settings imported.'); }, 'action'));
+    }
     return data;
   }
   function renderRecoveryData() {
@@ -377,7 +387,7 @@ EXP.UI = (() => {
       timeline:healthControl.element,
       diagnostics:EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage),
       layout:'grouped',
-      onReset:()=>{const next=EXP.Settings.resetAll();saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();location.reload();},notify:setMessage
+      onReset:()=>{importDraft=null;const next=EXP.Settings.resetAll();saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();location.reload();},notify:setMessage
     });
   }
 
@@ -404,6 +414,7 @@ EXP.UI = (() => {
 
     product = ExtraPotionsCore.createProduct({
       id: 'shift',
+      keepOpen: () => Boolean(importDraft),
       name: 'SHIFT',
       version: EXP.VERSION,
       subtitle: 'Adaptive themes and readability',
@@ -482,7 +493,7 @@ EXP.UI = (() => {
       },
       toggle() { product?.toggle(); },
       destroy() {
-        healthControl?.dispose();EXP.Inspector.destroy();
+        importDraft=null;healthControl?.dispose();EXP.Inspector.destroy();
         clearTimeout(toastTimer);
         noticeController?.destroy();
         product?.destroy();

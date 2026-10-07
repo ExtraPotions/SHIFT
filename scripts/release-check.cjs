@@ -20,6 +20,7 @@ for (const directory of ['src', 'scripts', 'tests', 'docs']) {
 }
 files.push(path.join(root, 'README.md'), path.join(root, 'CHANGELOG.md'), path.join(root, 'package.json'), path.join(root, 'shift.user.js'));
 const combined = files.filter(fs.existsSync).map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+const readable = require('./build.cjs').assembleSource().readable;
 const artifact = fs.readFileSync(path.join(root, 'shift.user.js'), 'utf8');
 if (/data:image\//u.test(artifact)) throw new Error('Release blocked: embedded image data detected.');
 const credentialPatterns = [
@@ -39,7 +40,7 @@ if (JSON.stringify([...connects].sort()) !== JSON.stringify(allowedConnects.sort
 const grants = [...artifact.matchAll(/^\/\/ @grant\s+(.+)$/gm)].map((match) => match[1].trim()).sort();
 const allowedGrants = ['GM_addElement', 'GM_addStyle', 'GM_getValue', 'GM_listValues', 'GM_deleteValue', 'GM_setValue', 'GM_xmlhttpRequest', 'unsafeWindow'].sort();
 if (JSON.stringify(grants) !== JSON.stringify(allowedGrants)) throw new Error(`Release blocked: userscript grant inventory changed: ${grants.join(', ')}.`);
-if (!artifact.includes("repository: 'ExtraPotions/SHIFT'") || !artifact.includes("'https://api.github.com/repos/' + repository + '/releases/latest'")) throw new Error('Release blocked: Core update metadata endpoint does not match the network inventory.');
+if (!readable.includes("repository: 'ExtraPotions/SHIFT'") || !readable.includes("'https://api.github.com/repos/' + repository + '/releases/latest'") || !artifact.includes('ExtraPotions/SHIFT') || !artifact.includes('https://api.github.com/repos/')) throw new Error('Release blocked: Core update metadata endpoint does not match the network inventory.');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
 const versionHeader = new RegExp(`^## ${pkg.version.replaceAll('.', '\\.')} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
@@ -53,6 +54,6 @@ for (const file of ['docs/preview-rc1.png', 'docs/shift-badge-32.png', 'docs/che
 }
 const screenshots = fs.readdirSync(path.join(root, 'docs', 'screenshots')).filter((name) => name.endsWith('.png'));
 if (screenshots.length !== 9) throw new Error(`Release blocked: docs/screenshots must contain exactly 9 PNG files (found ${screenshots.length}).`);
-if (!artifact.includes(`EXP.VERSION = '${pkg.version}'`)) throw new Error('Release blocked: built userscript EXP.VERSION does not match package.json.');
+if (!readable.includes(`EXP.VERSION = '${pkg.version}'`)) throw new Error('Release blocked: built userscript EXP.VERSION does not match package.json.');
 for (const bullet of bullets) if (!artifact.includes(bullet)) throw new Error(`Release blocked: in-app release notes missing changelog bullet: ${bullet}`);
 console.log('Release check passed: build, tests, credentials, dynamic execution, network permissions, and control policy.');

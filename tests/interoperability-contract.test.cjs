@@ -17,7 +17,7 @@ test('SHIFT delegates suite and presentation metadata to Core diagnostics bootst
 
 test('generated SHIFT userscript keeps the same Core-owned interoperability bootstrap', () => {
   const built = read('shift.user.js');
-  assert.match(built, /registerDiagnosticsProduct\('shift'/);
+  assert.match(built, /registerDiagnosticsProduct\(['"]shift['"]/);
   assert.doesNotMatch(built, /registerSuiteProduct\?\./u);
   assert.doesNotMatch(built, /registerPresentationProvider\?\./u);
 });

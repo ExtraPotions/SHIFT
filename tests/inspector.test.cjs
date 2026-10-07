@@ -6,4 +6,43 @@ const before=await page.evaluate(()=>exp.LiveResolver.inspectElement(document.qu
 await page.evaluate(()=>exp.Inspector.select(()=>{}));await page.locator('#owned').click();assert.equal(await page.locator('#owned').getAttribute('data-exp-shift-preserve'),null);await page.locator('#child').click();await page.evaluate(()=>exp.Inspector.preserve());assert.equal(await page.locator('#child').getAttribute('data-exp-shift-preserve'),'inspector');
 await page.evaluate(()=>{exp.Inspector.resume();exp.Inspector.select(()=>{});});await page.locator('#target').click({position:{x:30,y:80}});await page.evaluate(()=>exp.Inspector.preserve());assert.equal(await page.locator('#target').evaluate(n=>n.style.backgroundColor),'rgb(255, 255, 255)');await page.evaluate(()=>exp.LiveResolver.scan());await page.waitForTimeout(200);assert.equal(await page.locator('#target').evaluate(n=>n.style.backgroundColor),'rgb(255, 255, 255)');await page.evaluate(()=>exp.Inspector.resume());await page.waitForFunction(()=>document.querySelector('#target').hasAttribute('data-exp-shift-live'));await page.evaluate(()=>{exp.Inspector.select(()=>{});exp.Inspector.destroy();exp.LiveResolver.stop();});assert.equal(await page.locator('[data-exp-shift-preserve="inspector"]').count(),0);});
 
-test('saved element rules preserve replacement nodes and clear stale markers on settings changes',async t=>{const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();await page.setContent('<div id="target">Private page text</div>');const source=fs.readFileSync(path.join(__dirname,'../src/inspector.js'),'utf8');await page.addScriptTag({content:`const EXP={Settings:{snapshot:()=>window.state,replace:next=>{window.state=next;}},LiveResolver:{restoreElement(){},scan(){},inspectElement(){return {tag:'div',foreground:'',background:'',font:'',repairs:[]}}},Engine:{health:()=>({mode:'original'})}};window.state={siteOverrides:{}};${source};window.exp=EXP;document.body.append(EXP.Inspector.createControls());`});await page.getByText('Inspect readability',{exact:true}).click();await page.getByRole('button',{name:'Select page element',exact:true}).click();await page.locator('#target').click();await page.getByRole('button',{name:'Preserve selected element on this site',exact:true}).click();const state=await page.evaluate(()=>window.state);assert.equal(JSON.stringify(state).includes('Private page text'),false);assert.deepEqual(Object.values(state.siteOverrides)[0].preservedSelectors,['#target']);await page.evaluate(()=>{document.getElementById('target').outerHTML='<div id="target">Replacement</div>';exp.Inspector.applySaved();});assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),'saved');await page.evaluate(()=>{window.state.siteOverrides={};exp.Inspector.applySaved();});assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),null);});
+test('saved element rules preserve replacement nodes and clear stale markers on settings changes',async t=>{const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();await page.setContent('<div id="target">Private page text</div>');const source=fs.readFileSync(path.join(__dirname,'../src/inspector.js'),'utf8');await page.addScriptTag({content:`const ExtraPotionsCore={suiteSitePaused:()=>false};const EXP={Settings:{effective:()=>({excluded:false,safeMode:false}),snapshot:()=>window.state,replace:next=>{window.state=next;}},LiveResolver:{restoreElement(){},scan(){},inspectElement(){return {tag:'div',foreground:'',background:'',font:'',repairs:[]}}},Engine:{health:()=>({mode:'original'})}};window.state={siteOverrides:{}};${source};window.exp=EXP;document.body.append(EXP.Inspector.createControls());`});await page.getByText('Inspect readability',{exact:true}).click();await page.getByRole('button',{name:'Select page element',exact:true}).click();await page.locator('#target').click();await page.getByRole('button',{name:'Preserve selected element on this site',exact:true}).click();const state=await page.evaluate(()=>window.state);assert.equal(JSON.stringify(state).includes('Private page text'),false);assert.deepEqual(Object.values(state.siteOverrides)[0].preservedSelectors,['#target']);await page.evaluate(()=>{document.getElementById('target').outerHTML='<div id="target">Replacement</div>';exp.Inspector.applySaved();});assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),'saved');await page.evaluate(()=>{window.state.siteOverrides={};exp.Inspector.applySaved();});assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),null);});
+test('protected saved rules do not query page elements and clear existing annotations', async t => {
+  const browser = await chromium.launch(); t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<div id="target">Private content</div>' }));
+  await page.goto('https://mail.google.com/');
+  const source = ['site-policy.js', 'settings.js', 'inspector.js'].map(file => fs.readFileSync(path.join(__dirname, '../src', file), 'utf8')).join('\n');
+  await page.addScriptTag({ content: `const EXP={LiveResolver:{restoreElement(){},scan(){}}};const ExtraPotionsCore={cloneSettings:value=>JSON.parse(JSON.stringify(value)),suiteSitePaused:()=>window.paused,clearProductData(){}};window.paused=false;${source};window.exp=EXP;EXP.Settings.load();EXP.Settings.update({sensitiveSiteOptIns:['mail.google.com'],siteOverrides:{'mail.google.com':{preservedSelectors:['#target']}}});EXP.Inspector.applySaved();` });
+  assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'), 'saved');
+  const result = await page.evaluate(() => {
+    const original = document.querySelectorAll.bind(document); let queries = 0;
+    document.querySelectorAll = selector => { queries++; return original(selector); };
+    exp.Settings.update({ sensitiveSiteOptIns: [] }); exp.Inspector.applySaved();
+    const blockedMark = document.getElementById('target').getAttribute('data-exp-shift-preserve');
+    exp.Settings.update({ sensitiveSiteOptIns: ['mail.google.com'], safeMode: true }); exp.Inspector.applySaved();
+    exp.Settings.update({ safeMode: false }); window.paused = true; exp.Inspector.applySaved();
+    document.querySelectorAll = original;
+    return { queries, blockedMark };
+  });
+  assert.deepEqual(result, { queries: 0, blockedMark: null });
+});
+
+test('temporary bypasses relinquish revoked saved rules before resume and destroy', async t => {
+  const browser = await chromium.launch(); t.after(() => browser.close());
+  const page = await browser.newPage();
+  await page.route('**/*', route => route.fulfill({contentType:'text/html',body:'<div id="target" style="height:100px">Fixture</div>'}));
+  await page.goto('https://mail.google.com/');
+  const source = ['site-policy.js','settings.js','inspector.js'].map(file=>fs.readFileSync(path.join(__dirname,'../src',file),'utf8')).join('\n');
+  await page.addScriptTag({content:`const EXP={LiveResolver:{restoreElement(){},scan(){}}};const ExtraPotionsCore={cloneSettings:value=>JSON.parse(JSON.stringify(value)),suiteSitePaused:()=>false,clearProductData(){}};${source};window.exp=EXP;EXP.Settings.load();EXP.Settings.update({sensitiveSiteOptIns:['mail.google.com'],siteOverrides:{'mail.google.com':{preservedSelectors:['#target']}}});`});
+  for (const [guard, cleanup] of [['permission','resume'],['safe-mode','destroy']]) {
+    await page.evaluate(()=>{exp.Settings.update({sensitiveSiteOptIns:['mail.google.com'],safeMode:false});exp.Inspector.applySaved();exp.Inspector.select(()=>{});});
+    await page.locator('#target').click();
+    await page.evaluate(guard=>{exp.Inspector.preserve();exp.Settings.update(guard==='permission'?{sensitiveSiteOptIns:[]}:{safeMode:true});exp.Inspector.applySaved();},guard);
+    assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),'inspector');
+    await page.evaluate(cleanup=>exp.Inspector[cleanup](),cleanup);
+    assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),null,guard+' cleanup must not resurrect a revoked saved marker');
+    await page.evaluate(()=>{exp.Settings.update({sensitiveSiteOptIns:['mail.google.com'],safeMode:false});exp.Inspector.applySaved();});
+    assert.equal(await page.locator('#target').getAttribute('data-exp-shift-preserve'),'saved');
+  }
+});

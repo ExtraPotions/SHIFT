@@ -5,8 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
+const { loadSource } = require('./load-source.cjs');
 const scriptPath = path.join(root, 'shift.user.js');
-const script = fs.readFileSync(scriptPath, 'utf8');
+const script = loadSource();
 const scriptBytes = fs.statSync(scriptPath).size;
 
 test('userscript metadata and generated safety constraints', () => {
@@ -120,3 +121,15 @@ test('SHIFT settings survive manager storage gaps and mirror to fallback storage
   assert.doesNotMatch(settings, /GM_setValue\(key\(name\), value\); return;/u);
 });
 
+
+ test('installed executable body is compact while metadata stays intact', () => {
+  const install = fs.readFileSync(path.join(root, 'shift.user.js'), 'utf8');
+  const metadata = fs.readFileSync(path.join(root, 'src', 'metadata.txt'), 'utf8').replace(/\r\n/g, '\n').trimEnd();
+  assert.ok(install.startsWith(metadata + '\n\n'));
+  assert.doesNotMatch(install, /\beval\s*\(|new\s+Function\b|^\/\/ @(?:require|resource)\s|\bGM_getResourceText\b|data:image\//m);
+  assert.ok(Buffer.byteLength(install) < Buffer.byteLength(loadSource()) * 0.8, 'Install must be substantially smaller than readable assembly');
+  const body = install.slice(metadata.length).trim();
+  assert.ok(body.split('\n').length < 10, 'Executable body must be minified regardless of install size');
+  const grants = text => [...text.matchAll(/^\/\/ @grant\s+(.+)$/gm)].map(match => match[1].trim());
+  assert.deepEqual(grants(install), grants(metadata), 'Every declared grant must be preserved');
+});

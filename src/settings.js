@@ -35,6 +35,7 @@ EXP.Settings = (() => {
     currentProfile: 'original',
     adapterSettings: {},
     siteOverrides: {},
+    sensitiveSiteOptIns: [],
     exclusions: []
   });
   let state;
@@ -84,6 +85,7 @@ EXP.Settings = (() => {
 	}
     for (const name of ['preserveArt', 'repairSurfaces', 'mutedRecovery', 'formReadability', 'reduceShadows', 'reduceTransparency', 'simplifyGradients', 'reduceBlur', 'safeMode', 'updateNotifications', 'menuAutoClose', 'menuNotifications']) if (typeof candidate[name] === 'boolean') result[name] = candidate[name];
     if (typeof candidate.shortcut === 'string' && candidate.shortcut.length <= 40) result.shortcut = candidate.shortcut;
+    result.sensitiveSiteOptIns = EXP.SitePolicy?.validateOptIns(candidate.sensitiveSiteOptIns) || [];
     if (Array.isArray(candidate.exclusions)) result.exclusions = [...new Set(candidate.exclusions.filter((item) => typeof item === 'string' && item.length <= 253))].slice(0, 500);
     if (candidate.siteOverrides && typeof candidate.siteOverrides === 'object' && !Array.isArray(candidate.siteOverrides)) {
       result.siteOverrides = clone(candidate.siteOverrides);
@@ -133,7 +135,8 @@ EXP.Settings = (() => {
     const site = current.siteOverrides[hostname] || {};
     const profile = current.profiles.find((item) => item.id === (site.profileId || current.currentProfile)) || current.profiles[0];
     const profileAppearance = site.profileId || current.currentProfile !== 'original' ? profile.appearance : {};
-    const settings = { ...current, ...profileAppearance, ...site, excluded: hostExcluded(hostname, current.exclusions) };
+    const sensitiveBlocked = Boolean(EXP.SitePolicy?.blocked(hostname, current));
+    const settings = { ...current, ...profileAppearance, ...site, safeMode: current.safeMode || site.safeMode === true, sensitiveSiteOptIns: current.sensitiveSiteOptIns, sensitiveBlocked, excluded: hostExcluded(hostname, current.exclusions) || sensitiveBlocked };
     const sources = Object.fromEntries(Object.keys(defaults).map((key) => [key,
       Object.hasOwn(site, key) ? { kind: 'site', label: `Site override (${hostname})` }
       : Object.hasOwn(profileAppearance, key) ? { kind: 'profile', label: `Profile: ${profile.name}` }
@@ -142,15 +145,16 @@ EXP.Settings = (() => {
   }
   function effective(hostname = location.hostname) { return explain(hostname).settings; }
   function exportData() { return { product: 'shift', generation: 3, schema: SCHEMA, settings: snapshot() }; }
-  function importData(payload) {
+  function prepareImport(payload) {
     if (!payload || payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== SCHEMA) throw Object.assign(new Error('This is not a supported SHIFT export'), { code: 'IMPORT_SCHEMA' });
-    return replace(payload.settings, 'import');
+    return validate(payload.settings);
   }
+  function importData(payload) { return replace(prepareImport(payload), 'import'); }
   function resetAll() {
     ExtraPotionsCore.clearProductData('shift');
     memory.clear();state = clone(defaults);
     for (const listener of listeners) listener(snapshot(), 'product-reset');
     return snapshot();
   }
-  return Object.freeze({resetAll, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, importData });
+  return Object.freeze({resetAll, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, prepareImport, importData });
 })();

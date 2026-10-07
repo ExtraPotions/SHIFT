@@ -1,3 +1,9 @@
+## 3.5.7 — 2026-10-07
+
+- The standalone install is smaller while keeping all features bundled.
+- Listed banking, healthcare, and email sites start with appearance changes off.
+- Enable appearance changes deliberately for an exact site from the menu.
+
 ## 3.5.6 — 2026-10-06
 
 - Keep Status open in System with its reason, recovery action, and recent activity.

@@ -34,3 +34,12 @@ test('retired width preferences are dropped while unrelated settings survive loa
     assert.equal(Object.hasOwn(persisted, 'menuWidth'), false);
   }
 });
+
+test('explicit sensitive-site import is validated as a draft without changing saved preferences',()=>{
+ const context=vm.createContext({EXP:{},location:{hostname:'mail.google.com'},ExtraPotionsCore:{cloneSettings:v=>JSON.parse(JSON.stringify(v)),clearProductData(){}}});
+ for(const file of ['site-policy.js','settings.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),context);
+ const settings=context.EXP.Settings;settings.load();const before=JSON.stringify(settings.snapshot());
+ const draft=settings.prepareImport({product:'shift',generation:3,schema:1,settings:{sensitiveSiteOptIns:[' MAIL.GOOGLE.COM. ','https://chase.com']}});
+ assert.equal(JSON.stringify(settings.snapshot()),before);assert.equal(JSON.stringify(draft.sensitiveSiteOptIns),'["mail.google.com"]');
+ settings.replace(draft,'import');assert.equal(settings.effective().excluded,false);
+});

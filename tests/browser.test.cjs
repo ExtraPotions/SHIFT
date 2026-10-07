@@ -1556,3 +1556,26 @@ test('3.1 transforms pseudo-element chrome and CSS gradients while preserving UR
   assert.doesNotMatch(facts.gradient, /rgb\(255, 255, 255\)/);
   assert.match(facts.art, /url\(/i);
 });
+
+test('SHIFT sensitive-site import discloses permissions before deliberate apply',async t=>{
+ const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
+ await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main>bisexual identity</main></body></html>'}));
+ await page.goto('https://mail.google.com/');await page.evaluate(()=>{window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
+ const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-section="advanced"]').click();await root.getByText('Settings transfer',{exact:true}).click();
+ const file={name:'settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({product:'shift',generation:3,schema:1,settings:{theme:'midnight',sensitiveSiteOptIns:['mail.google.com']}}))};
+ await root.getByLabel('Import SHIFT settings',{exact:true}).setInputFiles(file);await root.locator('.import-preview').waitFor();assert.match(await root.locator('.import-preview').textContent(),/exact hostnames.*mail.google.com/);
+ assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('exp:v3:shift:settings')).sensitiveSiteOptIns),[]);
+ await root.getByRole('button',{name:'Cancel import',exact:true}).click();assert.equal(await root.locator('.import-preview').count(),0);
+ await root.getByLabel('Import SHIFT settings',{exact:true}).setInputFiles(file);await root.getByRole('button',{name:'Apply import',exact:true}).click();
+ assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('exp:v3:shift:settings')).sensitiveSiteOptIns),['mail.google.com']);
+});
+
+test('SHIFT exact-site switch restores theme and saved inspection without reload',async t=>{
+ const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
+ await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main id="private">Private message</main></body></html>'}));
+ await page.goto('https://mail.google.com/');await page.evaluate(()=>{localStorage.setItem('exp:v3:shift:settings',JSON.stringify({theme:'midnight',siteOverrides:{'mail.google.com':{preservedSelectors:['#private']}}}));window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
+ const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-section="advanced"]').click();await root.getByText('Profiles & sites',{exact:true}).click();
+ const toggle=root.getByRole('switch',{name:'Enable SHIFT on this site',exact:true});assert.equal(await toggle.getAttribute('aria-checked'),'false');await toggle.click();
+ await page.waitForFunction(()=>document.getElementById('private').getAttribute('data-exp-shift-preserve')==='saved');assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
+ await toggle.click();assert.equal(await page.locator('#private').getAttribute('data-exp-shift-preserve'),null);assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
+});

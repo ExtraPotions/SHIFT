@@ -8,11 +8,11 @@ test('appearance provenance follows global, profile and site precedence includin
  s.update({siteOverrides:{'example.test':{profileId:'original'}}});e=s.explain();assert.equal(e.sources.theme.label,'Profile: Original');assert.equal(e.sources.themeStrength.kind,'global');assert.equal(e.settings.themeStrength,'strong');
  s.update({currentProfile:'original',siteOverrides:{},exclusions:['example.test']});e=s.explain('sub.example.test');assert.equal(e.settings.excluded,true);assert.equal(e.sources.theme.kind,'global');
 });
-test('appearance explanation reports blockers, updates values, and navigates to the source on narrow menus',async t=>{
+test('instrumented readable source appearance explanation reports blockers, updates values, and navigates to the source on narrow menus',async t=>{
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage({viewport:{width:320,height:700}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://example.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><body><main>Example</main></body>'}));await page.goto('https://example.test/');
- const script=fs.readFileSync(path.join(__dirname,'../shift.user.js'),'utf8').replace('\nbootOnce();','\nwindow.testShift=EXP;bootOnce();');await page.addScriptTag({content:script});
+ const script=require('./load-source.cjs').loadSource().replace('\nbootOnce();','\nwindow.testShift=EXP;bootOnce();');await page.addScriptTag({content:script});
  const host=page.locator('#exp-shift-root');await host.locator('.launcher').click();await host.locator('[data-section="appearance"]').click();
  const card=host.locator('[data-shift-appearance-explanation]');await card.locator(':scope > summary').click();await page.waitForFunction(()=>document.querySelector('#exp-shift-root').shadowRoot.querySelector('[data-shift-appearance-explanation]').textContent.includes('Original is selected'));
  await page.evaluate(()=>testShift.Settings.update({safeMode:true}));await card.locator('button').filter({hasText:'Refresh explanation'}).click();assert.match(await card.textContent(),/Safe Mode is on/);

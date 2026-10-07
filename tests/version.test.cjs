@@ -6,7 +6,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const script = fs.readFileSync(path.join(root, 'shift.user.js'), 'utf8');
+// Formatting contracts inspect readable assembly; browser suites execute the minified install.
+const script = require('./load-source.cjs').loadSource();
 const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
 const releaseNotes = fs.readFileSync(path.join(root, 'src', 'release-notes.js'), 'utf8');
 

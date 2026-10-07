@@ -24,15 +24,18 @@ EXP.Preload = (() => {
   }
 
   function effectiveAppearance(saved) {
-    if (!saved || saved.safeMode || excluded(location.hostname, saved.exclusions)) return null;
+    if (!saved || saved.enabled === false || saved.safeMode || excluded(location.hostname, saved.exclusions) || EXP.SitePolicy.blocked(location.hostname, saved) || ExtraPotionsCore.suiteSitePaused()) return null;
     const site = saved.siteOverrides?.[location.hostname] || {};
     const profileId = site.profileId || saved.currentProfile;
     const profile = saved.profiles?.find?.((item) => item.id === profileId);
     const appearance = profileId && profileId !== 'original' ? profile?.appearance || {} : {};
+    if (site.safeMode === true) return null;
     return { ...saved, ...appearance, ...site };
   }
 
   function start() {
+    const state = effectiveAppearance(cachedSettings());
+    if (!state) return false;
     try {
       const html = document.documentElement;
       if (html && !html.dataset.expShiftNativeBaseline) {
@@ -48,8 +51,7 @@ EXP.Preload = (() => {
         });
       }
     } catch {}
-    const state = effectiveAppearance(cachedSettings());
-    if (!state || !state.theme || state.theme === 'original') return false;
+    if (!state.theme || state.theme === 'original') return false;
     const theme = EXP.Themes.resolve(state.theme, state.accent, state);
     if (!theme || theme.original || !theme.page || !theme.text) return false;
     const css = `html{background:${theme.page}!important;background-color:${theme.page}!important;color:${theme.text}!important;color-scheme:dark!important}body{background-color:${theme.page}!important;color:${theme.text}!important}`;
