@@ -22,14 +22,16 @@ Open Appearance and choose Original site, Follow system, or one of six website t
 
 ## What you can do
 
-- **Simple System menu:** Status stays open with its reason and recovery action, plus recent activity. Support holds Copy Diagnostics and Report a Problem. Reset asks for a second tap inside the menu.
+- **Compact submenu tabs:** switch between related settings without opening a stack of nested menus. Each product keeps its own colors, and System stays last.
+
+- **Simple System menu:** The Status tab shows its reason and recovery action, plus recent activity. Support holds Copy Diagnostics and Report a Problem. Reset asks for a second tap inside the menu.
 
 - **System status:** see Working, Waiting, Paused, or Needs attention, with a reason and a safe recovery action when available.
 - **Theme status:** see whether the selected appearance is working, paused, or needs a safe retry in System. Original appearance is a valid choice.
 
 - **Keep your settings:** saved preferences and existing settings exports remain supported as product naming is simplified.
 
-- **Readable menus:** choose Standard (14px text), Large (16px), or Extra Large (18px) from Appearance > Menu Preferences. Captions start at 12px. Labels, dropdowns, toggles, and buttons share consistent spacing and alignment. The choice applies to ExtraPotions menus on this site.
+- **Readable menus:** choose Standard (14px text), Large (16px), or Extra Large (18px) from Appearance > Menu. Captions start at 12px. Labels, dropdowns, toggles, and buttons share consistent spacing and alignment. The choice applies to ExtraPotions menus on this site.
 
 - **Six website themes:** Midnight, Amethyst, Crimson, Verdant, Pride, and High contrast. Each includes coordinated colors for surfaces, text, links, and controls.
 - **Distinct product menus:** the SHIFT menu keeps its signature appearance when you change a website theme or use other ExtraPotions products.

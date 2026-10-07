@@ -191,13 +191,18 @@ EXP.UI = (() => {
           const body = header?.parentElement.querySelector('.route-body');
           if (header?.parentElement) header.parentElement.hidden = false;
           if (header?.getAttribute('aria-expanded') !== 'true') header?.click();
+          // The shared shell finishes arranging freshly rendered tabs next frame.
+          requestAnimationFrame(()=>{
           const scope = body || header?.parentElement;
           const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
           const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
           const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
           const disclosure = control?.closest('details');
+          const tabPanel=control?.closest('.exp-submenu-tabpanel');
+          if(tabPanel)shadow.querySelector(`[role="tab"][aria-controls="${tabPanel.id}"]`)?.click();
           if (disclosure) disclosure.open = true;
           (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
+          });
         }, 'secondary'));
         (['theme','accent'].includes(key) ? content : more).append(line);
       }
