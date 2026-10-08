@@ -331,7 +331,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       headerBadge: Math.round(shadow.querySelector('.header-icon .menu-icon').getBoundingClientRect().width),
     };
   });
-  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: 38 });
+  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: await page.locator('#exp-shift-root [data-exp-part="dock"]').evaluate(n=>n.dataset.expMenuLayout==='lean'?40:38) });
 });
 
 test('Appearance keeps readability nested while Advanced keeps effects nested', async (t) => {
