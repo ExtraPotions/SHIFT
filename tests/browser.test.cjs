@@ -256,7 +256,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.equal(facts.checkboxCount, 0);
   assert.ok([0, 2].includes(facts.switchCount)); // Older Core menus let sections be hidden; current ones do not.
   assert.equal(facts.visibleBodies, 0);
-  assert.equal(facts.width, await page.evaluate(() => ExtraPotionsCore.menuWidth()));
+  assert.equal(facts.width, await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('exp-shift-root')).getPropertyValue('--exp-menu-width'))));
   assert.equal(facts.noticeOutside, true);
   assert.equal(facts.versionLabel, `v${pkg.version}`);
   assert.equal(facts.noticeTitle, 'SHIFT Changelog');
