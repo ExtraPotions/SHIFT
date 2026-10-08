@@ -495,6 +495,7 @@ test('Pride palette differs materially from Crimson with rainbow page and menu t
       },
       sheet,
       menuStyle,
+      lean: shadow.querySelector('[data-exp-part="dock"]').dataset.expMenuLayout === 'lean',
       menuBg: getComputedStyle(shadow.querySelector('[data-exp-part="dock"]')).backgroundImage,
       dividerBg: getComputedStyle(shadow.querySelector('.header-divider')).backgroundImage,
       dividerHeight: getComputedStyle(shadow.querySelector('.header-divider')).height,
@@ -507,7 +508,7 @@ test('Pride palette differs materially from Crimson with rainbow page and menu t
   assert.equal(pride.vars.highlight, '#ef9ccc');
   assert.match(pride.sheet, /#c84e66/);
   assert.match(pride.sheet, /#3d79a6/);
-  assert.match(pride.menuBg, /linear-gradient/);
+  if(pride.lean)assert.equal(pride.menuBg,'none');else assert.match(pride.menuBg, /linear-gradient/);
   assert.match(pride.dividerBg, /linear-gradient/);
   assert.doesNotMatch(pride.dividerBg, /200,\s*78,\s*102|#c84e66/i);
   assert.equal(pride.uiTheme, 'shift');
