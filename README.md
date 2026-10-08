@@ -2,7 +2,7 @@
 
 # SHIFT
 
-Current release: **3.5.11**.
+Current release: **3.5.12**.
 
 **Site colors and readability, on your terms**
 
@@ -22,7 +22,7 @@ Open Appearance and choose Original site, Follow system, or one of six website t
 
 ## What you can do
 
-- **Compact submenu tabs:** switch between related settings without opening a stack of nested menus. Each product keeps its own colors, and System stays last.
+- **Lean menus:** subtle dividers and compact tabs keep related settings easy to reach. Every control and setting remains available, each product keeps its own colors, and System stays last.
 
 - **Simple System menu:** The Status tab shows its reason and recovery action, plus recent activity. Support holds Copy Diagnostics and Report a Problem. Reset asks for a second tap inside the menu.
 

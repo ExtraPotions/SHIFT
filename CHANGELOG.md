@@ -1,3 +1,8 @@
+## 3.5.12 — 2026-10-08
+
+- Gives menus a lighter layout with subtle section dividers and softly filled tabs.
+- Keeps every existing control, setting, and product color, with consistent spacing and readable text.
+
 ## 3.5.11 — 2026-10-08
 
 - Preserves native image blur, shadows, and other media effects as content loads.
