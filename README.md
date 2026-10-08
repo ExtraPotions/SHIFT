@@ -2,7 +2,7 @@
 
 # SHIFT
 
-Current release: **3.5.12**.
+Current release: **3.5.13**.
 
 **Site colors and readability, on your terms**
 
