@@ -174,7 +174,7 @@ EXP.UI = (() => {
         : status.originalHeld ? 'The temporary Original preview is active.'
         : palette.original ? 'Original is selected. SHIFT leaves page colors unchanged.'
         : !status.active ? 'The appearance engine is not active yet.'
-        : status.nativeDark ? 'The site already has a dark appearance. SHIFT preserves its main surfaces and applies limited readability adjustments.'
+        : status.nativeDark ? 'The site already has a dark appearance. SHIFT applies your selected palette while preserving artwork and native image effects.'
         : 'SHIFT is applying the selected palette and appearance controls.';
       content.replaceChildren(el('p', { role: 'status' }, reason));
       content.append(el('p', {}, 'Priority: site override, then profile, then global settings. These are the effective values for this page.'));

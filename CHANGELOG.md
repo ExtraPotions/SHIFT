@@ -1,3 +1,8 @@
+## 3.5.11 — 2026-10-08
+
+- Preserves native image blur, shadows, and other media effects as content loads.
+- Applies your selected palette on sites that already use dark colors.
+
 ## 3.5.10 — 2026-10-07
 
 - Organizes related menu settings into compact tabs, with System last.

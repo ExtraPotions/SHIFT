@@ -19,13 +19,13 @@ for(const native of [false,true]){
   await page.goto('https://baseline.test/');
   await page.waitForFunction(()=>document.documentElement.hasAttribute('data-exp-shift')&&!document.querySelector('#exp-shift-preload'));
   const body=await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor);
-  assert.equal(body,native?'rgb(18, 18, 18)':'rgb(5, 10, 18)','native classification must use the site, not Preload paint');
+  assert.equal(body,'rgb(5, 10, 18)','the selected palette applies after Preload on both light and native-dark sites');
   await page.locator('#late').scrollIntoViewIfNeeded();
   await page.evaluate(()=>{const link=document.createElement('link');link.rel='stylesheet';link.href='/late.css';document.head.append(link)});
   await page.waitForTimeout(400);
   assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),body,'scroll and stylesheet recheck retain the correct mode');
-  if(native)assert.equal(await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(24, 24, 24)');
-  else assert.notEqual(await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
+  const lateBackground=await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor);
+  assert.notEqual(lateBackground,native?'rgb(24, 24, 24)':'rgb(255, 255, 255)');
  });
 }
 

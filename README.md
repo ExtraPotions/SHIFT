@@ -2,7 +2,7 @@
 
 # SHIFT
 
-Current release: **3.5.10**.
+Current release: **3.5.11**.
 
 **Site colors and readability, on your terms**
 
@@ -37,7 +37,8 @@ Open Appearance and choose Original site, Follow system, or one of six website t
 - **Distinct product menus:** the SHIFT menu keeps its signature appearance when you change a website theme or use other ExtraPotions products.
 - **Saved element choices:** preserve a selected element’s original appearance on a site and clear those choices when needed.
 - **Original by default:** no color choice is required. Return to Original to remove the applied page theme.
-- **Visual palettes:** choose colors for page surfaces, text, links, and controls while preserving media.
+- **Visual palettes:** choose colors for page surfaces, text, links, and controls, including sites that already use dark colors.
+- **Native media effects:** keep image blur, shadows, and other site effects as posts and replies load.
 - **Reading comfort:** adjust text, contrast, focus, and visual effects.
 - **Site preferences:** use profiles and site-specific choices instead of treating every page the same.
 - **Understand the result:** open “Why this appearance?” to see which settings control the current page and jump to their source.

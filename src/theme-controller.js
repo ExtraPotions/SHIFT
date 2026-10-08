@@ -171,7 +171,7 @@ EXP.Engine = (() => {
     if(theme.pageFill)layers.push(theme.pageFill);layers.push(theme.page);
     return `background:${layers.join(',')}!important;background-color:${theme.page}!important`;
   }
-  function css(theme,state,nativeDark=false){
+  function css(theme,state){
     const strength=state.themeStrength||'normal';
     const surface=strength==='soft'?`color-mix(in srgb,${theme.surface} 58%,${theme.page})`:theme.surface;
     const raised=strength==='soft'?`color-mix(in srgb,${theme.raised} 62%,${theme.surface})`:strength==='strong'?theme.overlay:theme.raised;
@@ -184,13 +184,11 @@ EXP.Engine = (() => {
     const preserveGuard=':not(:where([data-exp-owned="1"],[data-exp-owned="1"] *,[data-exp-shift-preserve],[data-exp-shift-preserve] *))';
     const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a:not([role="button"])${preserveGuard}{color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
     const forms=state.formReadability
-      ? (nativeDark
-        ? `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{color:var(--exp-shift-text)!important;border-color:color-mix(in srgb,var(--exp-shift-accent) 55%,currentColor)!important}`
-        : `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`)
+      ? `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`
       : '';
     const muted=state.mutedRecovery?`html[${HOST_ATTR}] :is(.muted,.text-muted,[class*="muted" i],[class*="secondary" i],[class*="subtle" i],figcaption,small,caption)${preserveGuard}{color:color-mix(in srgb,var(--exp-shift-muted) 80%,var(--exp-shift-text))!important}`:'';
     const focus=state.focusVisibility==='site'?'':`html[${HOST_ATTR}] :focus-visible{outline:${state.focusVisibility==='high'?3:2}px solid var(--exp-shift-accent)!important;outline-offset:2px!important}`;
-    const structural=nativeDark?'':`
+    const structural=`
       html[${HOST_ATTR}]{${pagePaint(theme,state,true)};color:${text}!important}
       html[${HOST_ATTR}] body{${pagePaint(theme,state)};color:${text}!important}
       html[${HOST_ATTR}] :is(${SHELL_SELECTOR})${EXCLUDE}{background-color:var(--exp-shift-page)!important;color:var(--exp-shift-text)!important}
@@ -206,7 +204,6 @@ EXP.Engine = (() => {
       html[${HOST_ATTR}]{color-scheme:dark!important}
       html[${HOST_ATTR}] :is(iframe,embed,object){color-scheme:${nativeFrameScheme()}!important}
       ${structural}
-      html[${HOST_ATTR}] :is(img,picture,video,canvas,svg,[role="img"],[data-exp-shift-preserve]){filter:none!important}
       html[${HOST_ATTR}] [data-exp-shift-live]{${effects}}
       html[${HOST_ATTR}]{scrollbar-color:var(--exp-shift-muted) var(--exp-shift-raised)}
       ${links}${forms}${muted}${focus}${motion}
@@ -255,11 +252,12 @@ EXP.Engine = (() => {
     EXP.LiveResolver?.stop();
     unlockHost();
     EXP.Preload?.finish();
-    const nativeDark=detectNativeDark();
-    lockHost(theme,!nativeDark);
-    ensureStyle(css(theme,next,nativeDark));
-    if(nativeDark)EXP.DynamicEngine?.stop();else EXP.DynamicEngine?.start(theme,{nativeDark:false});
-    EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark});
+    // Native darkness remains diagnostic evidence, not a veto on the chosen palette.
+    detectNativeDark();
+    lockHost(theme);
+    ensureStyle(css(theme,next));
+    EXP.DynamicEngine?.start(theme,{nativeDark:false});
+    EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark:false});
     return{theme,mode:metrics.mode};
   }
   // apply() removes Preload before detection captures the native baseline.

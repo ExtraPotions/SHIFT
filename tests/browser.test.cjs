@@ -585,6 +585,10 @@ test('launcher coordination assigns deterministic non-overlapping slots', async 
 test('launcher reflows when a higher-priority product joins after mount', async (t) => {
   const { browser, page } = await fixture({ width: 900, height: 700 });
   t.after(() => browser.close());
+  await page.waitForFunction(() => {
+    const launcher=document.querySelector('#exp-shift-root')?.shadowRoot?.querySelector('.launcher');
+    return launcher && launcher.getBoundingClientRect().top >= 0 && launcher.style.top;
+  });
   const before = await page.locator('#exp-shift-root').evaluate((node) => node.shadowRoot.querySelector('.launcher').getBoundingClientRect().toJSON());
   await page.evaluate(() => {
     const peer = document.createElement('div');
@@ -1434,7 +1438,7 @@ test('3.1 color engine transforms adopted stylesheets without replacing site she
 });
 
 
-test('3.1 avoids inline rewriting on explicit native dark pages', async (t) => {
+test('selected palette also transforms explicit native dark pages', async (t) => {
   const { browser, page } = await fixture({
     html: '<!doctype html><html style="color-scheme:dark;background:#101318"><head><meta name="color-scheme" content="dark"><style>.native-card{background:#1c2128;color:#e6edf3;border:1px solid #30363d}</style></head><body style="margin:0;background:#101318;color:#e6edf3"><div id="native-card" class="native-card">Native dark</div></body></html>'
   });
@@ -1454,12 +1458,12 @@ test('3.1 avoids inline rewriting on explicit native dark pages', async (t) => {
     host: document.documentElement.getAttribute('data-exp-shift'),
   }));
   assert.ok(facts.generated <= 2, JSON.stringify(facts));
-  assert.equal(facts.inlineRepair, false, JSON.stringify(facts));
+  assert.notEqual(facts.cardBg, 'rgb(28, 33, 40)', JSON.stringify(facts));
   assert.notEqual(facts.cardBg, 'rgb(255, 255, 255)', JSON.stringify(facts));
   assert.equal(facts.host, 'amethyst');
   await root.locator('[data-shift-appearance-explanation]>summary').click();
   await root.locator('[data-shift-appearance-explanation] [role="status"]').waitFor();
-  assert.match(await root.locator('[data-shift-appearance-explanation]').textContent(), /site already has a dark appearance/);
+  assert.match(await root.locator('[data-shift-appearance-explanation]').textContent(), /applies your selected palette/);
 });
 
 test('3.1 still transforms dark-looking pages that do not declare a native dark scheme', async (t) => {

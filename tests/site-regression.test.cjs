@@ -7,16 +7,16 @@ const { chromium } = require('playwright');
 
 const script = fs.readFileSync(path.resolve(__dirname, '../shift.user.js'), 'utf8');
 
-async function fixture(t, host, body) {
+async function fixture(t, host, body, settings = {}) {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage();
-  await page.addInitScript(() => {
-    const saved = new Map([['exp:v3:shift:settings', { theme: 'ember', accent: 'ember-default' }]]);
+  await page.addInitScript((settings) => {
+    const saved = new Map([['exp:v3:shift:settings', { theme: 'ember', accent: 'ember-default', ...settings }]]);
     window.GM_getValue = (key, fallback) => saved.has(key) ? saved.get(key) : fallback;
     window.GM_setValue = (key, value) => saved.set(key, value);
     window.GM_xmlhttpRequest = () => {};
-  });
+  }, settings);
   await page.route(`https://${host}/**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><html><body>${body}</body></html>` }));
   await page.goto(`https://${host}/fixture`);
   await page.addScriptTag({ content: script });
@@ -262,7 +262,7 @@ test('Greasy Fork and Sleazy Fork style delayed CSS is repaired after the styles
   assert.equal(result.dynamic || result.live, true, JSON.stringify(result));
 });
 
-test('late native dark stylesheet reclassifies without post-load repaint injection', async (t) => {
+test('late native dark stylesheet keeps the selected palette active', async (t) => {
   const css = [
     'html{color-scheme:light dark;background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
     'body{background:light-dark(#ffffff,#101318);color:light-dark(#111111,#d7dce2)}',
@@ -278,10 +278,10 @@ test('late native dark stylesheet reclassifies without post-load repaint injecti
     dynamicStyles: document.querySelectorAll('style[data-exp-shift-dynamic="1"],style[data-exp-shift-dynamic-remote="1"]').length,
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
   }));
-  assert.equal(result.panel, 'rgb(23, 27, 34)', JSON.stringify(result));
+  assert.notEqual(result.panel, 'rgb(23, 27, 34)', JSON.stringify(result));
   assert.match(result.rootScheme, /dark/, JSON.stringify(result));
-  assert.equal(result.dynamicStyles, 0, JSON.stringify(result));
-  assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/, JSON.stringify(result));
+  assert.ok(result.dynamicStyles > 0, JSON.stringify(result));
+  assert.match(result.css, /:is\(main,\[role="main"\]\)/, JSON.stringify(result));
 });
 
 test('dynamic engine preserves primitive CSS variables and does not rewrite variable identifiers', async (t) => {
@@ -350,7 +350,45 @@ test('generic unknown sites get dark surfaces, readable text, preserved media, a
 });
 
 
-test('native-dark fast path preserves site surfaces and only repairs interactive controls', async (t) => {
+test('all six palettes preserve native media filters as feed elements change', async (t) => {
+  const palettes = { midnight:'rgb(5, 10, 18)', amethyst:'rgb(16, 11, 24)', crimson:'rgb(12, 5, 8)', verdant:'rgb(6, 17, 13)', pride:'rgb(16, 10, 18)', obsidian:'rgb(0, 0, 0)' };
+  for (const [theme, background] of Object.entries(palettes)) await t.test(theme, async (t) => {
+    const page = await fixture(t, 'native-media.test', [
+      '<style>html,body{color-scheme:dark;background:#101318;color:#d7dce2}',
+      '.feed-media{filter:blur(24px) drop-shadow(0px 0px 2px #ff0000);opacity:.3}',
+      '.feed-media.loaded{filter:blur(4px);opacity:.7}</style>',
+      '<main><img id="native-media" class="feed-media" alt="Decorative feed background">',
+      '<video id="native-video" style="filter:grayscale(.5)"></video></main>'
+    ].join(''), { theme });
+    const first = await page.evaluate(() => ({
+      background:getComputedStyle(document.body).backgroundColor,
+      filter:getComputedStyle(document.querySelector('#native-media')).filter,
+      opacity:getComputedStyle(document.querySelector('#native-media')).opacity,
+      video:getComputedStyle(document.querySelector('#native-video')).filter,
+    }));
+    assert.equal(first.background, background);
+    assert.equal(first.filter, 'blur(24px) drop-shadow(rgb(255, 0, 0) 0px 0px 2px)');
+    assert.equal(first.opacity, '0.3');
+    assert.equal(first.video, 'grayscale(0.5)');
+    await page.evaluate(() => {
+      document.querySelector('#native-media').classList.add('loaded');
+      const image = document.createElement('img');
+      image.id = 'new-media'; image.className = 'feed-media';
+      document.querySelector('main').append(image);
+    });
+    await page.waitForTimeout(180);
+    const changed = await page.evaluate(() => ({
+      filter:getComputedStyle(document.querySelector('#native-media')).filter,
+      opacity:getComputedStyle(document.querySelector('#native-media')).opacity,
+      added:getComputedStyle(document.querySelector('#new-media')).filter,
+    }));
+    assert.equal(changed.filter, 'blur(4px)');
+    assert.equal(changed.opacity, '0.7');
+    assert.equal(changed.added, first.filter);
+  });
+});
+
+test('native-dark pages receive coordinated palette surfaces, text and controls', async (t) => {
   const page = await fixture(t, 'native-dark.test', [
     '<style>html,body{color-scheme:dark;background:#0d1117;color:#c9d1d9} .panel{background:#161b22} .dim{color:#1f2933} .native-light{background:#fff;color:#111}</style>',
     '<main>',
@@ -375,15 +413,17 @@ test('native-dark fast path preserves site surfaces and only repairs interactive
     };
   });
   assert.match(result.rootScheme, /dark/);
-  assert.equal(result.panel.background, 'rgb(22, 27, 34)');
-  assert.equal(result.dim.color, 'rgb(31, 41, 51)');
-  assert.equal(result.input.background, 'rgb(13, 17, 23)');
+  assert.notEqual(result.panel.background, 'rgb(22, 27, 34)');
+  assert.notEqual(result.dim.color, 'rgb(31, 41, 51)');
+  assert.notEqual(result.input.background, 'rgb(13, 17, 23)');
   assert.notEqual(result.input.color, 'rgb(31, 41, 51)');
-  assert.equal(result.light.background, 'rgb(255, 255, 255)');
+  assert.notEqual(result.light.background, 'rgb(255, 255, 255)');
+  assert.notEqual(result.dim.color, result.panel.background);
+  assert.notEqual(result.input.color, result.input.background);
 });
 
 
-test('deep native-dark ancestry remains untouched by generic text injection', async (t) => {
+test('deep native-dark ancestry receives legible palette text', async (t) => {
   const depth = 14;
   const nestedOpen = Array.from({ length: depth }, (_, i) => `<div class="layer layer-${i}">`).join('');
   const nestedClose = '</div>'.repeat(depth);
@@ -409,14 +449,15 @@ test('deep native-dark ancestry remains untouched by generic text injection', as
     copy2: getComputedStyle(document.querySelector('#deep-copy-2')).color,
     light: getComputedStyle(document.querySelector('#intentional-light')).backgroundColor,
   }));
-  assert.equal(result.panel, 'rgb(23, 27, 34)');
-  assert.equal(result.copy, 'rgb(37, 42, 49)');
-  assert.equal(result.copy2, 'rgb(37, 42, 49)');
-  assert.equal(result.light, 'rgb(255, 255, 255)');
+  assert.notEqual(result.panel, 'rgb(23, 27, 34)');
+  assert.notEqual(result.copy, 'rgb(37, 42, 49)');
+  assert.notEqual(result.copy2, 'rgb(37, 42, 49)');
+  assert.notEqual(result.light, 'rgb(255, 255, 255)');
+  assert.notEqual(result.copy, result.panel);
 });
 
 
-test('dark major-surface majority enables inferred native-dark mode without an explicit scheme', async (t) => {
+test('inferred native darkness does not suppress the selected palette', async (t) => {
   const page = await fixture(t, 'inferred-native-dark.test', [
     '<style>',
       'html,body{background:#101318;color:#d7dce2}',
@@ -437,10 +478,10 @@ test('dark major-surface majority enables inferred native-dark mode without an e
     dim: getComputedStyle(document.querySelector('#dim-copy')).color,
     css: document.querySelector('style[data-exp-shift-page-style]')?.textContent || '',
   }));
-  assert.equal(result.main, 'rgb(23, 27, 34)');
-  assert.equal(result.section, 'rgb(23, 27, 34)');
-  assert.equal(result.dim, 'rgb(37, 42, 49)');
-  assert.doesNotMatch(result.css, /:is\(main,\[role="main"\]\)/);
+  assert.notEqual(result.main, 'rgb(23, 27, 34)');
+  assert.notEqual(result.section, 'rgb(23, 27, 34)');
+  assert.notEqual(result.dim, 'rgb(37, 42, 49)');
+  assert.match(result.css, /:is\(main,\[role="main"\]\)/);
 });
 
 test('dark canvas with light major surfaces does not infer native-dark mode', async (t) => {

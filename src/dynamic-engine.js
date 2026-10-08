@@ -42,7 +42,7 @@ EXP.DynamicEngine = (() => {
       else if(ch===']')bracket=Math.max(0,bracket-1);
       else if(ch===','&&paren===0&&bracket===0){
         const part=source.slice(start,i).trim();
-        if(part){
+        if(part&&!/::backdrop\b/i.test(part)){
           const pseudo=part.indexOf('::');
           parts.push(pseudo>=0
             ? `${part.slice(0,pseudo)}${DYNAMIC_PRESERVE_GUARD}${part.slice(pseudo)}`
@@ -117,7 +117,8 @@ EXP.DynamicEngine = (() => {
     if(/mask(?:-image)?$/i.test(property)){stats.masks++;return value;}
     if(/^filter$/i.test(property)){
       stats.filters++;
-      return source.replace(/drop-shadow\(([^)]*)\)/ig,(m,body)=>`drop-shadow(${transformLiterals(body,'border',background)})`);
+      // Native blur, shadows and other media effects belong to the site.
+      return value;
     }
     if(/shadow/i.test(property))return transformLiterals(source,'border',background);
     const r=role(property,'',resolved);if(!r)return value;
