@@ -205,3 +205,93 @@ test('one failing component does not stall theming of the others', async t => {
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 3000 }).catch(() => {});
   assert.equal(await page.evaluate(() => unthemedPosts()), 0);
 });
+
+test('identical per-component style elements are themed once and share one copy', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`
+    window.styleText = '.inner{background:#ffffff;color:#1c1c1c}' + Array.from({ length: 199 }, (_, i) => '.f' + i + '{color:#1c1c1c;background:#fafafa}').join('');
+    customElements.define('styled-post', class extends HTMLElement {
+      connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>' + styleText + '</style><div class="inner">Post</div>'; }
+    });
+    expTest.DynamicEngine.start(${midnight});
+  `);
+  await page.evaluate(async () => {
+    const feed = document.getElementById('feed');
+    for (let wave = 0; wave < 30; wave++) {
+      for (let i = 0; i < 50; i++) feed.append(document.createElement('styled-post'));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  });
+  await page.waitForFunction(() => [...document.querySelectorAll('styled-post')].every(post => innerBg(post) !== white), null, { timeout: 5000 }).catch(() => {});
+  const facts = await page.evaluate(() => ({
+    unthemed: [...document.querySelectorAll('styled-post')].filter(post => innerBg(post) === white).length,
+    bg: innerBg(document.querySelector('styled-post')),
+    constructed: new Set([...document.querySelectorAll('styled-post')].flatMap(post => post.shadowRoot.adoptedStyleSheets.filter(ownedSheet))).size,
+    health: expTest.DynamicEngine.health(),
+  }));
+  assert.equal(facts.unthemed, 0, `unthemed ${facts.unthemed}`);
+  assert.equal(facts.constructed, 1, `constructed sheets ${facts.constructed}`);
+  assert.ok(facts.health.cacheMisses <= 2, `cache misses ${facts.health.cacheMisses}`);
+  assert.ok(facts.health.totalMs < 750, `total engine time ${facts.health.totalMs} ms`);
+  assert.ok(facts.health.maxSliceMs < 50, `longest slice ${facts.health.maxSliceMs} ms`);
+  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
+  await page.waitForTimeout(1500);
+  const changed = await page.evaluate(() => ({
+    bgs: [...new Set([...document.querySelectorAll('styled-post')].map(innerBg))],
+    copiesPerRoot: [...new Set([...document.querySelectorAll('styled-post')].map(post => post.shadowRoot.adoptedStyleSheets.filter(ownedSheet).length + post.shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length))],
+  }));
+  assert.deepEqual(changed.copiesPerRoot, [1]);
+  assert.equal(changed.bgs.length, 1, JSON.stringify(changed.bgs));
+  assert.notEqual(changed.bgs[0], facts.bg);
+});
+
+test('page batches that add nothing do not walk the changed container', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    const box = document.createElement('section'); box.id = 'box';
+    box.append(document.createTextNode('count 0'));
+    for (let i = 0; i < 1000; i++) { const row = document.createElement('div'); row.innerHTML = '<span>a</span><b>b</b><i>c</i><em>d</em>'; box.append(row); }
+    document.body.append(box);
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForTimeout(500);
+  const baseline = await page.evaluate(() => expTest.DynamicEngine.health().discoverMs);
+  await page.evaluate(async () => {
+    const box = document.getElementById('box');
+    for (let i = 0; i < 30; i++) {
+      if (i % 2) box.lastElementChild.remove(); else box.firstChild.data = `count ${i}`;
+      await new Promise(resolve => setTimeout(resolve, 90));
+    }
+  });
+  await page.waitForTimeout(300);
+  const spent = await page.evaluate(() => expTest.DynamicEngine.health().discoverMs);
+  assert.equal(typeof spent, 'number');
+  assert.ok(spent - baseline < 10, `discovery time ${spent - baseline} ms over 30 add-free batches`);
+  await page.evaluate(() => {
+    customElements.define('box-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Box</div>'; } });
+    document.getElementById('box').append(document.createElement('box-post'));
+  });
+  await page.waitForFunction(() => innerBg(document.querySelector('box-post')) !== white, null, { timeout: 3000 }).catch(() => {});
+  assert.notEqual(await page.evaluate(() => innerBg(document.querySelector('box-post'))), 'rgb(255, 255, 255)');
+});
+
+test('an in-place edit of a component style element is themed', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    customElements.define('edit-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.part{background:#fff}</style><div class="part">Part</div><div class="late">Late</div>'; } });
+    document.getElementById('feed').append(document.createElement('edit-post'));
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const partBg = () => getComputedStyle(document.querySelector('edit-post').shadowRoot.querySelector('.part')).backgroundColor;
+  await page.waitForFunction(fn => eval(fn)() !== 'rgb(255, 255, 255)', partBg.toString(), { timeout: 3000 });
+  await page.evaluate(() => { document.querySelector('edit-post').shadowRoot.querySelector('style').firstChild.data = '.part{background:#f0f0f0}.late{background:#f0f0f0}'; });
+  const lateBg = () => getComputedStyle(document.querySelector('edit-post').shadowRoot.querySelector('.late')).backgroundColor;
+  await page.waitForFunction(fn => eval(fn)() !== 'rgb(240, 240, 240)', lateBg.toString(), { timeout: 3000 }).catch(() => {});
+  const facts = await page.evaluate(({ partBg, lateBg }) => ({
+    part: eval(partBg)(), late: eval(lateBg)(),
+    copies: document.querySelector('edit-post').shadowRoot.adoptedStyleSheets.filter(ownedSheet).length,
+  }), { partBg: partBg.toString(), lateBg: lateBg.toString() });
+  assert.notEqual(facts.part, 'rgb(240, 240, 240)');
+  assert.notEqual(facts.late, 'rgb(240, 240, 240)');
+  assert.equal(facts.copies, 1);
+});

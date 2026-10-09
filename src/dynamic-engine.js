@@ -1,7 +1,7 @@
 EXP.DynamicEngine = (() => {
   const handles = new Map();
   const remoteCache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, passes:0, cachedSheets:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, discoverMs:0, passes:0, cachedSheets:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let sharedObserverCleanup=null, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
@@ -14,7 +14,9 @@ EXP.DynamicEngine = (() => {
   let knownRoots = new WeakSet();
   let rootList = [];
   const rootObservers = new Map();
-  const sheetResults = new WeakMap();   // CSSStyleSheet -> { sig, key, css, constructed }
+  const sheetResults = new WeakMap();   // CSSStyleSheet -> { sig, key, css, constructed } (may be shared)
+  const sharedResults = new Map();      // `${themeKey}|${signature}|${budget}` -> the same shared result
+  const SHARED_LIMIT = 512;
   const remoteOwners = new Map();       // href -> { css, constructed }
   const shadowCopies = new Map();       // ShadowRoot -> Map<sheet | href, constructed sheet>
   const fallbackStyles = new Map();     // ShadowRoot -> Map<sheet | href, <style>>
@@ -172,15 +174,25 @@ EXP.DynamicEngine = (() => {
   const ownedNode = node => Boolean(node?.closest?.('[data-exp-owned="1"]'));
   const liveRoot = root => root === document || Boolean(root?.host?.isConnected);
 
+  // Identical sheets (one <style> per component instance) share one result: one walk, one
+  // css string and one constructed sheet, found through sharedResults by theme + text signature.
   function themedResult(sheet) {
     const sig = signature(sheet), key = themeKey(theme);
     let entry = sheetResults.get(sheet);
     if (entry && entry.sig === sig && entry.key === key) { stats.cacheHits++; return entry; }
+    const indexKey = `${key}|${sig}|${LOCAL_BUDGET}`, shared = sharedResults.get(indexKey);
+    if (shared) { sheetResults.set(sheet, shared); stats.cacheHits++; return shared; }
     stats.cacheMisses++;
     const out = []; walk(sheet.cssRules, out, new Map(), LOCAL_BUDGET);
-    if (!entry) { entry = { sig, key, css: '', constructed: null }; sheetResults.set(sheet, entry); stats.cachedSheets++; }
+    // After a theme change the previous result is rethemed in place, so its constructed sheet
+    // (adopted by every root using it) is replaced once; other sheets sharing it then hit.
+    if (!entry || entry.key === key) { entry = { sig, key, css: '', constructed: null }; stats.cachedSheets++; }
+    else if (sharedResults.get(`${entry.key}|${entry.sig}|${LOCAL_BUDGET}`) === entry) sharedResults.delete(`${entry.key}|${entry.sig}|${LOCAL_BUDGET}`);
     entry.sig = sig; entry.key = key; entry.css = out.join('\n');
     if (entry.constructed) { try { entry.constructed.replaceSync(OWNED_MARKER + entry.css); } catch { entry.constructed = null; } }
+    sheetResults.set(sheet, entry);
+    sharedResults.set(indexKey, entry);
+    if (sharedResults.size > SHARED_LIMIT) sharedResults.delete(sharedResults.keys().next().value);
     return entry;
   }
 
@@ -370,7 +382,7 @@ EXP.DynamicEngine = (() => {
     knownRoots.add(root); rootList.push(root);
     if (root !== document) {
       const watcher = new MutationObserver(records => onRootMutations(root, records));
-      watcher.observe(root, { childList: true, subtree: true });
+      watcher.observe(root, { childList: true, subtree: true, characterData: true });
       rootObservers.set(root, watcher);
     }
     if (rootList.length >= 2 * Math.max(sweptSize, 64)) requestSweep();
@@ -438,10 +450,17 @@ EXP.DynamicEngine = (() => {
 
   function onRootMutations(root, records) {
     if (!active) return;
+    const started = performance.now();
     try {
       let styled = false, removed = false;
       for (const record of records) {
         if (record.target?.nodeName === 'STYLE' && !ownedNode(record.target)) styled = true;
+        // An in-place edit of a style's text node (style.firstChild.data = ...).
+        if (record.type === 'characterData') {
+          const parent = record.target?.parentNode;
+          if (parent?.nodeName === 'STYLE' && !ownedNode(parent)) styled = true;
+          continue;
+        }
         for (const node of record.addedNodes) {
           if (node.nodeType !== 1 || ownedNode(node)) continue;
           discoverIn(node); watchStylesheetLinks(node);
@@ -456,7 +475,7 @@ EXP.DynamicEngine = (() => {
       if (styled || adoptedStale(root)) queue.add(root);
       if (removed) requestSweep();
     } catch (error) { reportError(error); }
-    finally { scheduleSlice(); }
+    finally { stats.discoverMs += performance.now() - started; scheduleSlice(); }
   }
 
   // Components can reassign adoptedStyleSheets (dropping our copy) without a DOM mutation;
@@ -520,7 +539,10 @@ EXP.DynamicEngine = (() => {
     if (nextOptions && Object.prototype.hasOwnProperty.call(nextOptions, 'nativeDark')) nativeDarkMode = Boolean(nextOptions.nativeDark);
     if (!active) { start(nextTheme, { nativeDark: nativeDarkMode }); return; }
     const nextKey = themeKey(nextTheme);
-    if (lastThemeKey && lastThemeKey !== nextKey) { generation++; pendingRemote.clear(); remoteWaiters.clear(); }
+    if (lastThemeKey && lastThemeKey !== nextKey) {
+      generation++; pendingRemote.clear(); remoteWaiters.clear();
+      for (const indexKey of [...sharedResults.keys()]) if (!indexKey.startsWith(`${nextKey}|`)) sharedResults.delete(indexKey);
+    }
     theme = nextTheme; lastThemeKey = nextKey;
     queue.clear(); sliceHandle?.cancel(); sliceHandle = null;
     fullPass();
@@ -534,17 +556,21 @@ EXP.DynamicEngine = (() => {
     fullPass();
     sharedObserverCleanup?.(); sharedObserverCleanup = null;
     const inspectRoots = (roots, details) => {
+      const started = performance.now();
       try {
         let styled = false;
-        for (const root of roots || []) {
-          if (!root || ownedNode(root)) continue;
-          discoverIn(root); watchStylesheetLinks(root);
-          if (root.nodeName === 'STYLE' || addsStyles(root)) styled = true;
-        }
+        // Core reports the changed parent, not the added nodes; walking it is only worth it
+        // when something was added. Details are aligned with roots.
+        (roots || []).forEach((root, index) => {
+          if (!root || ownedNode(root)) return;
+          const detail = details?.[index], added = !detail || detail.added > 0;
+          if (added) { discoverIn(root); watchStylesheetLinks(root); }
+          if (root.nodeName === 'STYLE' || ((added || detail.removed > 0) && addsStyles(root))) styled = true;
+        });
         if (styled) queue.add(document);
         if ((details || []).some(detail => detail?.removed)) requestSweep();
       } catch (error) { reportError(error); }
-      finally { scheduleSlice(); }
+      finally { stats.discoverMs += performance.now() - started; scheduleSlice(); }
     };
     sharedObserverCleanup = ExtraPotionsCore.observePageBatch((_batch, roots, details) => inspectRoots(roots, details), {productId:'shift'});
   }
@@ -582,7 +608,7 @@ EXP.DynamicEngine = (() => {
       knownRoots: rootList.length,
       adoptedRoots: [...shadowCopies.values()].filter(map => map.size).length,
       fallbackRoots: [...fallbackStyles.values()].filter(map => map.size).length,
-      totalMs: Math.round(stats.totalMs), maxSliceMs: Math.round(stats.maxSliceMs * 10) / 10,
+      totalMs: Math.round(stats.totalMs), maxSliceMs: Math.round(stats.maxSliceMs * 10) / 10, discoverMs: Math.round(stats.discoverMs * 10) / 10,
     };
   }
   return Object.freeze({start,refresh,stop,health});
