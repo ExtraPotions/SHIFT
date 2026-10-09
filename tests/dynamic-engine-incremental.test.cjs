@@ -513,6 +513,30 @@ test('generated CSS for selectors other than :host is unchanged', async t => {
   assert.equal(out, expected);
 });
 
+test('text replaced inside a component does not trigger adopted-sheet checks, but a style text change still themes', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    customElements.define('text-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner"><span class="value">0</span></div><div class="late">Late</div>'; } });
+    document.getElementById('feed').append(document.createElement('text-post'));
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => innerBg(document.querySelector('text-post')) !== white, null, { timeout: 3000 });
+  await page.waitForTimeout(200);
+  const read = () => { const health = expTest.DynamicEngine.health(); return { checks: health.adoptedChecks, slices: health.slices }; };
+  const before = await page.evaluate(read);
+  await page.evaluate(async () => {
+    const value = document.querySelector('text-post').shadowRoot.querySelector('.value');
+    for (let i = 1; i <= 200; i++) { value.textContent = String(i); if (i % 20 === 0) await new Promise(resolve => setTimeout(resolve, 10)); }
+  });
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(read);
+  assert.deepEqual({ checks: after.checks - before.checks, slices: after.slices - before.slices }, { checks: 0, slices: 0 });
+  await page.evaluate(() => { document.querySelector('text-post').shadowRoot.querySelector('style').textContent = '.inner{background:#ffffff;color:#111}.late{background:#f0f0f0}'; });
+  const lateBg = () => getComputedStyle(document.querySelector('text-post').shadowRoot.querySelector('.late')).backgroundColor;
+  await page.waitForFunction(fn => eval(fn)() !== 'rgb(240, 240, 240)', lateBg.toString(), { timeout: 3000 }).catch(() => {});
+  assert.notEqual(await page.evaluate(lateBg), 'rgb(240, 240, 240)');
+});
+
 test('text edits inside a component do not trigger adopted-sheet checks or slices', async t => {
   const page = await fixture(t);
   await page.evaluate(() => {

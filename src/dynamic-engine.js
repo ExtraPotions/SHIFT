@@ -551,11 +551,15 @@ EXP.DynamicEngine = (() => {
 
   const addsStyles = node => node?.nodeType === 1 && (Boolean(node.matches?.('style,link[rel~="stylesheet"]')) || Boolean(node.querySelector?.('style,link[rel~="stylesheet"]')));
 
-  // Text edits outside a <style> (tickers, chat) say nothing about styles; a batch made only of
-  // those is ignored entirely.
+  // Text changes outside a <style> (tickers, chat: `.data = ` or `.textContent = `) say nothing
+  // about styles; a batch made only of those is ignored entirely.
   const styleTextEdit = record => record.target?.parentNode?.nodeName === 'STYLE' && !ownedNode(record.target.parentNode);
+  const textOnly = nodes => { for (const node of nodes) if (node.nodeType === 1) return false; return true; };
+  const ignorable = record => record.type === 'characterData'
+    ? !styleTextEdit(record)
+    : record.type === 'childList' && record.target?.nodeName !== 'STYLE' && textOnly(record.addedNodes) && textOnly(record.removedNodes);
   function onRootMutations(root, records) {
-    if (!active || records.every(record => record.type === 'characterData' && !styleTextEdit(record))) return;
+    if (!active || records.every(ignorable)) return;
     const started = performance.now();
     try {
       let styled = false, removed = false;
