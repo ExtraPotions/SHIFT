@@ -1,3 +1,8 @@
+## 3.5.16 — 2026-10-09
+
+- Checks for updates by default on new installs, at most every 12 hours.
+- Labels the launcher with the new version when an update is ready.
+
 ## 3.5.15 — 2026-10-09
 
 - Shortens the README to a quick overview of what SHIFT does.

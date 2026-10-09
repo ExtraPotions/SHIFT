@@ -4,7 +4,7 @@ SHIFT processes page structure and computed styles locally in the browser. It do
 
 There is no telemetry, analytics, cloud backup, advertising identifier, or remote executable loading.
 
-Quiet update notifications are disabled by default. If explicitly enabled, SHIFT requests `https://api.github.com/repos/ExtraPotions/SHIFT/releases/latest` at most once daily to compare release version metadata. It does not send page data or settings and never downloads or executes update code itself.
+Quiet update notifications are on by default for new installs and can be turned off; existing installs keep their saved choice. While enabled, SHIFT requests `https://api.github.com/repos/ExtraPotions/SHIFT/releases/latest` at most every 12 hours to compare release version metadata. It does not send page data or settings and never downloads or executes update code itself.
 
 Copied diagnostics include product/Core versions, lifecycle and adapter states, bounded performance counts, and sanitized error codes/messages. They exclude page text, user-entered record names, selectors, query strings, credentials, tokens, and browsing history.
 
