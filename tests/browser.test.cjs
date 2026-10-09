@@ -686,15 +686,18 @@ test('Advanced and System hold site and chrome controls', async (t) => {
   assert.equal(recoveryLabels.includes('Update notifications'), false);
 });
 
-test('update metadata remains offline by default and requests only after opt in', async (t) => {
+test('update metadata is checked by default and stops when the setting is turned off', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
-  assert.equal(await page.evaluate(() => window.__updateRequests), 0);
+  await page.waitForFunction(() => window.__updateRequests === 1);
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'appearance').click(); });
-  await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Update notifications'); row.querySelector('[role="switch"]').click(); });
-  await page.waitForFunction(() => window.__updateRequests === 1);
+  const toggle = () => root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Update notifications'); const control = row.querySelector('[role="switch"]'); const before = control.getAttribute('aria-checked'); control.click(); return before; });
+  assert.equal(await toggle(), 'true');
+  await page.waitForTimeout(500);
   assert.equal(await page.evaluate(() => window.__updateRequests), 1);
+  assert.equal(await toggle(), 'false');
+  await page.waitForFunction(() => window.__updateRequests === 2);
 });
 
 test('menu CSS stays in the shadow root when constructable sheets are unavailable', async (t) => {

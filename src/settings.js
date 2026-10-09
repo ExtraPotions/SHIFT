@@ -28,7 +28,7 @@ EXP.Settings = (() => {
     launcherPosition: 'automatic-end-bottom',
     menuAutoClose: true,
     menuNotifications: true,
-    updateNotifications: false,
+    updateNotifications: true,
     profiles: [{ id: 'original', name: 'Original', appearance: { theme: 'original', accent: 'site-default' }, builtIn: true }],
     customThemes: [],
     customAccents: [],

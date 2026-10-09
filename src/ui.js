@@ -72,10 +72,17 @@ EXP.UI = (() => {
     });
   }
 
+  function markLauncherUpdate(result = {}) {
+    if (!launcher) return;
+    const ready = Boolean(result.available && result.latest);
+    launcher.classList.toggle('update-available', ready);
+    launcher.setAttribute('aria-label', ready ? `Open SHIFT · Update v${result.latest} Available` : 'Open SHIFT');
+  }
+
   async function checkUpdateNotice(force = false) {
     const result = await EXP.Updates.check(force);
-    launcher?.classList.toggle('update-available', Boolean(result.available));
-    if (result.available && EXP.Core.claimNotice('shift',`available:${result.latest}`)) showUpdateNotice({
+    markLauncherUpdate(result);
+    if (result.available && !result.quiet && EXP.Core.claimNotice('shift',`available:${result.latest}`)) showUpdateNotice({
       kicker: 'Update Available',
       title: 'New SHIFT Version Available',
       version: result.latest,
@@ -355,7 +362,7 @@ EXP.UI = (() => {
     fragment.append(chromeGroup);
 
     const about = chromeGroup;
-    about.append(switchControl('Update notifications', 'Off by default. When enabled, checks GitHub release metadata when needed and never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
+    about.append(switchControl('Update notifications', 'Checks GitHub for new releases. Never installs automatically.', state.updateNotifications, (updateNotifications) => { onSettings({ ...state, updateNotifications }, 'update-notifications'); if (updateNotifications) EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')); else setMessage('Update notifications disabled.'); }));
     about.append(actionRow('Check for updates now', 'Fetches release metadata only; never executable code.', () => EXP.Updates.check(true).then((result) => setMessage(result.available ? `SHIFT ${result.latest} is available.` : result.state === 'failed' ? 'Update check failed quietly.' : 'SHIFT is up to date.')), 'Check now'));
 
     return fragment;
@@ -473,7 +480,7 @@ EXP.UI = (() => {
 
     try {
       const previous = EXP.Core.consumeVersionChange('shift', EXP.VERSION, lastVersionKey);
-      if (previous) {
+      if (previous && !EXP.ReleaseNotes.isQuietUpgrade(previous)) {
         showUpdateNotice({
           kicker: 'Update Complete',
           title: 'SHIFT Updated',
