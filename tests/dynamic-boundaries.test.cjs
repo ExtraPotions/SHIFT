@@ -1,8 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
+const core=fs.readFileSync(path.join(__dirname,'../vendor/exp-core/exp-core.js'),'utf8');
 const source=['themes.js','color-engine.js','dynamic-engine.js'].map(f=>fs.readFileSync(path.join(__dirname,'../src',f),'utf8')).join('\n');
-async function fixture(t){const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();await page.setContent('<main>Fixture</main>');await page.addScriptTag({content:`const EXP={Core:{safeError(){}}};${source};window.expTest=EXP;`});return page;}
+async function fixture(t){const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();await page.setContent('<main>Fixture</main>');await page.addScriptTag({content:`${core}\nconst EXP={Core:{safeError(){}}};${source};window.expTest=EXP;`});return page;}
 test('large first stylesheet cannot starve later Amazon-sized stylesheet groups',async t=>{
  const page=await fixture(t);
  const result=await page.evaluate(()=>{

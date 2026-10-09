@@ -24,32 +24,36 @@ test('generated SHIFT userscript keeps the same Core-owned interoperability boot
 
 test('SHIFT honors shared presentation suppression at the live repair gate', () => {
   const resolver = read('src/live-resolver.js');
-  assert.ok(resolver.includes("globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el)"));
+  assert.ok(resolver.includes("ExtraPotionsCore.isPresentationSuppressed(el)"));
+});
+
+test('SHIFT reaches Core through the bundle-local binding, never an unassigned global', () => {
+  for (const file of fs.readdirSync(path.join(root, 'src')).filter((name) => name.endsWith('.js'))) {
+    assert.doesNotMatch(read(`src/${file}`), /globalThis\.ExtraPotionsCore/u, file);
+  }
 });
 
 
-test('SHIFT dynamic stylesheet engine shares Core observation when available', () => {
+test('SHIFT dynamic stylesheet engine shares Core observation', () => {
   const engine = read('src/dynamic-engine.js');
-  assert.ok(engine.includes('globalThis.ExtraPotionsCore?.observePageBatch'));
+  assert.ok(engine.includes('ExtraPotionsCore.observePageBatch('));
   assert.ok(engine.includes("{productId:'shift'}"));
   assert.ok(engine.includes('sharedObserverCleanup?.()'));
-  assert.ok(engine.includes('observer=new MutationObserver'));
+  assert.doesNotMatch(engine, /new MutationObserver/u);
 });
 
 
-test('SHIFT live resolver phase-orders child-list work through Core while retaining attribute observation', () => {
+test('SHIFT live resolver observes added nodes itself, since Core page batches name only their parents', () => {
   const resolver = read('src/live-resolver.js');
-  assert.ok(resolver.includes("typeof globalThis.ExtraPotionsCore?.observePageBatch==='function'"));
-  assert.ok(resolver.includes("{productId:'shift'}"));
-  assert.ok(resolver.includes('childList:!sharedAvailable'));
+  assert.doesNotMatch(resolver, /observePageBatch/u);
+  assert.ok(resolver.includes('childList:true'));
   assert.ok(resolver.includes("attributeFilter:['class','style','hidden','aria-hidden','open']"));
-  assert.ok(resolver.includes('sharedObserverCleanup?.()'));
 });
 
 
 test('SHIFT publishes compact non-identifying suite state', () => {
   const source = read('src/main.js');
-  assert.match(source, /publishSuiteState\?\.\('shift', 'shift\.state-changed'/u);
+  assert.match(source, /ExtraPotionsCore\.publishSuiteState\('shift', 'shift\.state-changed'/u);
   assert.match(source, /active:/u);
   assert.match(source, /theme:/u);
   assert.match(source, /safeMode:/u);

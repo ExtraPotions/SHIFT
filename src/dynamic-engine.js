@@ -5,7 +5,7 @@ EXP.DynamicEngine = (() => {
   const cache = new Map();
   const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
-  let observer=null, sharedObserverCleanup=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
+  let sharedObserverCleanup=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
   const watchedLinks = new WeakSet();
 
@@ -293,7 +293,7 @@ EXP.DynamicEngine = (() => {
   function start(nextTheme,nextOptions={}){
     nativeDarkMode=Boolean(nextOptions.nativeDark);
     if(active){refresh(nextTheme,{nativeDark:nativeDarkMode});return;}
-    theme=nextTheme;active=true;refresh(theme,{nativeDark:nativeDarkMode});observer?.disconnect();observer=null;sharedObserverCleanup?.();sharedObserverCleanup=null;
+    theme=nextTheme;active=true;refresh(theme,{nativeDark:nativeDarkMode});sharedObserverCleanup?.();sharedObserverCleanup=null;
     const inspectRoots=(roots)=>{
       let shouldSchedule=false;
       for(const root of roots||[]){
@@ -304,22 +304,9 @@ EXP.DynamicEngine = (() => {
       }
       if(shouldSchedule)schedule();
     };
-    if(globalThis.ExtraPotionsCore?.observePageBatch){
-      sharedObserverCleanup=globalThis.ExtraPotionsCore.observePageBatch((_batch,roots)=>inspectRoots(roots),{productId:'shift'});
-    }else{
-      observer=new MutationObserver(ms=>{
-        const roots=[];
-        for(const mutation of ms){
-          const target=mutation.target?.nodeType===Node.TEXT_NODE?mutation.target.parentElement:mutation.target;
-          if(target)roots.push(target);
-          for(const node of mutation.addedNodes)if(node?.nodeType===1)roots.push(node);
-        }
-        inspectRoots(roots);
-      });
-      observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
-    }
+    sharedObserverCleanup=ExtraPotionsCore.observePageBatch((_batch,roots)=>inspectRoots(roots),{productId:'shift'});
   }
-  function stop(){active=false;nativeDarkMode=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;sharedObserverCleanup?.();sharedObserverCleanup=null;observer?.disconnect();observer=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
+  function stop(){active=false;nativeDarkMode=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;sharedObserverCleanup?.();sharedObserverCleanup=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
   function health(){return {...stats,nativeDarkMode,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
   return Object.freeze({start,refresh,stop,health});
 })();

@@ -1,6 +1,5 @@
 EXP.LiveResolver = (() => {
   let observer = null;
-  let sharedObserverCleanup = null;
   let timer = 0;
   let active = false;
   const recovery=ExtraPotionsCore.createRecoveryGuard();
@@ -40,6 +39,12 @@ EXP.LiveResolver = (() => {
   let pseudoStyle = null;
   let pseudoSequence = 0;
   let backgroundCache = new WeakMap();
+  // During a pass, writes wait here and land together in flushWrites(): each inline write dirties
+  // style, so applying them between reads forced a full style recalc per repaired element.
+  let pendingWrites = null;
+  let pseudoDirty = false;
+  // color inherits: a descendant's computed color is stale until its ancestor's pending color lands.
+  const pendingColors = new Set();
   const stats = {
     passes:0,scanned:0,unresolved:0,resolved:0,siteFixes:0,contrast:0,brightSurfaces:0,forms:0,
     inheritedBackgrounds:0,transparentSurfaces:0,textRepairs:0,skippedProtected:0,skippedSemantic:0,backgroundImages:0,imageOverlays:0,iframes:0,iframeFailures:0,placeholders:0,selectionRules:0,scrollbars:0,stickySurfaces:0,fixedSurfaces:0,borders:0,outlines:0,details:0,dialogs:0,popovers:0,mutationPasses:0,rootsQueued:0,
@@ -76,7 +81,7 @@ EXP.LiveResolver = (() => {
   }
   function visible(el){
     try{
-      if(globalThis.ExtraPotionsCore?.isPresentationSuppressed?.(el))return false;
+      if(ExtraPotionsCore.isPresentationSuppressed(el))return false;
       const cs=getComputedStyle(el);
       if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)<=.01)return false;
       const r=el.getBoundingClientRect();
@@ -92,15 +97,58 @@ EXP.LiveResolver = (() => {
     if(!saved){saved=new Map();ledger.set(el,saved);}
     if(!saved.has(property))saved.set(property,[el.style.getPropertyValue(property),el.style.getPropertyPriority(property)]);
   }
+  function pendingFor(el){
+    let entry=pendingWrites.get(el);
+    if(!entry){entry={styles:new Map(),attrs:new Map()};pendingWrites.set(el,entry);}
+    return entry;
+  }
+  function pendingStyle(el,property){return pendingWrites?.get(el)?.styles.get(property);}
+  function settleInheritedColor(el,includeSelf=false){
+    if(!pendingColors.size)return;
+    for(let node=includeSelf?el:el.parentElement;node;node=node.parentElement){
+      if(pendingColors.has(node)){applyWrites();return;}
+    }
+  }
+  // Computed value as the element will be once this pass's writes land.
+  function styleValue(el,cs,property){
+    if(property==='color')settleInheritedColor(el);
+    return pendingStyle(el,property)??cs.getPropertyValue(property);
+  }
+  function setAttr(el,name,value){
+    if(pendingWrites){pendingFor(el).attrs.set(name,value);return;}
+    if(value==null)el.removeAttribute(name);else el.setAttribute(name,value);
+  }
+  function getAttr(el,name){
+    const attrs=pendingWrites?.get(el)?.attrs;
+    return attrs?.has(name)?attrs.get(name):el.getAttribute(name);
+  }
   function write(el,property,value){
     if(!value)return false;
     remember(el,property);
-    if(el.style.getPropertyValue(property)===value&&el.style.getPropertyPriority(property)==='important')return false;
+    const pending=pendingStyle(el,property);
+    if(pending!==undefined?pending===value:(el.style.getPropertyValue(property)===value&&el.style.getPropertyPriority(property)==='important'))return false;
+    if(property==='background'||property==='background-color'||property==='background-image')backgroundCache=new WeakMap();
+    if(pendingWrites){pendingFor(el).styles.set(property,value);if(property==='color')pendingColors.add(el);return true;}
     selfMutations.add(el);
     el.style.setProperty(property,value,'important');
-    if(property==='background'||property==='background-color'||property==='background-image')backgroundCache=new WeakMap();
     setTimeout(()=>selfMutations.delete(el),0);
     return true;
+  }
+  function applyWrites(){
+    const writes=pendingWrites;pendingWrites=new Map();pendingColors.clear();
+    for(const [el,{styles,attrs}] of writes||[]){
+      if(styles.size){
+        selfMutations.add(el);
+        for(const [property,value] of styles)el.style.setProperty(property,value,'important');
+        setTimeout(()=>selfMutations.delete(el),0);
+      }
+      for(const [name,value] of attrs){if(value==null)el.removeAttribute(name);else el.setAttribute(name,value);}
+    }
+  }
+  function flushWrites(){
+    if(!pendingWrites)return;
+    applyWrites();pendingWrites=null;
+    if(pseudoDirty){pseudoDirty=false;syncPseudoStyle();}
   }
   function effectiveBackground(el){
     const cached=backgroundCache.get(el);
@@ -123,7 +171,7 @@ EXP.LiveResolver = (() => {
       if(options.nativeDark&&depth>=softLimit&&!extended){extended=true;stats.nativeDarkExtendedWalks++;}
       seen.add(node);stats.backgroundWalkSteps++;
       let own=null;
-      try{own=parse(getComputedStyle(node).backgroundColor);}catch{}
+      try{own=parse(pendingStyle(node,'background-color')??getComputedStyle(node).backgroundColor);}catch{}
       if(!own||(own.a??1)<=.001)stats.transparentSurfaces++;
       const parent=node.parentElement||node.getRootNode?.()?.host||null;
       let result='';
@@ -163,7 +211,7 @@ EXP.LiveResolver = (() => {
   }
   function repairImageOverlay(el,cs,effectiveBg){
     if(!hasArtwork(cs)||!bright(effectiveBg))return false;
-    const text=parse(cs.color),bg=parse(effectiveBg);
+    const text=parse(styleValue(el,cs,'color')),bg=parse(effectiveBg);
     if(!text||!bg||EXP.ColorEngine.contrastRatio(text,bg)>=4.5)return false;
     const current=String(cs.backgroundImage||'');
     if(!/url\s*\(/i.test(current))return false;
@@ -197,9 +245,9 @@ EXP.LiveResolver = (() => {
     return changed;
   }
   function repairForeground(el,cs,effectiveBg){
-    const fg=parse(cs.color),bg=parse(effectiveBg);if(!fg||!bg)return false;
+    const color=styleValue(el,cs,'color'),fg=parse(color),bg=parse(effectiveBg);if(!fg||!bg)return false;
     const minimum=minimumContrast(el);if(EXP.ColorEngine.contrastRatio(fg,bg)>=minimum)return false;
-    const next=EXP.ColorEngine.foreground(cs.color,theme,effectiveBg,minimum);
+    const next=EXP.ColorEngine.foreground(color,theme,effectiveBg,minimum);
     if(!next||!write(el,'color',next))return false;
     stats.contrast++;stats.textRepairs++;return true;
   }
@@ -207,7 +255,7 @@ EXP.LiveResolver = (() => {
     if(!/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))return false;
     stats.forms++;let changed=false;
     if(bright(effectiveBg)&&write(el,'background-color',theme.input||theme.raised||theme.surface))changed=true;
-    const nowBg=effectiveBackground(el),nowFg=getComputedStyle(el).color;
+    const nowBg=effectiveBackground(el),nowFg=styleValue(el,getComputedStyle(el),'color');
     if(parse(nowFg)&&parse(nowBg)&&EXP.ColorEngine.contrastRatio(nowFg,nowBg)<4.5&&write(el,'color',EXP.ColorEngine.foreground(nowFg,theme,nowBg,4.5))){stats.contrast++;changed=true;}
     return changed;
   }
@@ -216,7 +264,11 @@ EXP.LiveResolver = (() => {
     let cs;try{cs=getComputedStyle(el);}catch{return false;}
     let changed=false,effectiveBg=effectiveBackground(el);
     recordElementState(el,cs);
-    if(!options.nativeDark&&el.hasAttribute('style')&&!el.matches('html,body'))EXP.ColorEngine.inspectInline(el,theme);
+    if(!options.nativeDark&&el.hasAttribute('style')&&!el.matches('html,body')){
+      // inspectInline writes immediately; land this element's earlier writes first so they keep their order.
+      if(pendingWrites?.has(el))applyWrites();
+      EXP.ColorEngine.inspectInline(el,theme);
+    }
     if(repairImageOverlay(el,cs,effectiveBg)){changed=true;try{cs=getComputedStyle(el);effectiveBg=effectiveBackground(el);}catch{}}
     if(options.surface!==false&&options.repairSurfaces!==false&&!options.nativeDark&&shouldRepairSurface(el,cs,effectiveBg)){
       const next=EXP.ColorEngine.background(cs.backgroundColor,theme,theme.page);
@@ -225,19 +277,19 @@ EXP.LiveResolver = (() => {
     if(repairEdges(el,cs,parse(effectiveBg)))changed=true;
     if(options.text!==false&&repairForeground(el,cs,effectiveBg))changed=true;
     if(repairForm(el,effectiveBg))changed=true;
-    if(changed){el.setAttribute(ATTR,reason);stats.resolved++;}
+    if(changed){setAttr(el,ATTR,reason);stats.resolved++;}
     return changed;
   }
   function repairText(el,reason){
     if(isProtected(el)||!visible(el))return false;
     let cs;try{cs=getComputedStyle(el);}catch{return false;}
-    const bg=effectiveBackground(el),fg=parse(cs.color),parsedBg=parse(bg);
+    const color=styleValue(el,cs,'color'),bg=effectiveBackground(el),fg=parse(color),parsedBg=parse(bg);
     if(!fg||!parsedBg)return false;
     const minimum=minimumContrast(el);
     if(EXP.ColorEngine.contrastRatio(fg,parsedBg)>=minimum)return false;
-    const next=EXP.ColorEngine.foreground(cs.color,theme,bg,minimum);
+    const next=EXP.ColorEngine.foreground(color,theme,bg,minimum);
     if(!next||!write(el,'color',next))return false;
-    el.setAttribute(ATTR,reason);stats.contrast++;stats.textRepairs++;stats.resolved++;return true;
+    setAttr(el,ATTR,reason);stats.contrast++;stats.textRepairs++;stats.resolved++;return true;
   }
   function applySiteFixes(root=document){
     if(!fix)return;
@@ -249,7 +301,7 @@ EXP.LiveResolver = (() => {
       if(!options.nativeDark&&fix.text?.length)scope.querySelectorAll(fix.text.join(',')).forEach(el=>{if(repairText(el,`site-text:${fix.id}`))stats.siteFixes++;});
       if(!options.nativeDark&&fix.forceText?.length)scope.querySelectorAll(fix.forceText.join(',')).forEach(el=>{
         if(isProtected(el)||!visible(el))return;
-        if(write(el,'color',theme.text)){el.setAttribute(ATTR,`site-force-text:${fix.id}`);stats.siteFixes++;stats.textRepairs++;stats.resolved++;}
+        if(write(el,'color',theme.text)){setAttr(el,ATTR,`site-force-text:${fix.id}`);stats.siteFixes++;stats.textRepairs++;stats.resolved++;}
       });
     }catch{}
   }
@@ -260,7 +312,8 @@ EXP.LiveResolver = (() => {
   }
   function pseudoRepair(el,reason){
     if(isProtected(el)||!visible(el))return false;
-    let id=el.getAttribute('data-exp-shift-pseudo-id'),changed=false;
+    settleInheritedColor(el,true);
+    let id=getAttr(el,'data-exp-shift-pseudo-id'),changed=false;
     const rules=[];
     for(const pseudo of ['::before','::after']){
       try{
@@ -271,7 +324,7 @@ EXP.LiveResolver = (() => {
         if(bg&&bright(bg)){nextBg=EXP.ColorEngine.background(cs.backgroundColor,theme,theme.page);nextFg=EXP.ColorEngine.foreground(cs.color,theme,nextBg,4.5);}
         else if(fg&&parse(effective)&&EXP.ColorEngine.contrastRatio(fg,parse(effective))<4.5)nextFg=EXP.ColorEngine.foreground(cs.color,theme,effective,4.5);
         if(nextBg||nextFg){
-          if(!id){id=`p${++pseudoSequence}`;el.setAttribute('data-exp-shift-pseudo-id',id);}
+          if(!id){id=`p${++pseudoSequence}`;setAttr(el,'data-exp-shift-pseudo-id',id);}
           rules.push(`[data-exp-shift-pseudo-id="${id}"]${pseudo}{${nextBg?`background-color:${nextBg}!important;`:''}${nextFg?`color:${nextFg}!important;`:''}}`);
         }
       }catch{}
@@ -279,8 +332,8 @@ EXP.LiveResolver = (() => {
     if(id){
       const css=rules.join('');
       if(css){if(pseudoRules.get(id)!==css){pseudoRules.set(id,css);changed=true;}}
-      else if(pseudoRules.delete(id)){el.removeAttribute('data-exp-shift-pseudo-id');changed=true;}
-      if(changed)syncPseudoStyle();
+      else if(pseudoRules.delete(id)){setAttr(el,'data-exp-shift-pseudo-id',null);changed=true;}
+      if(changed){if(pendingWrites)pseudoDirty=true;else syncPseudoStyle();}
     }
     if(changed)stats.resolved++;
     return changed;
@@ -334,14 +387,14 @@ EXP.LiveResolver = (() => {
     if(!force&&recovery.snapshot('repair',recoveryContext).suspended)return false;
     try {passUnprotected(roots,mutation);recovery.succeeded('repair',recoveryContext);return true;}
     catch(error){if(force)throw error;recovery.failed('repair',recoveryContext);EXP.Core.safeError(error,'shift.repair');return false;}
-    finally {EXP.UI?.refreshHealth?.();}
+    finally {flushWrites();EXP.UI?.refreshHealth?.();}
   }
   function retry(){return recovery.retry('repair',recoveryContext,()=>{if(!active||ExtraPotionsCore.suiteSitePaused()||EXP.Settings.snapshot().safeMode)return false;return pass(null,false,true);});}
   function passUnprotected(roots=null,mutation=false){
     if(!active||!theme)return;
     const started=performance.now(),resolvedBefore=stats.resolved;
     let examined=0;
-    backgroundCache=new WeakMap();
+    backgroundCache=new WeakMap();pendingWrites=new Map();
     stats.passes++;if(mutation)stats.mutationPasses++;if(options.nativeDark)stats.nativeDarkFastPathPasses++;ensureGlobalRepairs();
     const targets=[],textTargets=[],sourceRoots=roots?.length?roots:[document.documentElement];
     stats.lastRoots=sourceRoots.length;
@@ -380,6 +433,7 @@ EXP.LiveResolver = (() => {
         stats.scanned++;examined++;repairText(el,'text');
       }
     }
+    flushWrites();
     for(const processor of processors)processor(sourceRoots);
     stats.lastExamined=examined;
     stats.lastChanged=Math.max(0,stats.resolved-resolvedBefore);
@@ -421,19 +475,9 @@ EXP.LiveResolver = (() => {
     if(document.readyState==='complete')queueMicrotask(onWindowLoad);
     else addEventListener('load',onWindowLoad,{once:true});
     pass();
-    observer?.disconnect();observer=null;sharedObserverCleanup?.();sharedObserverCleanup=null;
-    const sharedAvailable=typeof globalThis.ExtraPotionsCore?.observePageBatch==='function';
-    if(sharedAvailable){
-      sharedObserverCleanup=globalThis.ExtraPotionsCore.observePageBatch((_batch,roots)=>{
-        for(const root of roots||[]){
-          if(root?.nodeType!==1||root.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))continue;
-          queueRoot(root);
-        }
-        if(queuedRoots.size){
-          clearTimeout(timer);timer=0;flush();
-        }
-      },{productId:'shift'});
-    }
+    observer?.disconnect();observer=null;
+    // Own child-list observation, not Core's page batch: the batch names only mutation targets,
+    // so each appended feed item would re-scan its whole container (tests/mutation-root-cost).
     observer=new MutationObserver(mutations=>{
       for(const mutation of mutations){
         if(mutation.type==='attributes'){
@@ -442,14 +486,13 @@ EXP.LiveResolver = (() => {
           if(target?.nodeType===1&&!target.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))schedule(target);
           continue;
         }
-        if(sharedAvailable)continue;
         for(const node of mutation.addedNodes){
           if(node?.nodeType!==1||node.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))continue;
           schedule(node);
         }
       }
     });
-    observer.observe(document.documentElement,{subtree:true,childList:!sharedAvailable,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','open']});
+    observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','open']});
     document.addEventListener('scroll',onScroll,{capture:true,passive:true});
   }
   function refresh(nextTheme,nextOptions={}){
@@ -485,7 +528,7 @@ EXP.LiveResolver = (() => {
     document.removeEventListener('scroll',onScroll,true);
     document.removeEventListener('load',onStylesheetLoad,true);
     removeEventListener('load',onWindowLoad);
-    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();sharedObserverCleanup?.();sharedObserverCleanup=null;observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
+    active=false;clearTimeout(timer);timer=0;queuedRoots.clear();observer?.disconnect();observer=null;backgroundCache=new WeakMap();restore();
     EXP.ColorEngine.clear();
   }
   function health(){

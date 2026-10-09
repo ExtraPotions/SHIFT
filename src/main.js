@@ -10,7 +10,7 @@ let navigationCleanup;
 let processorCleanup;
 let shortcutCleanup;
 let engineStarted = false;
-const publishSuiteState = (state = EXP.Settings.effective()) => globalThis.ExtraPotionsCore?.publishSuiteState?.('shift', 'shift.state-changed', {
+const publishSuiteState = (state = EXP.Settings.effective()) => ExtraPotionsCore.publishSuiteState('shift', 'shift.state-changed', {
   active: Boolean(engineStarted),
   theme: String(state?.theme || 'unknown'),
   safeMode: Boolean(state?.safeMode),
