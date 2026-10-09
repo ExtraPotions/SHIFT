@@ -12,7 +12,7 @@ Automated tests cover:
 - supported-site adapter control visibility, persistence, page classification, and style effect;
 - userscript metadata, package/version agreement, absence of remote executable dependencies/dynamic execution, and clean-generation storage rules.
 
-README screenshots in `docs/screenshots/` provide the current visual evidence for menu layout and palette presentation.
+README screenshots in `docs/screenshots/` provide the current visual evidence for menu layout and palette presentation. Refresh them with `npm run screenshots` (needs exp-core checked out beside SHIFT).
 
 Tested locally with the bundled Playwright Chromium for the Windows development host. Other browsers and userscript managers remain unverified rather than declared unsupported.
 

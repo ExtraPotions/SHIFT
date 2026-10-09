@@ -8,7 +8,7 @@
     "build:check": "node scripts/build.cjs --check",
     "test": "node scripts/build.cjs && node --test tests/*.test.cjs",
     "release:check": "node scripts/release-check.cjs",
-    "screenshots": "node scripts/build.cjs && node scripts/capture-screenshots.cjs",
+    "screenshots": "node ../exp-core/scripts/capture-screenshots.cjs SHIFT",
     "prepare:release:feature": "node scripts/prepare-feature-release.cjs && npm run build",
     "test:installed-browser": "node scripts/test-installed-browser.cjs"
   },
