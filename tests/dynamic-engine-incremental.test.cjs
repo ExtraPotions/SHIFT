@@ -61,7 +61,7 @@ test('a late component with nested shadow roots is themed with no other page cha
     customElements.define('rs-chat', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({ mode: 'open' }); s.innerHTML = '<style>.room{background:#ffffff;color:#0f1a1c}</style><div class="room" id="room">Room</div><chat-msg></chat-msg>'; } });
     document.body.append(document.createElement('rs-chat'));
   });
-  await page.waitForTimeout(2000);
+  await page.waitForFunction(() => { const chat = document.querySelector('rs-chat')?.shadowRoot; const msg = chat?.querySelector('chat-msg')?.shadowRoot?.getElementById('msg'); return chat && msg && getComputedStyle(chat.getElementById('room')).backgroundColor !== 'rgb(255, 255, 255)' && getComputedStyle(msg).backgroundColor !== 'rgb(255, 255, 255)'; }, null, { timeout: 5000 }).catch(() => {});
   const facts = await page.evaluate(() => {
     const chat = document.querySelector('rs-chat').shadowRoot;
     return { room: getComputedStyle(chat.getElementById('room')).backgroundColor, msg: getComputedStyle(chat.querySelector('chat-msg').shadowRoot.getElementById('msg')).backgroundColor };
