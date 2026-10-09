@@ -137,6 +137,20 @@ test('removed components are released from the engine', async t => {
   assert.ok(health.adoptedRoots <= 10, `adopted roots ${health.adoptedRoots}`);
 });
 
+test('a component removed, released, and re-attached after stop keeps none of our copies', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 3); expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
+  await page.evaluate(() => { window.detached = document.querySelector('shift-post'); detached.remove(); });
+  await page.waitForTimeout(1200);
+  const facts = await page.evaluate(() => {
+    expTest.DynamicEngine.stop();
+    document.getElementById('feed').append(detached);
+    return { owned: detached.shadowRoot.adoptedStyleSheets.filter(ownedSheet).length, fallback: detached.shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length, bg: innerBg(detached) };
+  });
+  assert.deepEqual(facts, { owned: 0, fallback: 0, bg: 'rgb(255, 255, 255)' });
+});
+
 test('a cross-origin stylesheet shared by many components is themed in all of them', async t => {
   const page = await fixture(t);
   const href = 'https://cdn.fixture.test/shared.css';

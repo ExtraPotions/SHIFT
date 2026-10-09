@@ -377,10 +377,13 @@ EXP.DynamicEngine = (() => {
     return true;
   }
 
-  // Forgets a shadow root whose host left the document. If the host comes back, the
-  // page observers see it added and it is registered again.
+  // Forgets a shadow root whose host left the document, taking our copies out of it first so
+  // a host re-attached later (even after stop) carries nothing of ours. If the host comes back
+  // while theming, the page observers see it added and it is registered and themed again.
   function releaseRoot(root) {
     if (root === document) return;
+    const keys = new Set([...(shadowCopies.get(root)?.keys() || []), ...(fallbackStyles.get(root)?.keys() || [])]);
+    for (const key of keys) removeCopy(root, key);
     rootObservers.get(root)?.disconnect(); rootObservers.delete(root);
     shadowCopies.delete(root); fallbackStyles.delete(root); knownRoots.delete(root); queue.delete(root);
   }
