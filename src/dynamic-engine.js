@@ -45,6 +45,21 @@ EXP.DynamicEngine = (() => {
   // sheet has no owner node, so the marker is an empty first rule.
   const isOwnedSheet=(sheet)=>{try{return sheet.cssRules?.[0]?.selectorText==='.exp-owned-sheet-marker';}catch{return false;}};
   const DYNAMIC_PRESERVE_GUARD = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
+  // :host is featureless, so `:host:not(...)` never matches; the guard goes inside :host(),
+  // which takes a single compound (a preserved ancestor of the host cannot be expressed there).
+  // Returns null when the selector is not exactly `:host` or `:host(<compound>)`.
+  function hostGuard(selector){
+    const match=/^:host(?:\((.*)\))?$/is.exec(selector);
+    if(!match)return null;
+    const inner=match[1];
+    if(inner===undefined)return ':host(:not([data-exp-shift-preserve]))';
+    let depth=0;
+    for(let i=0;i<inner.length;i++){
+      if(inner[i]==='(')depth++;
+      else if(inner[i]===')'&&--depth<0)return null;
+    }
+    return depth===0?`:host(${inner}:not([data-exp-shift-preserve]))`:null;
+  }
   function guardSelectorText(selectorText){
     const source=String(selectorText||''),parts=[];
     let start=0,paren=0,bracket=0,quote='',escape=false;
@@ -65,9 +80,11 @@ EXP.DynamicEngine = (() => {
         const part=source.slice(start,i).trim();
         if(part&&!/::backdrop\b/i.test(part)){
           const pseudo=part.indexOf('::');
-          parts.push(pseudo>=0
-            ? `${part.slice(0,pseudo)}${DYNAMIC_PRESERVE_GUARD}${part.slice(pseudo)}`
-            : `${part}${DYNAMIC_PRESERVE_GUARD}`);
+          const head=pseudo>=0?part.slice(0,pseudo):part,tail=pseudo>=0?part.slice(pseudo):'';
+          const host=hostGuard(head);
+          parts.push(host
+            ? `${host}${tail}`
+            : `${head}${DYNAMIC_PRESERVE_GUARD}${tail}`);
         }
         start=i+1;
       }

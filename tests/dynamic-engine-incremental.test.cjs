@@ -471,6 +471,48 @@ test('a defined component that attaches its shadow root after insertion is theme
   assert.notEqual(await page.evaluate(() => innerBg(document.querySelector('slow-post'))), 'rgb(255, 255, 255)');
 });
 
+test(':host rules theme the host element unless it is preserved', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    const define = (tag, css) => customElements.define(tag, class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = `<style>${css}</style><span>Host</span>`; } });
+    define('bare-host', ':host{display:block;background:#ffffff;color:#111}');
+    define('arg-host', ':host(.active){display:block;background:#fff}');
+    const feed = document.getElementById('feed');
+    feed.append(document.createElement('bare-host'));
+    const active = document.createElement('arg-host'); active.className = 'active'; feed.append(active);
+    const kept = document.createElement('bare-host'); kept.id = 'kept'; kept.setAttribute('data-exp-shift-preserve', ''); feed.append(kept);
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const hostBgs = () => ({ bare: getComputedStyle(document.querySelector('bare-host:not(#kept)')).backgroundColor, arg: getComputedStyle(document.querySelector('arg-host')).backgroundColor, kept: getComputedStyle(document.getElementById('kept')).backgroundColor });
+  await page.waitForFunction(fn => { const bgs = eval(fn)(); return bgs.bare !== 'rgb(255, 255, 255)' && bgs.arg !== 'rgb(255, 255, 255)'; }, hostBgs.toString(), { timeout: 3000 }).catch(() => {});
+  const facts = await page.evaluate(hostBgs);
+  assert.notEqual(facts.bare, 'rgb(255, 255, 255)', ':host themed');
+  assert.notEqual(facts.arg, 'rgb(255, 255, 255)', ':host(.active) themed');
+  assert.equal(facts.kept, 'rgb(255, 255, 255)', 'preserved host untouched');
+});
+
+test('generated CSS for selectors other than :host is unchanged', async t => {
+  const page = await fixture(t);
+  const css = '.a{background:#ffffff}.b::before{color:#111111}div > p.c, ul li{background:#fafafa}a[href*=","]:hover{color:#222222}:is(.x, .y) .z::after{border-color:#dddddd}:host .inner{background:#ffffff}dialog::backdrop{background:#ffffff}@media (min-width: 1px){.m{background:#ffffff}}';
+  const out = await page.evaluate(css => {
+    document.head.querySelector('style').textContent = css;
+    expTest.DynamicEngine.start(expTest.Themes.resolve('midnight', 'site-default'));
+    return document.querySelector('style[data-exp-shift-dynamic]').textContent;
+  }, css);
+  const guard = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
+  // Captured from the engine before :host guarding changed (c659a2d + round 1).
+  const expected = [
+    `.a${guard}{background-color:rgb(28, 44, 70)!important}`,
+    `.b${guard}::before{color:#d4deeb!important}`,
+    `div > p.c${guard},ul li${guard}{background-color:rgb(27, 43, 68)!important}`,
+    `a[href*=","]:hover${guard}{color:#d4deeb!important}`,
+    `:is(.x, .y) .z${guard}::after{border-top-color:rgb(97, 111, 132)!important;border-right-color:rgb(97, 111, 132)!important;border-bottom-color:rgb(97, 111, 132)!important;border-left-color:rgb(97, 111, 132)!important}`,
+    `:host .inner${guard}{background-color:rgb(28, 44, 70)!important}`,
+    `@media (min-width: 1px){.m${guard}{background-color:rgb(28, 44, 70)!important}}`,
+  ].join('\n');
+  assert.equal(out, expected);
+});
+
 test('text edits inside a component do not trigger adopted-sheet checks or slices', async t => {
   const page = await fixture(t);
   await page.evaluate(() => {
