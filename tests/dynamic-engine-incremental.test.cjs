@@ -245,6 +245,59 @@ test('identical per-component style elements are themed once and share one copy'
   assert.notEqual(changed.bgs[0], facts.bg);
 });
 
+// Per-instance components: each host gets its own <style> with the given text.
+const defineStyled = (page, tag, css, body) => page.evaluate(({ tag, css, body }) => {
+  customElements.define(tag, class extends HTMLElement {
+    connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = `<style>${css}</style>${body}`; }
+  });
+  document.getElementById('feed').append(document.createElement(tag));
+}, { tag, css, body });
+
+test('different stylesheets whose sampled signatures collide are each themed from their own rules', async t => {
+  const page = await fixture(t);
+  // Same even-numbered rules, different odd-numbered rules: a stride sample sees only the even ones.
+  const sheetText = letter => Array.from({ length: 100 }, (_, i) => i % 2 ? `.${letter}${i}{background:#ffffff}` : `.e${i}{color:#1c1c1c}`).join('');
+  await defineStyled(page, 'odd-a', sheetText('a'), '<div class="a1 own">A</div>');
+  await defineStyled(page, 'odd-b', sheetText('b'), '<div class="b1 own">B</div>');
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const ownBg = tag => getComputedStyle(document.querySelector(tag).shadowRoot.querySelector('.own')).backgroundColor;
+  await page.waitForFunction(fn => ['odd-a', 'odd-b'].every(tag => eval(fn)(tag) !== 'rgb(255, 255, 255)'), ownBg.toString(), { timeout: 3000 }).catch(() => {});
+  const facts = await page.evaluate(fn => ({ a: eval(fn)('odd-a'), b: eval(fn)('odd-b') }), ownBg.toString());
+  assert.notEqual(facts.a, 'rgb(255, 255, 255)', 'odd-a own rule themed');
+  assert.notEqual(facts.b, 'rgb(255, 255, 255)', 'odd-b own rule themed');
+});
+
+test('per-instance style variables that differ in one character are each themed from their own text', async t => {
+  const page = await fixture(t);
+  const hostText = surface => `.wrap{--surface:${surface};--ink:#111111;--line:#dddddd;display:block}.box{background:var(--surface)}`;
+  const values = { 'host-a': '#ffffff', 'host-b': '#f0f0f0', 'host-c': '#fffffe' };
+  for (const [tag, value] of Object.entries(values)) await defineStyled(page, tag, hostText(value), '<div class="wrap"><div class="box">Box</div></div>');
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => ['host-a', 'host-b', 'host-c'].every(tag => document.querySelector(tag).shadowRoot.adoptedStyleSheets.some(ownedSheet)), null, { timeout: 3000 }).catch(() => {});
+  const facts = await page.evaluate(values => {
+    const theme = expTest.Themes.resolve('midnight', 'site-default');
+    const probe = document.createElement('div'); document.body.append(probe);
+    const asRgb = color => { probe.style.background = color; return getComputedStyle(probe).backgroundColor; };
+    const out = {};
+    for (const [tag, value] of Object.entries(values)) {
+      const shadow = document.querySelector(tag).shadowRoot;
+      out[tag] = { bg: getComputedStyle(shadow.querySelector('.box')).backgroundColor, expected: asRgb(expTest.ColorEngine.transform(value, 'background', theme, theme.page)), owned: shadow.adoptedStyleSheets.filter(ownedSheet) };
+    }
+    probe.remove();
+    return {
+      a: { bg: out['host-a'].bg, expected: out['host-a'].expected },
+      b: { bg: out['host-b'].bg, expected: out['host-b'].expected },
+      c: { bg: out['host-c'].bg, expected: out['host-c'].expected },
+      distinctCopies: new Set(Object.values(out).flatMap(entry => entry.owned)).size,
+    };
+  }, values);
+  assert.notEqual(facts.a.expected, facts.b.expected, 'fixture values theme differently');
+  assert.equal(facts.a.bg, facts.a.expected);
+  assert.equal(facts.b.bg, facts.b.expected);
+  assert.equal(facts.c.bg, facts.c.expected);
+  assert.equal(facts.distinctCopies, 3, 'each distinct text has its own themed copy');
+});
+
 test('page batches that add nothing do not walk the changed container', async t => {
   const page = await fixture(t);
   await page.evaluate(() => {

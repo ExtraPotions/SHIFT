@@ -14,8 +14,8 @@ EXP.DynamicEngine = (() => {
   let knownRoots = new WeakSet();
   let rootList = [];
   const rootObservers = new Map();
-  const sheetResults = new WeakMap();   // CSSStyleSheet -> { sig, key, css, constructed } (may be shared)
-  const sharedResults = new Map();      // `${themeKey}|${signature}|${budget}` -> the same shared result
+  const sheetResults = new WeakMap();   // CSSStyleSheet -> { sig, key, result }; result = { key, text, indexKey, css, constructed } (may be shared)
+  const sharedResults = new Map();      // `${themeKey}|${signature}|${fullTextHash}|${budget}` -> shared result (text compared on hit)
   const SHARED_LIMIT = 512;
   const remoteOwners = new Map();       // href -> { css, constructed }
   const shadowCopies = new Map();       // ShadowRoot -> Map<sheet | href, constructed sheet>
@@ -174,32 +174,55 @@ EXP.DynamicEngine = (() => {
   const ownedNode = node => Boolean(node?.closest?.('[data-exp-owned="1"]'));
   const liveRoot = root => root === document || Boolean(root?.host?.isConnected);
 
-  // Identical sheets (one <style> per component instance) share one result: one walk, one
-  // css string and one constructed sheet, found through sharedResults by theme + text signature.
+  // Full text of a sheet, for exact identity. A <style> with text is read as written; an empty one
+  // (rules inserted through CSSOM) or a constructed or <link> sheet is serialised rule by rule.
+  function sheetText(sheet) {
+    const owner = sheet.ownerNode;
+    if (owner?.nodeName === 'STYLE') { const text = owner.textContent; if (text) return text; }
+    let text = ''; for (const rule of sheet.cssRules) text += rule.cssText + '\n';
+    return text;
+  }
+  const textHash = (text) => { let hash = 2166136261; for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(36); };
+
+  // Identical sheets (one <style> per component instance) share one result: one walk, one css
+  // string and one constructed sheet. sheetResults is the per-sheet fast path (sampled signature:
+  // "has this sheet changed"); on a miss the sheet's full text is read and sharedResults is looked
+  // up by theme + signature + full-text hash, sharing only when the stored text is identical.
+  // Each shared result keeps its source text for that comparison (bounded by SHARED_LIMIT).
   function themedResult(sheet) {
     const sig = signature(sheet), key = themeKey(theme);
-    let entry = sheetResults.get(sheet);
-    if (entry && entry.sig === sig && entry.key === key) { stats.cacheHits++; return entry; }
-    const indexKey = `${key}|${sig}|${LOCAL_BUDGET}`, shared = sharedResults.get(indexKey);
-    if (shared) { sheetResults.set(sheet, shared); stats.cacheHits++; return shared; }
+    const record = sheetResults.get(sheet);
+    if (record && record.sig === sig && record.key === key) { stats.cacheHits++; return record.result; }
+    const text = sheetText(sheet), indexKey = `${key}|${sig}|${textHash(text)}|${LOCAL_BUDGET}`;
+    const shared = sharedResults.get(indexKey);
+    if (shared && shared.text === text) { sheetResults.set(sheet, { sig, key, result: shared }); stats.cacheHits++; return shared; }
     stats.cacheMisses++;
     const out = []; walk(sheet.cssRules, out, new Map(), LOCAL_BUDGET);
-    // After a theme change the previous result is rethemed in place, so its constructed sheet
-    // (adopted by every root using it) is replaced once; other sheets sharing it then hit.
-    if (!entry || entry.key === key) { entry = { sig, key, css: '', constructed: null }; stats.cachedSheets++; }
-    else if (sharedResults.get(`${entry.key}|${entry.sig}|${LOCAL_BUDGET}`) === entry) sharedResults.delete(`${entry.key}|${entry.sig}|${LOCAL_BUDGET}`);
-    entry.sig = sig; entry.key = key; entry.css = out.join('\n');
-    if (entry.constructed) { try { entry.constructed.replaceSync(OWNED_MARKER + entry.css); } catch { entry.constructed = null; } }
-    sheetResults.set(sheet, entry);
-    sharedResults.set(indexKey, entry);
-    if (sharedResults.size > SHARED_LIMIT) sharedResults.delete(sharedResults.keys().next().value);
-    return entry;
+    // After a theme change a result whose text is unchanged is rethemed in place, so its
+    // constructed sheet (adopted by every root using it) is replaced once; other sheets with the
+    // same text then hit. A result is never rewritten with a different text.
+    let result = record?.result;
+    if (!result || result.key === key || result.text !== text) { result = { key, text, indexKey, css: '', constructed: null }; stats.cachedSheets++; }
+    else if (sharedResults.get(result.indexKey) === result) sharedResults.delete(result.indexKey);
+    result.key = key; result.indexKey = indexKey; result.css = out.join('\n');
+    if (result.constructed) updateConstructed(result, result.css);
+    sheetResults.set(sheet, { sig, key, result });
+    // A hash hit with different text keeps the existing entry; this result stays private.
+    if (!shared) {
+      sharedResults.set(indexKey, result);
+      if (sharedResults.size > SHARED_LIMIT) sharedResults.delete(sharedResults.keys().next().value);
+    }
+    return result;
+  }
+
+  function updateConstructed(owner, css) {
+    try { owner.constructed.replaceSync(OWNED_MARKER + css); } catch { owner.constructed = null; }
   }
 
   function remoteOwner(href, css) {
     let owner = remoteOwners.get(href);
     if (!owner) { owner = { css: '', constructed: null }; remoteOwners.set(href, owner); }
-    if (owner.constructed && owner.css !== css) { try { owner.constructed.replaceSync(OWNED_MARKER + css); } catch { owner.constructed = null; } }
+    if (owner.constructed && owner.css !== css) updateConstructed(owner, css);
     owner.css = css;
     return owner;
   }
@@ -487,8 +510,8 @@ EXP.DynamicEngine = (() => {
     if (copies) for (const copy of copies.values()) if (!adopted.includes(copy)) return true;
     for (const sheet of adopted) {
       if (copies?.has(sheet) || fallback?.has(sheet) || isOwnedSheet(sheet)) continue;
-      const entry = sheetResults.get(sheet);
-      if (!entry || entry.css) return true;
+      const record = sheetResults.get(sheet);
+      if (!record || record.result.css) return true;
     }
     return false;
   }
