@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.14';
+EXP.VERSION = '3.5.15';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.15': ["Shortens the README to a quick overview of what SHIFT does.","Replaces the README screenshots with current captures of the menu."],
     '3.5.14': ["Gives each menu category a distinct, meaningful icon.","Tightens typography and reduces panel width and spacing while preserving every control and setting.","Keeps readable text, menu-size preferences, compact tabs, and each product color."],
     '3.5.13': ["Matches the approved Lean menu proportions, header, flat surfaces, section navigation, compact tabs, controls, and footer.","Preserves every existing control and setting, each product color, readable menu sizes, and System last."],
     '3.5.12': ["Gives menus a lighter layout with subtle section dividers and softly filled tabs.","Keeps every existing control, setting, and product color, with consistent spacing and readable text."],
