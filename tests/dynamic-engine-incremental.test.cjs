@@ -119,7 +119,9 @@ test('a Reddit-sized page themes everything without long engine slices', async t
   const facts = await page.evaluate(() => ({ unthemed: unthemedPosts(), health: expTest.DynamicEngine.health() }));
   assert.equal(facts.unthemed, 0, `unthemed ${facts.unthemed}`);
   assert.ok(facts.health.maxSliceMs < 50, `longest slice ${facts.health.maxSliceMs} ms`);
-  assert.ok(facts.health.totalMs < 750, `total engine time ${facts.health.totalMs} ms`);
+  // Spec: total engine time at least 5x below the pre-change engine. On this fixture (150 distinct
+  // sheets, 40 style waves) the pre-change baseline was 6,170 ms, so the budget is 1,200 ms.
+  assert.ok(facts.health.totalMs < 1200, `total engine time ${facts.health.totalMs} ms`);
   assert.ok(facts.health.knownRoots >= 1521, `known roots ${facts.health.knownRoots}`);
 });
 
