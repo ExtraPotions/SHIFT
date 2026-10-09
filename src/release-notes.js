@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.16';
+EXP.VERSION = '3.5.17';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.17': ["Captures README screenshots with the shared ExtraPotions tool.","Keeps the README screenshot list in step with the README."],
     '3.5.16': ["Checks for updates by default on new installs, at most every 12 hours.","Labels the launcher with the new version when an update is ready."],
     '3.5.15': ["Shortens the README to a quick overview of what SHIFT does.","Replaces the README screenshots with current captures of the menu."],
     '3.5.14': ["Gives each menu category a distinct, meaningful icon.","Tightens typography and reduces panel width and spacing while preserving every control and setting.","Keeps readable text, menu-size preferences, compact tabs, and each product color."],
@@ -381,7 +382,7 @@ EXP.ReleaseNotes = (() => {
     return fragment;
   }
 
-  const QUIET_RELEASES = Object.freeze([]);
+  const QUIET_RELEASES = Object.freeze(["3.5.17"]);
   function isQuietUpgrade(previous) { return ExtraPotionsCore.isQuietUpgrade(previous, EXP.VERSION, Object.keys(NOTES), QUIET_RELEASES); }
   return Object.freeze({ forVersion, renderChangelog, isQuietUpgrade, QUIET_RELEASES });
 })();

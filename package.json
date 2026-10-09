@@ -1,6 +1,6 @@
 {
   "name": "extrapotions-shift",
-  "version": "3.5.16",
+  "version": "3.5.17",
   "private": true,
   "description": "SHIFT semantic appearance userscript",
   "scripts": {

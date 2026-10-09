@@ -1,3 +1,8 @@
+## 3.5.17 — 2026-10-09 (quiet)
+
+- Captures README screenshots with the shared ExtraPotions tool.
+- Keeps the README screenshot list in step with the README.
+
 ## 3.5.16 — 2026-10-09
 
 - Checks for updates by default on new installs, at most every 12 hours.
