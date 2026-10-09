@@ -51,13 +51,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
+// The engine requires Core's shared page observer (commit 44043f0), so Core loads first.
+const core = fs.readFileSync(path.join(__dirname, '../vendor/exp-core/exp-core.js'), 'utf8');
 const source = ['themes.js', 'color-engine.js', 'dynamic-engine.js'].map(file => fs.readFileSync(path.join(__dirname, '../src', file), 'utf8')).join('\n');
 
 async function fixture(t) {
   const browser = await chromium.launch(); t.after(() => browser.close());
   const page = await browser.newPage();
   await page.setContent('<!doctype html><html><head><style>body{background:#fff;color:#111}</style></head><body><main id="feed"></main></body></html>');
-  await page.addScriptTag({ content: `const EXP={Core:{safeError(){}}};${source};window.expTest=EXP;` });
+  await page.addScriptTag({ content: `${core}\nconst EXP={Core:{safeError(){}}};${source};window.expTest=EXP;` });
   await page.evaluate(() => {
     window.white = 'rgb(255, 255, 255)';
     window.ownedSheet = sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } };
@@ -192,7 +194,7 @@ cd SHIFT && git add tests/dynamic-engine-incremental.test.cjs && git commit -m "
 - [ ] **Step 1: Declarations** — at the top of the module:
   - Delete `const remoteHandles = new Map();` and `const cache = new Map();`.
   - In the `stats` object literal, append `, slices:0, totalMs:0, maxSliceMs:0, passes:0, cachedSheets:0`.
-  - Replace `let observer=null, sharedObserverCleanup=null, timer=0, active=false, ...` with the same line minus `timer=0, `.
+  - Replace `let sharedObserverCleanup=null, timer=0, active=false, ...` with the same line minus `timer=0, `. (Commit 44043f0 already removed `observer`; the engine always uses `ExtraPotionsCore.observePageBatch`.)
   - After `const watchedLinks = new WeakSet();` add:
 
 ```js
@@ -420,7 +422,7 @@ cd SHIFT && git add tests/dynamic-engine-incremental.test.cjs && git commit -m "
     theme = nextTheme; lastThemeKey = themeKey(nextTheme); active = true;
     registerRoot(document); discoverIn(document);
     fullPass();
-    observer?.disconnect(); observer = null; sharedObserverCleanup?.(); sharedObserverCleanup = null;
+    sharedObserverCleanup?.(); sharedObserverCleanup = null;
     const inspectRoots = roots => {
       let styled = false;
       for (const root of roots || []) {
@@ -431,26 +433,13 @@ cd SHIFT && git add tests/dynamic-engine-incremental.test.cjs && git commit -m "
       if (styled) queue.add(document);
       scheduleSlice();
     };
-    if (globalThis.ExtraPotionsCore?.observePageBatch) {
-      sharedObserverCleanup = globalThis.ExtraPotionsCore.observePageBatch((_batch, roots) => inspectRoots(roots), { productId: 'shift' });
-    } else {
-      observer = new MutationObserver(ms => {
-        const roots = [];
-        for (const mutation of ms) {
-          const target = mutation.target?.nodeType === Node.TEXT_NODE ? mutation.target.parentElement : mutation.target;
-          if (target) roots.push(target);
-          for (const node of mutation.addedNodes) if (node?.nodeType === 1) roots.push(node);
-        }
-        inspectRoots(roots);
-      });
-      observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
-    }
+    sharedObserverCleanup = ExtraPotionsCore.observePageBatch((_batch, roots) => inspectRoots(roots), { productId: 'shift' });
   }
 
   function stop() {
     active = false; nativeDarkMode = false; generation++; pendingRemote.clear();
     sliceHandle?.cancel(); sliceHandle = null; queue.clear();
-    sharedObserverCleanup?.(); sharedObserverCleanup = null; observer?.disconnect(); observer = null;
+    sharedObserverCleanup?.(); sharedObserverCleanup = null;
     for (const watcher of rootObservers.values()) watcher.disconnect();
     rootObservers.clear();
     for (const root of new Set([...shadowCopies.keys(), ...fallbackStyles.keys()])) {
