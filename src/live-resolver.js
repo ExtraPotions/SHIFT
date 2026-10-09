@@ -135,7 +135,8 @@ EXP.LiveResolver = (() => {
     return true;
   }
   function applyWrites(){
-    const writes=pendingWrites;pendingWrites=new Map();pendingColors.clear();
+    // Keep batching only inside a pass; outside one, later writes land immediately.
+    const writes=pendingWrites;pendingWrites=writes?new Map():null;pendingColors.clear();
     for(const [el,{styles,attrs}] of writes||[]){
       if(styles.size){
         selfMutations.add(el);

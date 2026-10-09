@@ -308,7 +308,8 @@ test('page batches that add nothing do not walk the changed container', async t 
   });
   await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
   await page.waitForTimeout(500);
-  const baseline = await page.evaluate(() => expTest.DynamicEngine.health().discoverMs);
+  const read = () => { const health = expTest.DynamicEngine.health(); return { ms: health.discoverMs, calls: health.discoverCalls, elements: health.discoverElements }; };
+  const baseline = await page.evaluate(read);
   await page.evaluate(async () => {
     const box = document.getElementById('box');
     for (let i = 0; i < 30; i++) {
@@ -317,9 +318,11 @@ test('page batches that add nothing do not walk the changed container', async t 
     }
   });
   await page.waitForTimeout(300);
-  const spent = await page.evaluate(() => expTest.DynamicEngine.health().discoverMs);
-  assert.equal(typeof spent, 'number');
-  assert.ok(spent - baseline < 10, `discovery time ${spent - baseline} ms over 30 add-free batches`);
+  const spent = await page.evaluate(read);
+  assert.equal(typeof spent.elements, 'number');
+  assert.equal(spent.calls - baseline.calls, 0, 'no discovery walks over 30 add-free batches');
+  assert.equal(spent.elements - baseline.elements, 0, 'no elements visited over 30 add-free batches');
+  assert.ok(spent.ms - baseline.ms < 50, `discovery time ${spent.ms - baseline.ms} ms over 30 add-free batches`);
   await page.evaluate(() => {
     customElements.define('box-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Box</div>'; } });
     document.getElementById('box').append(document.createElement('box-post'));
@@ -347,4 +350,144 @@ test('an in-place edit of a component style element is themed', async t => {
   assert.notEqual(facts.part, 'rgb(240, 240, 240)');
   assert.notEqual(facts.late, 'rgb(240, 240, 240)');
   assert.equal(facts.copies, 1);
+});
+
+test('a never-defined tag is watched once across repeated theme on and off', async t => {
+  const page = await fixture(t);
+  const calls = await page.evaluate(`(() => {
+    let calls = 0;
+    const original = customElements.whenDefined.bind(customElements);
+    customElements.whenDefined = tag => { if (tag === 'never-post') calls++; return original(tag); };
+    document.getElementById('feed').append(document.createElement('never-post'));
+    for (let i = 0; i < 5; i++) { expTest.DynamicEngine.start(${midnight}); expTest.DynamicEngine.stop(); }
+    return calls;
+  })()`);
+  assert.equal(calls, 1);
+});
+
+test('health after stop and start reflects only the new run', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`definePost(makeSheets(3)); addPosts(0, 300); expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
+  const first = await page.evaluate(() => expTest.DynamicEngine.health());
+  await page.evaluate(`expTest.DynamicEngine.stop(); document.getElementById('feed').replaceChildren(); expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForTimeout(300);
+  const second = await page.evaluate(() => expTest.DynamicEngine.health());
+  assert.equal(second.passes, 1, JSON.stringify(second));
+  assert.ok(second.slices < first.slices, `slices ${second.slices} vs first run ${first.slices}`);
+  assert.ok(second.totalMs <= first.totalMs, `total ${second.totalMs} vs first run ${first.totalMs}`);
+  assert.equal(second.cacheMisses, 0, 'the page sheet was cached in the first run');
+  assert.equal(second.discoverElements < first.discoverElements, true);
+});
+
+test('health reports shadow roots found after start', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`definePost(makeSheets(1, 5)); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(() => addPosts(0, 7));
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => expTest.DynamicEngine.health().shadowRoots), 7);
+});
+
+test('a theme change whose remote fetch fails leaves no old-theme remote copy, and stop forgets remote owners', async t => {
+  const page = await fixture(t);
+  const href = 'https://styles.fixture.test/remote.css';
+  await page.route(href, route => route.fulfill({ status: 200, contentType: 'text/css', body: '.remote-inner{background:#ffffff;color:#111}' }));
+  await page.evaluate(async href => {
+    let requests = 0;
+    window.GM_xmlhttpRequest = ({ onload, onerror }) => {
+      const first = ++requests === 1;
+      setTimeout(() => first ? onload({ status: 200, responseText: '.remote-inner{background:#ffffff;color:#111}' }) : onerror(), 20);
+      return { abort() {} };
+    };
+    customElements.define('remote-card', class extends HTMLElement {
+      connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = `<link rel="stylesheet" href="${href}"><div class="remote-inner">Remote</div>`; }
+    });
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href; document.head.append(link);
+    await new Promise(resolve => { link.onload = resolve; });
+    document.getElementById('feed').append(document.createElement('remote-card'));
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }, href);
+  const copies = () => ({
+    documentRemote: document.querySelectorAll('style[data-exp-shift-dynamic-remote]').length,
+    shadowRemote: document.querySelector('remote-card').shadowRoot.adoptedStyleSheets.filter(ownedSheet).length + document.querySelector('remote-card').shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length,
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(fn => { const c = eval(fn)(); return c.documentRemote === 1 && c.shadowRemote === 1; }, copies.toString(), { timeout: 3000 });
+  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
+  await page.waitForTimeout(500);
+  const afterFailure = await page.evaluate(copies);
+  assert.deepEqual(afterFailure, { documentRemote: 0, shadowRemote: 0 });
+  await page.evaluate(() => expTest.DynamicEngine.stop());
+  assert.equal(await page.evaluate(() => expTest.DynamicEngine.health().remoteOwners), 0);
+});
+
+test('a failed in-place replace still moves every component to the new theme', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 10); expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
+  const before = await page.evaluate(() => innerBg(document.querySelector('shift-post')));
+  const facts = await page.evaluate(async () => {
+    const posts = [...document.querySelectorAll('shift-post')];
+    // Slices run on setTimeout, and the first component takes a whole slice, so the state right
+    // after the failing slice (before any other component is reprocessed) can be observed.
+    window.requestIdleCallback = undefined;
+    const styleSheets = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'styleSheets').get;
+    Object.defineProperty(posts[0].shadowRoot, 'styleSheets', { get() { const end = performance.now() + 12; while (performance.now() < end); return styleSheets.call(this); } });
+    const original = CSSStyleSheet.prototype.replaceSync;
+    let failed = null, staleAfterFailingSlice = null;
+    // Fail the first in-place replace of a themed copy already adopted by every component.
+    CSSStyleSheet.prototype.replaceSync = function (text) {
+      if (!failed && String(text).startsWith('.exp-owned-sheet-marker') && ownedSheet(this)) {
+        failed = this;
+        setTimeout(() => { staleAfterFailingSlice = posts.filter(post => post.shadowRoot.adoptedStyleSheets.includes(failed)).length; }, 0);
+        throw new Error('replace failed');
+      }
+      return original.call(this, text);
+    };
+    expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default'));
+    await new Promise(resolve => setTimeout(resolve, 800));
+    CSSStyleSheet.prototype.replaceSync = original;
+    return { failed: Boolean(failed), staleAfterFailingSlice, bgs: [...new Set(posts.map(innerBg))], copies: [...new Set(posts.map(post => post.shadowRoot.adoptedStyleSheets.filter(ownedSheet).length + post.shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length))] };
+  });
+  assert.equal(facts.failed, true, 'the forced failure happened');
+  assert.equal(facts.staleAfterFailingSlice, 0, 'no component keeps the old-theme copy once the replace fails');
+  assert.equal(facts.bgs.length, 1, JSON.stringify(facts.bgs));
+  assert.notEqual(facts.bgs[0], before);
+  assert.deepEqual(facts.copies, [1]);
+});
+
+test('a defined component that attaches its shadow root after insertion is themed', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    // Core's page batch arrives about 60 ms after insertion; the shadow root comes later still.
+    customElements.define('slow-post', class extends HTMLElement {
+      connectedCallback() { setTimeout(() => { if (!this.shadowRoot) this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Slow</div>'; }, 120); }
+    });
+    document.getElementById('feed').append(document.createElement('slow-post'));
+  });
+  await page.waitForFunction(() => document.querySelector('slow-post').shadowRoot && innerBg(document.querySelector('slow-post')) !== white, null, { timeout: 3000 }).catch(() => {});
+  assert.notEqual(await page.evaluate(() => innerBg(document.querySelector('slow-post'))), 'rgb(255, 255, 255)');
+});
+
+test('text edits inside a component do not trigger adopted-sheet checks or slices', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    customElements.define('ticker-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner"><span class="value">0</span></div>'; } });
+    document.getElementById('feed').append(document.createElement('ticker-post'));
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => innerBg(document.querySelector('ticker-post')) !== white, null, { timeout: 3000 });
+  await page.waitForTimeout(200);
+  const read = () => { const health = expTest.DynamicEngine.health(); return { checks: health.adoptedChecks, slices: health.slices, calls: health.discoverCalls }; };
+  const before = await page.evaluate(read);
+  await page.evaluate(async () => {
+    const text = document.querySelector('ticker-post').shadowRoot.querySelector('.value').firstChild;
+    for (let i = 1; i <= 200; i++) { text.data = String(i); if (i % 20 === 0) await new Promise(resolve => setTimeout(resolve, 10)); }
+  });
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(read);
+  assert.equal(typeof after.checks, 'number');
+  assert.deepEqual({ checks: after.checks - before.checks, slices: after.slices - before.slices, calls: after.calls - before.calls }, { checks: 0, slices: 0, calls: 0 });
 });

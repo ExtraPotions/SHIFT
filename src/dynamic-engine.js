@@ -1,7 +1,7 @@
 EXP.DynamicEngine = (() => {
   const handles = new Map();
   const remoteCache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, discoverMs:0, passes:0, cachedSheets:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, discoverMs:0, discoverCalls:0, discoverElements:0, adoptedChecks:0, passes:0, cachedSheets:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let sharedObserverCleanup=null, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
@@ -23,7 +23,10 @@ EXP.DynamicEngine = (() => {
   const queue = new Set();
   let sliceHandle = null;
   const remoteWaiters = new Map();      // pending remote key -> Set<root> that need the result
-  const pendingTags = new Set();        // custom element names awaiting customElements.define
+  const watchedTags = new Set();        // custom element names with a whenDefined watch (page lifetime)
+  let lateChecked = new WeakSet();      // defined elements already queued for a late shadow-root check (per run)
+  let lateFrame = [];
+  const LATE_SHADOW_MS = 250;
   const SWEEP_DELAY_MS = 500;
   let sweepTimer = 0, sweptSize = 0;
 
@@ -215,8 +218,22 @@ EXP.DynamicEngine = (() => {
     return result;
   }
 
+  // Replaces a shared constructed sheet's content in place. If that fails, a fresh sheet takes
+  // its place in every root adopting the old one (or, failing that, a <style> per root), so no
+  // root waits for its own reprocessing with the previous theme's CSS.
   function updateConstructed(owner, css) {
-    try { owner.constructed.replaceSync(OWNED_MARKER + css); } catch { owner.constructed = null; }
+    const old = owner.constructed;
+    try { old.replaceSync(OWNED_MARKER + css); return; } catch {}
+    let fresh = null;
+    try { fresh = new CSSStyleSheet(); fresh.replaceSync(OWNED_MARKER + css); } catch { fresh = null; }
+    owner.constructed = fresh;
+    for (const [root, copies] of shadowCopies) {
+      for (const [key, sheet] of [...copies]) {
+        if (sheet !== old) continue;
+        if (fresh) { try { root.adoptedStyleSheets = root.adoptedStyleSheets.map(item => item === old ? fresh : item); copies.set(key, fresh); continue; } catch {} }
+        removeCopy(root, key); fallbackStyle(root, key, css);
+      }
+    }
   }
 
   function remoteOwner(href, css) {
@@ -225,6 +242,12 @@ EXP.DynamicEngine = (() => {
     if (owner.constructed && owner.css !== css) updateConstructed(owner, css);
     owner.css = css;
     return owner;
+  }
+
+  function dropRemote(href) {
+    handles.get(href)?.remove(); handles.delete(href);
+    for (const root of new Set([...shadowCopies.keys(), ...fallbackStyles.keys()])) removeCopy(root, href);
+    remoteOwners.delete(href);
   }
 
   function removeCopy(root, key) {
@@ -264,6 +287,11 @@ EXP.DynamicEngine = (() => {
         return;
       } catch {}
     }
+    fallbackStyle(root, key, css);
+  }
+
+  function fallbackStyle(root, key, css) {
+    const fallback = mapFor(fallbackStyles, root);
     let style = fallback.get(key);
     if (!style?.isConnected) { style = document.createElement('style'); style.dataset.expOwned = '1'; style.dataset.expShiftDynamic = '1'; root.append(style); fallback.set(key, style); }
     if (style.textContent !== css) style.textContent = css;
@@ -396,6 +424,13 @@ EXP.DynamicEngine = (() => {
     try{root?.querySelectorAll?.('link[rel~="stylesheet"]').forEach(watchStylesheetLink);}catch{}
   }
 
+  // Stats scopes: resetRunStats() fields count work since the last full pass (a root processed
+  // again between passes counts again); resetRunTotals() fields accumulate over one run (start to
+  // stop); remoteLifetime and the *Lifetime health fields span the page's lifetime.
+  function resetRunTotals() {
+    stats.runs = stats.passes = stats.slices = stats.totalMs = stats.maxSliceMs = stats.discoverMs = stats.discoverCalls = stats.discoverElements = stats.adoptedChecks = stats.cacheHits = stats.cacheMisses = stats.cachedSheets = stats.stylesheetLoads = 0;
+  }
+
   function resetRunStats() {
     stats.sheets = stats.rulesSeen = stats.rulesGenerated = stats.inaccessible = stats.remoteSheets = stats.remoteRules = stats.remoteFailures = stats.remoteSkippedNoHref = stats.variables = stats.groups = stats.shadowRoots = stats.adoptedSheets = stats.inferredVariables = stats.skippedSemanticVariables = stats.gradients = stats.layeredBackgrounds = stats.preservedImages = stats.currentColor = stats.colorMix = stats.masks = stats.filters = 0;
   }
@@ -438,24 +473,52 @@ EXP.DynamicEngine = (() => {
   }
 
   // A custom element inserted before its definition gets its shadow root while upgrading,
-  // which no observer reports; the definition promise is the signal to look again.
+  // which no observer reports; the definition promise is the signal to look again. Each tag is
+  // watched once for the page's lifetime (across stop/start); the result acts only while active.
   function watchDefinition(tag) {
-    if (pendingTags.has(tag) || typeof globalThis.customElements?.whenDefined !== 'function') return;
-    pendingTags.add(tag);
+    if (watchedTags.has(tag) || typeof globalThis.customElements?.whenDefined !== 'function') return;
+    watchedTags.add(tag);
     globalThis.customElements.whenDefined(tag).then(() => {
-      if (!pendingTags.delete(tag) || !active) return;
+      if (!active) return;
       for (const root of [...rootList]) { try { root.querySelectorAll(tag).forEach(discoverIn); } catch {} }
       scheduleSlice();
-    }, () => pendingTags.delete(tag));
+    }, () => {});
+  }
+
+  // A defined element may attach its shadow root after insertion (in a timer or microtask), which
+  // no observer reports either. Such elements are looked at again on the next frame and once
+  // more about 250 ms later; one frame and one timer serve each batch, and each element is
+  // checked at most once.
+  function watchLateShadow(el) {
+    if (lateChecked.has(el)) return;
+    lateChecked.add(el); lateFrame.push(el);
+    if (lateFrame.length > 1) return;
+    const frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn => setTimeout(fn, 16));
+    frame(() => {
+      const batch = lateFrame; lateFrame = [];
+      if (!active) return;
+      const waiting = batch.filter(node => !adoptLateShadow(node));
+      if (waiting.length) setTimeout(() => { if (active) waiting.forEach(adoptLateShadow); }, LATE_SHADOW_MS);
+    });
+  }
+  function adoptLateShadow(el) {
+    if (!el.isConnected) return true;
+    if (!el.shadowRoot) return false;
+    if (!knownRoots.has(el.shadowRoot)) { discoverIn(el); scheduleSlice(); }
+    return true;
   }
 
   // Registers every shadow root inside node (including nested ones) and queues them.
   function discoverIn(node) {
+    stats.discoverCalls++;
     const visit = el => {
+      stats.discoverElements++;
       const shadow = el.shadowRoot;
       if (!shadow) {
         const tag = el.localName;
-        if (tag?.includes('-') && !pendingTags.has(tag) && !globalThis.customElements?.get?.(tag) && !ownedNode(el)) watchDefinition(tag);
+        if (!tag?.includes('-') || ownedNode(el)) return;
+        if (globalThis.customElements?.get?.(tag)) watchLateShadow(el);
+        else watchDefinition(tag);
         return;
       }
       if (knownRoots.has(shadow) || ownedNode(el)) return;
@@ -471,8 +534,11 @@ EXP.DynamicEngine = (() => {
 
   const addsStyles = node => node?.nodeType === 1 && (Boolean(node.matches?.('style,link[rel~="stylesheet"]')) || Boolean(node.querySelector?.('style,link[rel~="stylesheet"]')));
 
+  // Text edits outside a <style> (tickers, chat) say nothing about styles; a batch made only of
+  // those is ignored entirely.
+  const styleTextEdit = record => record.target?.parentNode?.nodeName === 'STYLE' && !ownedNode(record.target.parentNode);
   function onRootMutations(root, records) {
-    if (!active) return;
+    if (!active || records.every(record => record.type === 'characterData' && !styleTextEdit(record))) return;
     const started = performance.now();
     try {
       let styled = false, removed = false;
@@ -480,8 +546,7 @@ EXP.DynamicEngine = (() => {
         if (record.target?.nodeName === 'STYLE' && !ownedNode(record.target)) styled = true;
         // An in-place edit of a style's text node (style.firstChild.data = ...).
         if (record.type === 'characterData') {
-          const parent = record.target?.parentNode;
-          if (parent?.nodeName === 'STYLE' && !ownedNode(parent)) styled = true;
+          if (styleTextEdit(record)) styled = true;
           continue;
         }
         for (const node of record.addedNodes) {
@@ -505,6 +570,7 @@ EXP.DynamicEngine = (() => {
   // their next DOM change is the signal to check the adopted list again.
   function adoptedStale(root) {
     if (root === document) return false;
+    stats.adoptedChecks++;
     let adopted; try { adopted = root.adoptedStyleSheets || []; } catch { return false; }
     const copies = shadowCopies.get(root), fallback = fallbackStyles.get(root);
     if (copies) for (const copy of copies.values()) if (!adopted.includes(copy)) return true;
@@ -549,7 +615,6 @@ EXP.DynamicEngine = (() => {
   function fullPass() {
     resetRunStats(); stats.runs++; stats.passes++;
     sweepDead();
-    stats.shadowRoots = Math.max(0, rootList.length - 1);
     const started = performance.now();
     try { processRoot(document); } catch (error) { reportError(error); }
     finally { recordSlice(started); }
@@ -565,6 +630,9 @@ EXP.DynamicEngine = (() => {
     if (lastThemeKey && lastThemeKey !== nextKey) {
       generation++; pendingRemote.clear(); remoteWaiters.clear();
       for (const indexKey of [...sharedResults.keys()]) if (!indexKey.startsWith(`${nextKey}|`)) sharedResults.delete(indexKey);
+      // A remote copy is rethemed only once its new-theme result arrives; until then (or if that
+      // fetch fails) the page is better without it than with the previous theme's colors.
+      for (const href of [...remoteOwners.keys()]) if (!remoteCache.has(`${href}|${nextKey}`)) dropRemote(href);
     }
     theme = nextTheme; lastThemeKey = nextKey;
     queue.clear(); sliceHandle?.cancel(); sliceHandle = null;
@@ -599,7 +667,9 @@ EXP.DynamicEngine = (() => {
   }
 
   function stop() {
-    active = false; nativeDarkMode = false; generation++; pendingRemote.clear(); remoteWaiters.clear(); pendingTags.clear();
+    active = false; nativeDarkMode = false; generation++; pendingRemote.clear(); remoteWaiters.clear(); remoteOwners.clear();
+    lateFrame = []; lateChecked = new WeakSet();
+    resetRunStats(); resetRunTotals();
     sliceHandle?.cancel(); sliceHandle = null; queue.clear();
     clearTimeout(sweepTimer); sweepTimer = 0; sweptSize = 0;
     sharedObserverCleanup?.(); sharedObserverCleanup = null;
@@ -618,7 +688,7 @@ EXP.DynamicEngine = (() => {
   function health() {
     const handleKeys = [...handles.keys()];
     return {
-      ...stats, nativeDarkMode,
+      ...stats, nativeDarkMode, shadowRoots: Math.max(0, rootList.length - 1),
       pendingRemote: pendingRemote.size,
       pendingRemoteHosts: [...new Set([...pendingRemote.keys()].map(key => { try { return new URL(key.split('|')[0]).hostname; } catch { return ''; } }).filter(Boolean))].slice(0, 12),
       remoteAttemptHosts: [...remoteLifetime.hosts].slice(0, 12),
@@ -627,7 +697,8 @@ EXP.DynamicEngine = (() => {
       lastRemoteSuccessAt: remoteLifetime.lastSuccessAt || null, lastRemoteFailure: remoteLifetime.lastFailure ? { ...remoteLifetime.lastFailure } : null,
       handles: handleKeys.filter(key => typeof key !== 'string').length,
       remoteHandles: handleKeys.filter(key => typeof key === 'string').length,
-      cacheEntries: stats.cachedSheets, remoteCacheEntries: remoteCache.size,
+      // Themed results built this run; results kept from an earlier run are reused, not counted.
+      cacheEntries: stats.cachedSheets, remoteCacheEntries: remoteCache.size, remoteOwners: remoteOwners.size,
       knownRoots: rootList.length,
       adoptedRoots: [...shadowCopies.values()].filter(map => map.size).length,
       fallbackRoots: [...fallbackStyles.values()].filter(map => map.size).length,
