@@ -43,7 +43,7 @@ if (JSON.stringify(grants) !== JSON.stringify(allowedGrants)) throw new Error(`R
 if (!readable.includes("repository: 'ExtraPotions/SHIFT'") || !readable.includes("'https://api.github.com/repos/' + repository + '/releases/latest'") || !artifact.includes('ExtraPotions/SHIFT') || !artifact.includes('https://api.github.com/repos/')) throw new Error('Release blocked: Core update metadata endpoint does not match the network inventory.');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
-const versionHeader = new RegExp(`^## ${pkg.version.replaceAll('.', '\\.')} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
+const versionHeader = new RegExp(`^## ${pkg.version.replaceAll('.', '\\.')} — \\d{4}-\\d{2}-\\d{2}(?: \\(quiet\\))?$`, 'm');
 if (!versionHeader.test(changelog)) throw new Error(`Release blocked: CHANGELOG.md is missing a dated header for ${pkg.version}.`);
 const section = changelog.slice(changelog.search(versionHeader)).split(/\n## /)[0];
 const bullets = [...section.matchAll(/^- (.+)$/gm)].map((match) => match[1]);

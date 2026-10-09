@@ -380,5 +380,7 @@ EXP.ReleaseNotes = (() => {
     return fragment;
   }
 
-  return Object.freeze({ forVersion, renderChangelog });
+  const QUIET_RELEASES = Object.freeze([]);
+  function isQuietUpgrade(previous) { return ExtraPotionsCore.isQuietUpgrade(previous, EXP.VERSION, Object.keys(NOTES), QUIET_RELEASES); }
+  return Object.freeze({ forVersion, renderChangelog, isQuietUpgrade, QUIET_RELEASES });
 })();

@@ -22,7 +22,7 @@ test('legacy release-note files and screenshots are removed', () => {
 
 test('CHANGELOG and in-app release notes use the shared Core release format', () => {
   const escapedVersion = pkg.version.replaceAll('.', '\\.');
-  const header = new RegExp(`^## ${escapedVersion} — \\d{4}-\\d{2}-\\d{2}$`, 'm');
+  const header = new RegExp(`^## ${escapedVersion} — \\d{4}-\\d{2}-\\d{2}(?: \\(quiet\\))?$`, 'm');
   assert.match(changelog, header);
   const section = changelog.slice(changelog.search(header)).split(/\n## /)[0];
   const bullets = [...section.matchAll(/^- (.+)$/gm)].map((match) => match[1]);
