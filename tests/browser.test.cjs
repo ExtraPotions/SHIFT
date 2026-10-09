@@ -1389,12 +1389,12 @@ test('3.1 color engine transforms styles inside open shadow roots', async (t) =>
     shadow.querySelector('[data-section="appearance"]').click();
     shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
   });
-  await page.waitForFunction(() => document.getElementById('component-host').shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
+  await page.waitForFunction(() => document.getElementById('component-host').shadowRoot.adoptedStyleSheets.some(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } }));
   const facts = await page.evaluate(() => {
     const shadow = document.getElementById('component-host').shadowRoot;
     return {
       bg: getComputedStyle(shadow.getElementById('part')).backgroundColor,
-      generated: shadow.querySelectorAll('style[data-exp-shift-dynamic]').length,
+      generated: shadow.adoptedStyleSheets.filter(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } }).length,
     };
   });
   assert.notEqual(facts.bg, 'rgb(241, 241, 241)');
@@ -1412,6 +1412,7 @@ test('3.1 color engine transforms adopted stylesheets without replacing site she
     const shadow = host.attachShadow({ mode: 'open' });
     const sheet = new CSSStyleSheet();
     sheet.replaceSync('.adopted-part{background:#f5f5f5;color:#181818;border:1px solid #ccc}');
+    window.__siteSheet = sheet;
     shadow.adoptedStyleSheets = [sheet];
     const part = document.createElement('div');
     part.id = 'adopted-part';
@@ -1427,17 +1428,14 @@ test('3.1 color engine transforms adopted stylesheets without replacing site she
     shadow.querySelector('[data-section="appearance"]').click();
     shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
   });
-  await page.waitForFunction(() => document.getElementById('adopted-host').shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
+  await page.waitForFunction(() => document.getElementById('adopted-host').shadowRoot.adoptedStyleSheets.some(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } }));
   const facts = await page.evaluate(() => {
     const shadow = document.getElementById('adopted-host').shadowRoot;
-    return {
-      bg: getComputedStyle(shadow.getElementById('adopted-part')).backgroundColor,
-      siteSheets: shadow.adoptedStyleSheets.length,
-      overrides: shadow.querySelectorAll('style[data-exp-shift-dynamic]').length,
-    };
+    const owned = shadow.adoptedStyleSheets.filter(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } });
+    return { bg: getComputedStyle(shadow.getElementById('adopted-part')).backgroundColor, siteSheetFirst: shadow.adoptedStyleSheets[0] === window.__siteSheet, overrides: owned.length };
   });
   assert.notEqual(facts.bg, 'rgb(245, 245, 245)');
-  assert.equal(facts.siteSheets, 1);
+  assert.equal(facts.siteSheetFirst, true);
   assert.equal(facts.overrides, 1);
 });
 

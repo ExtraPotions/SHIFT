@@ -39,7 +39,8 @@ test('SHIFT dynamic stylesheet engine shares Core observation', () => {
   assert.ok(engine.includes('ExtraPotionsCore.observePageBatch('));
   assert.ok(engine.includes("{productId:'shift'}"));
   assert.ok(engine.includes('sharedObserverCleanup?.()'));
-  assert.doesNotMatch(engine, /new MutationObserver/u);
+  assert.doesNotMatch(engine, /\.observe\(\s*document/u);
+  assert.match(engine, /\.observe\(\s*root\s*,/u);
 });
 
 
