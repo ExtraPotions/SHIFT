@@ -20,6 +20,10 @@ EXP.DynamicEngine = (() => {
   const fallbackStyles = new Map();     // ShadowRoot -> Map<sheet | href, <style>>
   const queue = new Set();
   let sliceHandle = null;
+  const remoteWaiters = new Map();      // pending remote key -> Set<root> that need the result
+  const pendingTags = new Set();        // custom element names awaiting customElements.define
+  const SWEEP_DELAY_MS = 500;
+  let sweepTimer = 0, sweptSize = 0;
 
   const signature = (sheet) => {
     try {
@@ -298,15 +302,18 @@ EXP.DynamicEngine = (() => {
       return;
     }
     const key=`${href}|${themeKey(theme)}`, epoch=generation;
-    if(pendingRemote.has(key))return;
-    let css=remoteCache.get(key);
+    // Other roots using the same sheet while it is in flight wait for this request's result.
+    if(pendingRemote.has(key)){remoteWaiters.get(key)?.add(root);return;}
+    let css=remoteCache.get(key), targets=[root];
     if(css===undefined){
+      const waiters=new Set([root]);
       try{
-        pendingRemote.set(key,epoch);
+        pendingRemote.set(key,epoch);remoteWaiters.set(key,waiters);
         remoteLifetime.attempts++;
         try{remoteLifetime.hosts.add(new URL(href).hostname);}catch{}
         const source=rewriteUrls(await requestText(href),href);
-        if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
+        if(!active||epoch!==generation)return;
+        targets=[...waiters];
         const rules=parseRemote(source),out=[];
         walk(rules,out,new Map(),8000);
         css=out.join('\n');
@@ -327,10 +334,18 @@ EXP.DynamicEngine = (() => {
         }
         return;
       }
-      finally { if(pendingRemote.get(key)===epoch)pendingRemote.delete(key); }
+      finally {
+        if(pendingRemote.get(key)===epoch)pendingRemote.delete(key);
+        if(remoteWaiters.get(key)===waiters)remoteWaiters.delete(key);
+      }
     }else stats.cacheHits++;
-    if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
-    applyCss(root, href, css, remoteOwner(href, css)); stats.remoteSheets++;
+    if(!active||epoch!==generation)return;
+    const owner=remoteOwner(href, css);
+    for(const target of targets){
+      if(target===root&&sheet.ownerNode?.isConnected===false)continue;
+      if(!liveRoot(target))continue;
+      applyCss(target, href, css, owner); stats.remoteSheets++;
+    }
   }
 
   function watchStylesheetLink(link){
@@ -358,36 +373,87 @@ EXP.DynamicEngine = (() => {
       watcher.observe(root, { childList: true, subtree: true });
       rootObservers.set(root, watcher);
     }
+    if (rootList.length >= 2 * Math.max(sweptSize, 64)) requestSweep();
     return true;
+  }
+
+  // Forgets a shadow root whose host left the document. If the host comes back, the
+  // page observers see it added and it is registered again.
+  function releaseRoot(root) {
+    if (root === document) return;
+    rootObservers.get(root)?.disconnect(); rootObservers.delete(root);
+    shadowCopies.delete(root); fallbackStyles.delete(root); knownRoots.delete(root); queue.delete(root);
+  }
+
+  function sweepDead() {
+    const started = performance.now();
+    for (const root of rootList) if (!liveRoot(root)) releaseRoot(root);
+    rootList = rootList.filter(root => knownRoots.has(root));
+    sweptSize = rootList.length;
+    recordSlice(started);
+  }
+
+  // Removals are noticed by the page and root observers; one sweep covers a burst of them.
+  function requestSweep() {
+    if (sweepTimer || !active) return;
+    sweepTimer = setTimeout(() => { sweepTimer = 0; if (active) sweepDead(); }, SWEEP_DELAY_MS);
+  }
+
+  // A custom element inserted before its definition gets its shadow root while upgrading,
+  // which no observer reports; the definition promise is the signal to look again.
+  function watchDefinition(tag) {
+    if (pendingTags.has(tag) || typeof globalThis.customElements?.whenDefined !== 'function') return;
+    pendingTags.add(tag);
+    globalThis.customElements.whenDefined(tag).then(() => {
+      if (!pendingTags.delete(tag) || !active) return;
+      for (const root of [...rootList]) { try { root.querySelectorAll(tag).forEach(discoverIn); } catch {} }
+      scheduleSlice();
+    }, () => pendingTags.delete(tag));
   }
 
   // Registers every shadow root inside node (including nested ones) and queues them.
   function discoverIn(node) {
     const visit = el => {
       const shadow = el.shadowRoot;
-      if (!shadow || knownRoots.has(shadow) || ownedNode(el)) return;
+      if (!shadow) {
+        const tag = el.localName;
+        if (tag?.includes('-') && !pendingTags.has(tag) && !globalThis.customElements?.get?.(tag) && !ownedNode(el)) watchDefinition(tag);
+        return;
+      }
+      if (knownRoots.has(shadow) || ownedNode(el)) return;
       registerRoot(shadow); queue.add(shadow); discoverIn(shadow);
     };
     if (node?.nodeType === 1) visit(node);
     try { node?.querySelectorAll?.('*').forEach(visit); } catch {}
   }
 
+  function reportError(error) {
+    try { EXP.Core.safeError(error, 'shift-dynamic'); } catch {}
+  }
+
   const addsStyles = node => node?.nodeType === 1 && (Boolean(node.matches?.('style,link[rel~="stylesheet"]')) || Boolean(node.querySelector?.('style,link[rel~="stylesheet"]')));
 
   function onRootMutations(root, records) {
     if (!active) return;
-    let styled = false;
-    for (const record of records) {
-      if (record.target?.nodeName === 'STYLE' && !ownedNode(record.target)) styled = true;
-      for (const node of record.addedNodes) {
-        if (node.nodeType !== 1 || ownedNode(node)) continue;
-        discoverIn(node); watchStylesheetLinks(node);
-        if (addsStyles(node)) styled = true;
+    try {
+      let styled = false, removed = false;
+      for (const record of records) {
+        if (record.target?.nodeName === 'STYLE' && !ownedNode(record.target)) styled = true;
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1 || ownedNode(node)) continue;
+          discoverIn(node); watchStylesheetLinks(node);
+          if (addsStyles(node)) styled = true;
+        }
+        for (const node of record.removedNodes) {
+          if (node.nodeType !== 1 || node.dataset?.expOwned) continue;
+          removed = true;
+          if (addsStyles(node)) styled = true;
+        }
       }
-      for (const node of record.removedNodes) if (node.nodeType === 1 && !node.dataset?.expOwned && addsStyles(node)) styled = true;
-    }
-    if (styled || adoptedStale(root)) queue.add(root);
-    scheduleSlice();
+      if (styled || adoptedStale(root)) queue.add(root);
+      if (removed) requestSweep();
+    } catch (error) { reportError(error); }
+    finally { scheduleSlice(); }
   }
 
   // Components can reassign adoptedStyleSheets (dropping our copy) without a DOM mutation;
@@ -420,24 +486,28 @@ EXP.DynamicEngine = (() => {
     sliceHandle = null;
     if (!active) return;
     const started = performance.now();
-    while (queue.size && performance.now() - started < SLICE_MS) {
-      const root = queue.values().next().value; queue.delete(root);
-      if (liveRoot(root)) processRoot(root);
+    let released = false;
+    try {
+      while (queue.size && performance.now() - started < SLICE_MS) {
+        const root = queue.values().next().value; queue.delete(root);
+        if (!liveRoot(root)) { releaseRoot(root); released = true; continue; }
+        try { processRoot(root); } catch (error) { reportError(error); }
+      }
+      if (released) rootList = rootList.filter(root => knownRoots.has(root));
+    } finally {
+      recordSlice(started);
+      scheduleSlice();
     }
-    recordSlice(started);
-    scheduleSlice();
   }
 
   // Themes the document now and queues every known shadow root.
   function fullPass() {
     resetRunStats(); stats.runs++; stats.passes++;
-    for (const [root, watcher] of [...rootObservers]) {
-      if (liveRoot(root)) continue;
-      watcher.disconnect(); rootObservers.delete(root); shadowCopies.delete(root); fallbackStyles.delete(root); knownRoots.delete(root);
-    }
-    rootList = rootList.filter(root => knownRoots.has(root));
+    sweepDead();
     stats.shadowRoots = Math.max(0, rootList.length - 1);
-    const started = performance.now(); processRoot(document); recordSlice(started);
+    const started = performance.now();
+    try { processRoot(document); } catch (error) { reportError(error); }
+    finally { recordSlice(started); }
     for (const root of rootList) if (root !== document) queue.add(root);
     scheduleSlice();
   }
@@ -447,7 +517,7 @@ EXP.DynamicEngine = (() => {
     if (nextOptions && Object.prototype.hasOwnProperty.call(nextOptions, 'nativeDark')) nativeDarkMode = Boolean(nextOptions.nativeDark);
     if (!active) { start(nextTheme, { nativeDark: nativeDarkMode }); return; }
     const nextKey = themeKey(nextTheme);
-    if (lastThemeKey && lastThemeKey !== nextKey) { generation++; pendingRemote.clear(); }
+    if (lastThemeKey && lastThemeKey !== nextKey) { generation++; pendingRemote.clear(); remoteWaiters.clear(); }
     theme = nextTheme; lastThemeKey = nextKey;
     queue.clear(); sliceHandle?.cancel(); sliceHandle = null;
     fullPass();
@@ -460,22 +530,26 @@ EXP.DynamicEngine = (() => {
     registerRoot(document); discoverIn(document);
     fullPass();
     sharedObserverCleanup?.(); sharedObserverCleanup = null;
-    const inspectRoots = roots => {
-      let styled = false;
-      for (const root of roots || []) {
-        if (!root || ownedNode(root)) continue;
-        discoverIn(root); watchStylesheetLinks(root);
-        if (root.nodeName === 'STYLE' || addsStyles(root)) styled = true;
-      }
-      if (styled) queue.add(document);
-      scheduleSlice();
+    const inspectRoots = (roots, details) => {
+      try {
+        let styled = false;
+        for (const root of roots || []) {
+          if (!root || ownedNode(root)) continue;
+          discoverIn(root); watchStylesheetLinks(root);
+          if (root.nodeName === 'STYLE' || addsStyles(root)) styled = true;
+        }
+        if (styled) queue.add(document);
+        if ((details || []).some(detail => detail?.removed)) requestSweep();
+      } catch (error) { reportError(error); }
+      finally { scheduleSlice(); }
     };
-    sharedObserverCleanup = ExtraPotionsCore.observePageBatch((_batch, roots) => inspectRoots(roots), {productId:'shift'});
+    sharedObserverCleanup = ExtraPotionsCore.observePageBatch((_batch, roots, details) => inspectRoots(roots, details), {productId:'shift'});
   }
 
   function stop() {
-    active = false; nativeDarkMode = false; generation++; pendingRemote.clear();
+    active = false; nativeDarkMode = false; generation++; pendingRemote.clear(); remoteWaiters.clear(); pendingTags.clear();
     sliceHandle?.cancel(); sliceHandle = null; queue.clear();
+    clearTimeout(sweepTimer); sweepTimer = 0; sweptSize = 0;
     sharedObserverCleanup?.(); sharedObserverCleanup = null;
     for (const watcher of rootObservers.values()) watcher.disconnect();
     rootObservers.clear();

@@ -210,9 +210,21 @@ EXP.Engine = (() => {
     }`;
   }
   function restore(){
-    EXP.DynamicEngine?.stop();EXP.LiveResolver?.stop();EXP.ColorEngine.clear();
-    style?.remove();style=null;lastCss='';unlockHost();
+    EXP.DynamicEngine?.stop();
+    EXP.LiveResolver?.stop();
+    unlockHost();
+    EXP.Preload?.finish();
+    EXP.ColorEngine.clear();
+    style?.remove();style=null;lastCss='';
     try{document.querySelectorAll(`#${STYLE_ID},style[data-exp-shift-page-style],style[data-exp-shift-adapter-style]`).forEach(node=>node.remove());}catch{}
+  }
+  // Disables the dynamic engine's document styles for a synchronous measurement; the
+  // returned function re-enables them before the browser can paint.
+  function parkDynamicStyles(){
+    let parked=[];
+    try{parked=[...document.querySelectorAll('style[data-exp-shift-dynamic],style[data-exp-shift-dynamic-remote]')].filter(node=>node.sheet&&!node.sheet.disabled);}catch{}
+    for(const node of parked)node.sheet.disabled=true;
+    return()=>{for(const node of parked)if(node.sheet)node.sheet.disabled=false;};
   }
   function scheduleNativeRecheck(){
     if(!active||!settings)return;
@@ -248,15 +260,19 @@ EXP.Engine = (() => {
     const disabled=theme.original||next.safeMode||next.excluded||originalHeld||forcedColors();
     metrics.mode=next.excluded?'Excluded':next.safeMode?'Safe':theme.original||originalHeld?'Original':'Generic';
     if(disabled){EXP.Preload?.finish();restore();return{theme,mode:metrics.mode};}
-    EXP.DynamicEngine?.stop();
     EXP.LiveResolver?.stop();
     unlockHost();
     EXP.Preload?.finish();
+    // The dynamic engine keeps its themed copies across re-applies (stopping it would leave
+    // every component unthemed until its next slice); its document styles sit out the native sample.
+    const resumeDynamic=parkDynamicStyles();
     // Native darkness remains diagnostic evidence, not a veto on the chosen palette.
-    detectNativeDark();
-    lockHost(theme);
+    try{
+      detectNativeDark();
+      lockHost(theme);
+    }finally{resumeDynamic();}
     ensureStyle(css(theme,next));
-    EXP.DynamicEngine?.start(theme,{nativeDark:false});
+    EXP.DynamicEngine?.refresh(theme,{nativeDark:false});
     EXP.LiveResolver?.start(theme,{repairSurfaces:next.repairSurfaces,surfaceLevel:next.surfaceLevel,nativeDark:false});
     return{theme,mode:metrics.mode};
   }

@@ -122,3 +122,72 @@ test('a Reddit-sized page themes everything without long engine slices', async t
   assert.ok(facts.health.totalMs < 750, `total engine time ${facts.health.totalMs} ms`);
   assert.ok(facts.health.knownRoots >= 1521, `known roots ${facts.health.knownRoots}`);
 });
+
+test('removed components are released from the engine', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`definePost(makeSheets(2, 10)); addPosts(0, 50); expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
+  await page.evaluate(() => {
+    [...document.querySelectorAll('shift-post')].slice(10).forEach(post => post.remove());
+    document.querySelector('shift-post').shadowRoot.append(document.createElement('span'));
+  });
+  await page.waitForTimeout(1500);
+  const health = await page.evaluate(() => expTest.DynamicEngine.health());
+  assert.ok(health.knownRoots <= 11, `known roots ${health.knownRoots}`);
+  assert.ok(health.adoptedRoots <= 10, `adopted roots ${health.adoptedRoots}`);
+});
+
+test('a cross-origin stylesheet shared by many components is themed in all of them', async t => {
+  const page = await fixture(t);
+  const href = 'https://cdn.fixture.test/shared.css';
+  const body = '.remote-inner{background:#ffffff;color:#111}';
+  await page.route(href, route => route.fulfill({ status: 200, contentType: 'text/css', body }));
+  const facts = await page.evaluate(async ({ href, body }) => {
+    window.remoteRequests = 0;
+    window.GM_xmlhttpRequest = ({ url, onload }) => { window.remoteRequests++; setTimeout(() => onload({ status: 200, responseText: url === href ? body : '' }), 100); return { abort() {} }; };
+    customElements.define('remote-post', class extends HTMLElement {
+      connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = `<link rel="stylesheet" href="${href}"><div class="remote-inner">Remote</div>`; }
+    });
+    const feed = document.getElementById('feed');
+    for (let i = 0; i < 20; i++) feed.append(document.createElement('remote-post'));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const sheet = document.querySelector('remote-post').shadowRoot.styleSheets[0];
+    let inaccessible = false; try { void sheet.cssRules; } catch { inaccessible = true; }
+    return { inaccessible };
+  }, { href, body });
+  assert.equal(facts.inaccessible, true, 'fixture sheet must be cross-origin');
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const remoteBg = () => [...document.querySelectorAll('remote-post')].filter(post => getComputedStyle(post.shadowRoot.querySelector('.remote-inner')).backgroundColor === 'rgb(255, 255, 255)').length;
+  await page.waitForFunction(remoteBg => eval(remoteBg)() === 0, remoteBg.toString(), { timeout: 3000 }).catch(() => {});
+  const unthemed = await page.evaluate(remoteBg);
+  assert.equal(unthemed, 0, `unthemed ${unthemed} of 20`);
+});
+
+test('components defined after insertion are themed once they upgrade', async t => {
+  const page = await fixture(t);
+  await page.evaluate(`{ const feed = document.getElementById('feed'); for (let i = 0; i < 5; i++) feed.append(document.createElement('lazy-post')); } expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForTimeout(300);
+  await page.evaluate(() => customElements.define('lazy-post', class extends HTMLElement {
+    connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Lazy</div>'; }
+  }));
+  await page.waitForFunction(() => [...document.querySelectorAll('lazy-post')].every(post => innerBg(post) !== white), null, { timeout: 3000 }).catch(() => {});
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('lazy-post')].filter(post => innerBg(post) === white).length), 0);
+});
+
+test('one failing component does not stall theming of the others', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    customElements.define('bad-post', class extends HTMLElement {
+      connectedCallback() {
+        if (this.shadowRoot) return;
+        const shadow = this.attachShadow({ mode: 'open' }); shadow.innerHTML = '<div class="inner">Bad</div>';
+        Object.defineProperty(shadow, 'styleSheets', { get() { throw new Error('boom'); } });
+      }
+    });
+    document.getElementById('feed').append(document.createElement('bad-post'));
+    definePost(makeSheets(1, 5)); addPosts(0, 10);
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 3000 }).catch(() => {});
+  assert.equal(await page.evaluate(() => unthemedPosts()), 0);
+});
