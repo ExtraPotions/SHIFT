@@ -1,13 +1,25 @@
 EXP.DynamicEngine = (() => {
   const handles = new Map();
-  const remoteHandles = new Map();
   const remoteCache = new Map();
-  const cache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, passes:0, cachedSheets:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
-  let sharedObserverCleanup=null, timer=0, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
+  let sharedObserverCleanup=null, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
   const watchedLinks = new WeakSet();
+  // Roots: the document plus every shadow root seen. Each shadow root has its own observer,
+  // so styles and components added inside it are noticed without rescanning the page.
+  const OWNED_MARKER = '.exp-owned-sheet-marker{}';
+  const SLICE_MS = 8;
+  const LOCAL_BUDGET = 6000;
+  let knownRoots = new WeakSet();
+  let rootList = [];
+  const rootObservers = new Map();
+  const sheetResults = new WeakMap();   // CSSStyleSheet -> { sig, key, css, constructed }
+  const remoteOwners = new Map();       // href -> { css, constructed }
+  const shadowCopies = new Map();       // ShadowRoot -> Map<sheet | href, constructed sheet>
+  const fallbackStyles = new Map();     // ShadowRoot -> Map<sheet | href, <style>>
+  const queue = new Set();
+  let sliceHandle = null;
 
   const signature = (sheet) => {
     try {
@@ -152,13 +164,94 @@ EXP.DynamicEngine = (() => {
       }catch{}
     }
   }
-  function processSheet(sheet,root,budget){
-    const key=`${themeKey(theme)}|${signature(sheet)}|${budget}`;let css=cache.get(key);
-    if(css!==undefined)stats.cacheHits++;else{stats.cacheMisses++;const out=[];walk(sheet.cssRules,out,new Map(),budget);css=out.join('\n');cache.set(key,css);if(cache.size>96)cache.delete(cache.keys().next().value);}
-    let handle=handles.get(sheet);
-    if(!css){handle?.remove();handles.delete(sheet);return;}
-    if(!handle?.isConnected){handle=document.createElement('style');handle.dataset.expOwned='1';handle.dataset.expShiftDynamic='1';(root instanceof ShadowRoot?root:(document.head||document.documentElement)).append(handle);handles.set(sheet,handle);}
-    if(handle.textContent!==css)handle.textContent=css;
+  const mapFor = (maps, root) => { let map = maps.get(root); if (!map) { map = new Map(); maps.set(root, map); } return map; };
+  const ownedNode = node => Boolean(node?.closest?.('[data-exp-owned="1"]'));
+  const liveRoot = root => root === document || Boolean(root?.host?.isConnected);
+
+  function themedResult(sheet) {
+    const sig = signature(sheet), key = themeKey(theme);
+    let entry = sheetResults.get(sheet);
+    if (entry && entry.sig === sig && entry.key === key) { stats.cacheHits++; return entry; }
+    stats.cacheMisses++;
+    const out = []; walk(sheet.cssRules, out, new Map(), LOCAL_BUDGET);
+    if (!entry) { entry = { sig, key, css: '', constructed: null }; sheetResults.set(sheet, entry); stats.cachedSheets++; }
+    entry.sig = sig; entry.key = key; entry.css = out.join('\n');
+    if (entry.constructed) { try { entry.constructed.replaceSync(OWNED_MARKER + entry.css); } catch { entry.constructed = null; } }
+    return entry;
+  }
+
+  function remoteOwner(href, css) {
+    let owner = remoteOwners.get(href);
+    if (!owner) { owner = { css: '', constructed: null }; remoteOwners.set(href, owner); }
+    if (owner.constructed && owner.css !== css) { try { owner.constructed.replaceSync(OWNED_MARKER + css); } catch { owner.constructed = null; } }
+    owner.css = css;
+    return owner;
+  }
+
+  function removeCopy(root, key) {
+    const copy = shadowCopies.get(root)?.get(key);
+    if (copy) {
+      try { root.adoptedStyleSheets = root.adoptedStyleSheets.filter(sheet => sheet !== copy); } catch {}
+      shadowCopies.get(root).delete(key);
+    }
+    const style = fallbackStyles.get(root)?.get(key);
+    if (style) { style.remove(); fallbackStyles.get(root).delete(key); }
+  }
+
+  // key is the original CSSStyleSheet, or the href string for a remote sheet.
+  function applyCss(root, key, css, owner) {
+    if (root === document) {
+      let handle = handles.get(key);
+      if (!css) { handle?.remove(); handles.delete(key); return; }
+      if (!handle?.isConnected) {
+        handle = document.createElement('style'); handle.dataset.expOwned = '1';
+        handle.dataset[typeof key === 'string' ? 'expShiftDynamicRemote' : 'expShiftDynamic'] = '1';
+        (document.head || document.documentElement).append(handle); handles.set(key, handle);
+      }
+      if (handle.textContent !== css) handle.textContent = css;
+      return;
+    }
+    if (!css) { removeCopy(root, key); return; }
+    const fallback = mapFor(fallbackStyles, root);
+    if (!fallback.has(key)) {
+      try {
+        if (!owner.constructed) { owner.constructed = new CSSStyleSheet(); owner.constructed.replaceSync(OWNED_MARKER + css); }
+        const copies = mapFor(shadowCopies, root), previous = copies.get(key);
+        let adopted = root.adoptedStyleSheets;
+        if (previous && previous !== owner.constructed) adopted = adopted.filter(sheet => sheet !== previous);
+        if (!adopted.includes(owner.constructed)) adopted = [...adopted, owner.constructed];
+        if (adopted !== root.adoptedStyleSheets) root.adoptedStyleSheets = adopted;
+        copies.set(key, owner.constructed);
+        return;
+      } catch {}
+    }
+    let style = fallback.get(key);
+    if (!style?.isConnected) { style = document.createElement('style'); style.dataset.expOwned = '1'; style.dataset.expShiftDynamic = '1'; root.append(style); fallback.set(key, style); }
+    if (style.textContent !== css) style.textContent = css;
+  }
+
+  function pruneRoot(root, live) {
+    if (root === document) {
+      for (const [key, handle] of [...handles]) if (!live.has(key)) { handle.remove(); handles.delete(key); }
+      return;
+    }
+    const keys = new Set([...(shadowCopies.get(root)?.keys() || []), ...(fallbackStyles.get(root)?.keys() || [])]);
+    for (const key of keys) if (!live.has(key)) removeCopy(root, key);
+  }
+
+  function processRoot(root) {
+    watchStylesheetLinks(root);
+    const normal = [...(root.styleSheets || [])];
+    let adopted = []; try { adopted = [...(root.adoptedStyleSheets || [])]; } catch {}
+    stats.adoptedSheets += adopted.length;
+    const live = new Set();
+    for (const sheet of [...normal, ...adopted]) {
+      if (sheet.ownerNode?.dataset?.expOwned === '1' || isOwnedSheet(sheet))continue;
+      let accessible = true; try { void sheet.cssRules; } catch { accessible = false; }
+      if (accessible) { const entry = themedResult(sheet); applyCss(root, sheet, entry.css, entry); live.add(sheet); stats.sheets++; }
+      else { stats.inaccessible++; const href = sheet.href || sheet.ownerNode?.href; if (href) live.add(href); processRemoteSheet(sheet, root); }
+    }
+    pruneRoot(root, live);
   }
   function requestText(url){
     return new Promise((resolve,reject)=>{
@@ -237,10 +330,7 @@ EXP.DynamicEngine = (() => {
       finally { if(pendingRemote.get(key)===epoch)pendingRemote.delete(key); }
     }else stats.cacheHits++;
     if(!active||epoch!==generation||sheet.ownerNode?.isConnected===false)return;
-    let handle=remoteHandles.get(href);
-    if(!css){handle?.remove();remoteHandles.delete(href);return;}
-    if(!handle?.isConnected){handle=document.createElement('style');handle.dataset.expOwned='1';handle.dataset.expShiftDynamicRemote='1';(root instanceof ShadowRoot?root:(document.head||document.documentElement)).append(handle);remoteHandles.set(href,handle);}
-    if(handle.textContent!==css)handle.textContent=css;stats.remoteSheets++;
+    applyCss(root, href, css, remoteOwner(href, css)); stats.remoteSheets++;
   }
 
   function watchStylesheetLink(link){
@@ -248,7 +338,7 @@ EXP.DynamicEngine = (() => {
     watchedLinks.add(link);
     link.addEventListener('load',()=>{
       stats.stylesheetLoads++;
-      if(active)schedule();
+      if(active){queue.add(link.getRootNode?.()||document);scheduleSlice();}
     },{once:true});
   }
   function watchStylesheetLinks(root=document){
@@ -256,57 +346,167 @@ EXP.DynamicEngine = (() => {
     try{root?.querySelectorAll?.('link[rel~="stylesheet"]').forEach(watchStylesheetLink);}catch{}
   }
 
-  function refresh(nextTheme,nextOptions){
-    if(!nextTheme)return;
-    if(nextOptions&&Object.prototype.hasOwnProperty.call(nextOptions,'nativeDark'))nativeDarkMode=Boolean(nextOptions.nativeDark);
-    if(!active){start(nextTheme,{nativeDark:nativeDarkMode});return;}
-    const nextKey=themeKey(nextTheme);
-    if(lastThemeKey&&lastThemeKey!==nextKey){
-      generation++;pendingRemote.clear();
-      for(const h of handles.values())h.remove(); handles.clear();
-      for(const h of remoteHandles.values())h.remove(); remoteHandles.clear();
-    }
-    theme=nextTheme;lastThemeKey=nextKey;stats.runs++;stats.sheets=stats.rulesSeen=stats.rulesGenerated=stats.inaccessible=stats.remoteSheets=stats.remoteRules=stats.remoteFailures=stats.remoteSkippedNoHref=stats.variables=stats.groups=stats.shadowRoots=stats.adoptedSheets=stats.inferredVariables=stats.skippedSemanticVariables=stats.gradients=stats.layeredBackgrounds=stats.preservedImages=stats.currentColor=stats.colorMix=stats.masks=stats.filters=0;
-    const roots=[document];
-    const visitShadows=(root)=>{
-      root.querySelectorAll?.('*').forEach(el=>{
-        if(!el.shadowRoot||el.closest?.('[data-exp-owned="1"]'))return;
-        roots.push(el.shadowRoot);visitShadows(el.shadowRoot);
-      });
-    };
-    visitShadows(document);
-    stats.shadowRoots=Math.max(0,roots.length-1);
-    const live=new Set();
-    for(const root of roots){
-      watchStylesheetLinks(root);
-      const normalSheets=[...(root.styleSheets||[])];
-      let adopted=[];try{adopted=[...(root.adoptedStyleSheets||[])];}catch{}
-      stats.adoptedSheets+=adopted.length;
-      for(const sheet of [...normalSheets,...adopted]){
-        if(sheet.ownerNode?.dataset?.expOwned==='1'||isOwnedSheet(sheet))continue;
-        try{void sheet.cssRules;processSheet(sheet,root,6000);live.add(sheet);stats.sheets++;}catch{stats.inaccessible++;processRemoteSheet(sheet,root);}
-      }
-    }
-    for(const [sheet,handle] of [...handles])if(!live.has(sheet)){handle.remove();handles.delete(sheet);}
+  function resetRunStats() {
+    stats.sheets = stats.rulesSeen = stats.rulesGenerated = stats.inaccessible = stats.remoteSheets = stats.remoteRules = stats.remoteFailures = stats.remoteSkippedNoHref = stats.variables = stats.groups = stats.shadowRoots = stats.adoptedSheets = stats.inferredVariables = stats.skippedSemanticVariables = stats.gradients = stats.layeredBackgrounds = stats.preservedImages = stats.currentColor = stats.colorMix = stats.masks = stats.filters = 0;
   }
-  function schedule(){clearTimeout(timer);timer=setTimeout(()=>{timer=0;if(active&&theme)refresh(theme);},100);}
-  function start(nextTheme,nextOptions={}){
-    nativeDarkMode=Boolean(nextOptions.nativeDark);
-    if(active){refresh(nextTheme,{nativeDark:nativeDarkMode});return;}
-    theme=nextTheme;active=true;refresh(theme,{nativeDark:nativeDarkMode});sharedObserverCleanup?.();sharedObserverCleanup=null;
-    const inspectRoots=(roots)=>{
-      let shouldSchedule=false;
-      for(const root of roots||[]){
-        if(!root||root.closest?.('[data-exp-owned="1"]'))continue;
-        if(root.nodeName==='STYLE')shouldSchedule=true;
-        watchStylesheetLinks(root);
-        if(root.matches?.('style,link[rel~="stylesheet"]')||root.querySelector?.('style,link[rel~="stylesheet"]'))shouldSchedule=true;
-      }
-      if(shouldSchedule)schedule();
-    };
-    sharedObserverCleanup=ExtraPotionsCore.observePageBatch((_batch,roots)=>inspectRoots(roots),{productId:'shift'});
+
+  function registerRoot(root) {
+    if (knownRoots.has(root)) return false;
+    knownRoots.add(root); rootList.push(root);
+    if (root !== document) {
+      const watcher = new MutationObserver(records => onRootMutations(root, records));
+      watcher.observe(root, { childList: true, subtree: true });
+      rootObservers.set(root, watcher);
+    }
+    return true;
   }
-  function stop(){active=false;nativeDarkMode=false;generation++;pendingRemote.clear();clearTimeout(timer);timer=0;sharedObserverCleanup?.();sharedObserverCleanup=null;for(const h of handles.values())h.remove();handles.clear();for(const h of remoteHandles.values())h.remove();remoteHandles.clear();lastThemeKey='';}
-  function health(){return {...stats,nativeDarkMode,pendingRemote:pendingRemote.size,pendingRemoteHosts:[...new Set([...pendingRemote.keys()].map(key=>{try{return new URL(key.split('|')[0]).hostname;}catch{return'';}}).filter(Boolean))].slice(0,12),remoteAttemptHosts:[...remoteLifetime.hosts].slice(0,12),remoteAttemptsLifetime:remoteLifetime.attempts,remoteSuccessesLifetime:remoteLifetime.successes,remoteFailuresLifetime:remoteLifetime.failures,remoteSkippedNoHrefLifetime:remoteLifetime.skippedNoHref,remoteRulesRecoveredLifetime:remoteLifetime.recoveredRules,lastRemoteSuccessAt:remoteLifetime.lastSuccessAt||null,lastRemoteFailure:remoteLifetime.lastFailure?{...remoteLifetime.lastFailure}:null,handles:handles.size,remoteHandles:remoteHandles.size,cacheEntries:cache.size,remoteCacheEntries:remoteCache.size};}
+
+  // Registers every shadow root inside node (including nested ones) and queues them.
+  function discoverIn(node) {
+    const visit = el => {
+      const shadow = el.shadowRoot;
+      if (!shadow || knownRoots.has(shadow) || ownedNode(el)) return;
+      registerRoot(shadow); queue.add(shadow); discoverIn(shadow);
+    };
+    if (node?.nodeType === 1) visit(node);
+    try { node?.querySelectorAll?.('*').forEach(visit); } catch {}
+  }
+
+  const addsStyles = node => node?.nodeType === 1 && (Boolean(node.matches?.('style,link[rel~="stylesheet"]')) || Boolean(node.querySelector?.('style,link[rel~="stylesheet"]')));
+
+  function onRootMutations(root, records) {
+    if (!active) return;
+    let styled = false;
+    for (const record of records) {
+      if (record.target?.nodeName === 'STYLE' && !ownedNode(record.target)) styled = true;
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1 || ownedNode(node)) continue;
+        discoverIn(node); watchStylesheetLinks(node);
+        if (addsStyles(node)) styled = true;
+      }
+      for (const node of record.removedNodes) if (node.nodeType === 1 && !node.dataset?.expOwned && addsStyles(node)) styled = true;
+    }
+    if (styled || adoptedStale(root)) queue.add(root);
+    scheduleSlice();
+  }
+
+  // Components can reassign adoptedStyleSheets (dropping our copy) without a DOM mutation;
+  // their next DOM change is the signal to check the adopted list again.
+  function adoptedStale(root) {
+    if (root === document) return false;
+    let adopted; try { adopted = root.adoptedStyleSheets || []; } catch { return false; }
+    const copies = shadowCopies.get(root), fallback = fallbackStyles.get(root);
+    if (copies) for (const copy of copies.values()) if (!adopted.includes(copy)) return true;
+    for (const sheet of adopted) {
+      if (copies?.has(sheet) || fallback?.has(sheet) || isOwnedSheet(sheet)) continue;
+      const entry = sheetResults.get(sheet);
+      if (!entry || entry.css) return true;
+    }
+    return false;
+  }
+
+  function recordSlice(started) {
+    const ms = performance.now() - started;
+    stats.slices++; stats.totalMs += ms; stats.maxSliceMs = Math.max(stats.maxSliceMs, ms);
+  }
+
+  function scheduleSlice() {
+    if (sliceHandle || !queue.size || !active) return;
+    if (typeof requestIdleCallback === 'function') { const id = requestIdleCallback(runSlice, { timeout: 200 }); sliceHandle = { cancel: () => cancelIdleCallback(id) }; }
+    else { const id = setTimeout(runSlice, 0); sliceHandle = { cancel: () => clearTimeout(id) }; }
+  }
+
+  function runSlice() {
+    sliceHandle = null;
+    if (!active) return;
+    const started = performance.now();
+    while (queue.size && performance.now() - started < SLICE_MS) {
+      const root = queue.values().next().value; queue.delete(root);
+      if (liveRoot(root)) processRoot(root);
+    }
+    recordSlice(started);
+    scheduleSlice();
+  }
+
+  // Themes the document now and queues every known shadow root.
+  function fullPass() {
+    resetRunStats(); stats.runs++; stats.passes++;
+    for (const [root, watcher] of [...rootObservers]) {
+      if (liveRoot(root)) continue;
+      watcher.disconnect(); rootObservers.delete(root); shadowCopies.delete(root); fallbackStyles.delete(root); knownRoots.delete(root);
+    }
+    rootList = rootList.filter(root => knownRoots.has(root));
+    stats.shadowRoots = Math.max(0, rootList.length - 1);
+    const started = performance.now(); processRoot(document); recordSlice(started);
+    for (const root of rootList) if (root !== document) queue.add(root);
+    scheduleSlice();
+  }
+
+  function refresh(nextTheme, nextOptions) {
+    if (!nextTheme) return;
+    if (nextOptions && Object.prototype.hasOwnProperty.call(nextOptions, 'nativeDark')) nativeDarkMode = Boolean(nextOptions.nativeDark);
+    if (!active) { start(nextTheme, { nativeDark: nativeDarkMode }); return; }
+    const nextKey = themeKey(nextTheme);
+    if (lastThemeKey && lastThemeKey !== nextKey) { generation++; pendingRemote.clear(); }
+    theme = nextTheme; lastThemeKey = nextKey;
+    queue.clear(); sliceHandle?.cancel(); sliceHandle = null;
+    fullPass();
+  }
+
+  function start(nextTheme, nextOptions = {}) {
+    nativeDarkMode = Boolean(nextOptions.nativeDark);
+    if (active) { refresh(nextTheme, { nativeDark: nativeDarkMode }); return; }
+    theme = nextTheme; lastThemeKey = themeKey(nextTheme); active = true;
+    registerRoot(document); discoverIn(document);
+    fullPass();
+    sharedObserverCleanup?.(); sharedObserverCleanup = null;
+    const inspectRoots = roots => {
+      let styled = false;
+      for (const root of roots || []) {
+        if (!root || ownedNode(root)) continue;
+        discoverIn(root); watchStylesheetLinks(root);
+        if (root.nodeName === 'STYLE' || addsStyles(root)) styled = true;
+      }
+      if (styled) queue.add(document);
+      scheduleSlice();
+    };
+    sharedObserverCleanup = ExtraPotionsCore.observePageBatch((_batch, roots) => inspectRoots(roots), {productId:'shift'});
+  }
+
+  function stop() {
+    active = false; nativeDarkMode = false; generation++; pendingRemote.clear();
+    sliceHandle?.cancel(); sliceHandle = null; queue.clear();
+    sharedObserverCleanup?.(); sharedObserverCleanup = null;
+    for (const watcher of rootObservers.values()) watcher.disconnect();
+    rootObservers.clear();
+    for (const root of new Set([...shadowCopies.keys(), ...fallbackStyles.keys()])) {
+      const keys = new Set([...(shadowCopies.get(root)?.keys() || []), ...(fallbackStyles.get(root)?.keys() || [])]);
+      for (const key of keys) removeCopy(root, key);
+    }
+    shadowCopies.clear(); fallbackStyles.clear();
+    for (const handle of handles.values()) handle.remove();
+    handles.clear();
+    knownRoots = new WeakSet(); rootList = []; lastThemeKey = '';
+  }
+
+  function health() {
+    const handleKeys = [...handles.keys()];
+    return {
+      ...stats, nativeDarkMode,
+      pendingRemote: pendingRemote.size,
+      pendingRemoteHosts: [...new Set([...pendingRemote.keys()].map(key => { try { return new URL(key.split('|')[0]).hostname; } catch { return ''; } }).filter(Boolean))].slice(0, 12),
+      remoteAttemptHosts: [...remoteLifetime.hosts].slice(0, 12),
+      remoteAttemptsLifetime: remoteLifetime.attempts, remoteSuccessesLifetime: remoteLifetime.successes, remoteFailuresLifetime: remoteLifetime.failures,
+      remoteSkippedNoHrefLifetime: remoteLifetime.skippedNoHref, remoteRulesRecoveredLifetime: remoteLifetime.recoveredRules,
+      lastRemoteSuccessAt: remoteLifetime.lastSuccessAt || null, lastRemoteFailure: remoteLifetime.lastFailure ? { ...remoteLifetime.lastFailure } : null,
+      handles: handleKeys.filter(key => typeof key !== 'string').length,
+      remoteHandles: handleKeys.filter(key => typeof key === 'string').length,
+      cacheEntries: stats.cachedSheets, remoteCacheEntries: remoteCache.size,
+      knownRoots: rootList.length,
+      adoptedRoots: [...shadowCopies.values()].filter(map => map.size).length,
+      fallbackRoots: [...fallbackStyles.values()].filter(map => map.size).length,
+      totalMs: Math.round(stats.totalMs), maxSliceMs: Math.round(stats.maxSliceMs * 10) / 10,
+    };
+  }
   return Object.freeze({start,refresh,stop,health});
 })();
