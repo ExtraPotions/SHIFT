@@ -25,6 +25,10 @@ Measured on Reddit (user trace, 61 s) and on a local Reddit-like fixture (1,500 
 - Start: one walk of the document finds existing shadow roots (today's walk, run once).
 - After start, each known shadow root gets a `MutationObserver` (`childList`, `subtree`). Added elements and their descendants are checked for `shadowRoot`; new roots become known, are observed, and are queued. Nested roots (chat inside an app shell) are covered.
 - The main document keeps exp-core's shared observer (`observePageBatch`) for light-DOM changes, with the same checks for added shadow roots.
+- Shadow roots that no observer reports:
+  - an element inserted before its definition gets its root while upgrading: each undefined tag gets one `customElements.whenDefined` watch for the page's lifetime (not renewed on stop/start); when it resolves while theming, that tag's elements are looked at again;
+  - a defined element that attaches its root after insertion (timer, microtask): rechecked once on the next animation frame and once about 250 ms later (one frame and one timer per batch; each element at most once per run).
+- Text edits outside a `<style>` inside a component are ignored; an edit of a component `<style>`'s text reprocesses that root.
 - Triggers:
   - new shadow root → process that root;
   - `<style>` or `link[rel~="stylesheet"]` added in a known root → reprocess that root only;
@@ -33,18 +37,21 @@ Measured on Reddit (user trace, 61 s) and on a local Reddit-like fixture (1,500 
 
 ## 2. Theming and output
 
-- Per-sheet result cache: `WeakMap<CSSStyleSheet, { signature, themeKey, css, constructed }>`. Rebuilt only when the sheet's `signature()` or the theme key changes. No size cap.
+- Result cache, two levels:
+  - Per-sheet fast path: `WeakMap<CSSStyleSheet, { signature, themeKey, result }>`. A hit needs the same sampled `signature()` and theme key ("has this sheet changed?"). No size cap.
+  - Shared index: on a fast-path miss, the sheet's full text is read (a `<style>`'s `textContent`, otherwise its rules' `cssText` joined) and looked up by theme key + signature + full-text hash. A result is shared only when its stored text is identical, so many identical per-component `<style>` elements share one walk, one css string and one constructed sheet, while different sheets never do. Bounded to 512 entries (oldest dropped); a theme change drops entries of other themes.
+  - On a theme change, a result whose text is unchanged is rethemed in place (`replaceSync`), updating every root that adopts it at once. If `replaceSync` fails, a fresh constructed sheet replaces it in every adopting root (or a `<style>` per root).
 - Generation is unchanged: same `walk()`, 6000-rule budget, `DYNAMIC_PRESERVE_GUARD`, owned-sheet skipping.
 - Document root: one `<style data-exp-owned="1" data-exp-shift-dynamic="1">` per stylesheet, as today.
 - Shadow roots: the result is also built once as a constructed `CSSStyleSheet` whose first rule is the owned-sheet marker (`.exp-owned-sheet-marker{}`). It is appended to the end of the root's `adoptedStyleSheets` for every root whose sheets include the original. If a root's adopted list no longer contains it (component reassigned the list), it is re-added when that root is next processed.
 - Fallback: if adoption throws or is unsupported, a `<style data-exp-owned="1" data-exp-shift-dynamic="1">` is inserted into that root.
-- Cross-origin sheets: fetching and the remote cache are unchanged; the fetched result is applied through the same per-root path.
+- Cross-origin sheets: fetching and the remote cache are unchanged; the fetched result is applied through the same per-root path. On a theme change, remote copies without a cached new-theme result are removed until the new fetch succeeds (no previous-theme colors if it fails).
 - Theme off (`stop()`): removes every themed constructed sheet from every known root's `adoptedStyleSheets`, every fallback `<style>`, and every document `<style>`; disconnects all observers. Theme change replaces content in place (`replaceSync` on constructed sheets, `textContent` on styles).
 
 ## 3. Pacing and health
 
 - Work is queued and processed in slices of about 8 ms, yielding between slices with `requestIdleCallback` (timeout 200 ms), falling back to `setTimeout(0)`. Duplicate roots in the queue are merged. A theme change clears the queue and starts a full pass, also sliced.
-- `health()` adds: `knownRoots`, `adoptedRoots`, `fallbackRoots`, `cachedSheets`, `maxSliceMs`, `totalMs`, `passes`. Existing fields stay.
+- `health()` adds: `knownRoots`, `adoptedRoots`, `fallbackRoots`, `cachedSheets`, `maxSliceMs`, `totalMs`, `passes`, `discoverCalls`, `discoverElements`, `adoptedChecks`, `remoteOwners`. Existing fields stay. Run totals reset on `stop()`; `shadowRoots` is the current count of known shadow roots.
 
 ## 4. Testing
 
