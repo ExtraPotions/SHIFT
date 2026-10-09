@@ -1,4 +1,4 @@
-name: Verify SHIFT
+name: Verify userscript
 
 on:
   push:
