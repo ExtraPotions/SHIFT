@@ -13,12 +13,12 @@ test('instrumented readable source appearance explanation reports blockers, upda
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://example.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><body><main>Example</main></body>'}));await page.goto('https://example.test/');
  const script=require('./load-source.cjs').loadSource().replace('\nbootOnce();','\nwindow.testShift=EXP;bootOnce();');await page.addScriptTag({content:script});
- const host=page.locator('#exp-shift-root');await host.locator('.launcher').click();await host.locator('[data-section="appearance"]').click();
+ const host=page.locator('#exp-shift-root');await host.locator('.launcher').click();await host.locator('[data-exp-section-tab="appearance"]').click();
  const card=host.locator('[data-shift-appearance-explanation]');await card.locator(':scope > summary').click();await page.waitForFunction(()=>document.querySelector('#exp-shift-root').shadowRoot.querySelector('[data-shift-appearance-explanation]').textContent.includes('Original is selected'));
  await page.evaluate(()=>testShift.Settings.update({safeMode:true}));await card.locator('button').filter({hasText:'Refresh explanation'}).click();assert.match(await card.textContent(),/Safe Mode is on/);
  await page.evaluate(()=>testShift.Settings.update({safeMode:false,theme:'midnight',siteOverrides:{'example.test':{theme:'crimson'}}}));await card.getByText('Refresh explanation',{exact:true}).click();assert.match(await card.locator('[data-setting-source="theme"]').textContent(),/Crimson.*Site override/);
  await card.locator('[data-setting-source="theme"] button').click();assert.equal(await host.getByRole('combobox',{name:'Site profile',exact:true}).evaluate(n=>n===n.getRootNode().activeElement),true);
- await host.locator('[data-section="appearance"]').click();if(!await card.evaluate(n=>n.open))await card.locator(':scope > summary').click();
+ await host.locator('[data-exp-section-tab="appearance"]').click();if(!await card.evaluate(n=>n.open))await card.locator(':scope > summary').click();
  await page.emulateMedia({forcedColors:'active'});await card.getByText('Refresh explanation',{exact:true}).click();assert.match(await card.textContent(),/forced colors/);
  await page.emulateMedia({forcedColors:'none'});await page.evaluate(()=>testShift.Engine.holdOriginal(true));await card.getByText('Refresh explanation',{exact:true}).click();assert.match(await card.textContent(),/temporary Original/);
  assert.equal(await card.evaluate(n=>n.scrollWidth<=n.clientWidth+1),true);assert.deepEqual(errors,[]);

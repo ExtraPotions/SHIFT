@@ -2,17 +2,18 @@
 const test=require('node:test'), assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
 const script=fs.readFileSync(path.join(__dirname,'../shift.user.js'),'utf8');
+async function expectTabSelected(tab){assert.equal(await tab.getAttribute('aria-selected'),'true');}
 async function fixture(t){
   const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
   await page.route('https://fixture.test/**',r=>r.fulfill({contentType:'text/html',body:`<style>body{background:white;color:#111}.information-layout{background:transparent}.alert-success,.alert-danger{background:#eee;color:#111}</style><main><table><thead><tr><th>Header</th></tr></thead><tbody><tr><td>Value</td></tr></tbody></table><div class="alert-success"><span>Saved</span></div><div class="alert-danger"><span>Failed</span></div><div class="information-layout">Layout</div><div id="owned" data-exp-owned="1"><button style="background:rgb(21,32,43);color:rgb(220,230,240)">Other product</button></div><div data-exp-shift-preserve><code id="preserved" style="background:rgb(12,23,34)">Media label</code></div><button id="control">Action</button><input value="Original"><pre>Code</pre></main>`}));
   await page.goto('https://fixture.test/');await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
-  await page.locator('#exp-shift-root .launcher').click();await page.locator('#exp-shift-root [data-section="appearance"]').click();
+  await page.locator('#exp-shift-root .launcher').click();await page.locator('#exp-shift-root [data-exp-section-tab="appearance"]').click();
   await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Midnight"]').click();
   return page;
 }
 async function toggleSafeMode(page){
- const host=page.locator('#exp-shift-root'),header=host.locator('[data-section="advanced"]');
- if(await header.getAttribute('aria-expanded')!=='true')await header.click();
+ const host=page.locator('#exp-shift-root'),header=host.locator('[data-exp-section-tab="advanced"]');
+ await header.click();await expectTabSelected(header);
  const summary=host.getByRole('tab',{name:'Page',exact:true});if(!await summary.evaluate(n=>n.parentElement.open))await summary.click();
  await host.locator('[aria-label="Safe Mode"]').click();
 }
@@ -30,15 +31,15 @@ test('Original and Safe Mode restore component role styling',async t=>{
   await toggleSafeMode(page);
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
   await toggleSafeMode(page);
-  await page.locator('#exp-shift-root [data-section="appearance"]').click();
+  await page.locator('#exp-shift-root [data-exp-section-tab="appearance"]').click();
   await page.locator('#exp-shift-root button').filter({hasText:/^Hold to Show Original$/}).dispatchEvent('pointerdown');
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
 });
 test('live contrast repair starts when leaving Original and resumes after Safe Mode',async t=>{
  const page=await fixture(t);
- await page.locator('#exp-shift-root [data-section="system"]').click();
+ await page.locator('#exp-shift-root [data-exp-section-tab="system"]').click();
  const active=async()=>{
-  const header=page.locator('#exp-shift-root [data-section="system"]');if(await header.getAttribute('aria-expanded')!=='true')await header.click();
+  const header=page.locator('#exp-shift-root [data-exp-section-tab="system"]');await header.click();await expectTabSelected(header);
   await page.locator('#exp-shift-root').getByRole('tab',{name:'Support',exact:true}).click();
   await page.locator('#exp-shift-root').getByRole('button',{name:'Show Diagnostics',exact:true}).click();
   const report=JSON.parse(await page.locator('#exp-shift-root .diag').textContent());

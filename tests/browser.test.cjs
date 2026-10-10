@@ -243,6 +243,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       noticeBullets: [...notice.querySelectorAll('.update-list li')].map((item) => item.textContent),
       noticePlacement: notice.dataset.placement,
       panelRight: panelRect.right,
+      panelLeft: panelRect.left,
       noticeRight: noticeRect.right,
       noticeTop: noticeRect.top,
       noticeBottom: noticeRect.bottom,
@@ -254,8 +255,8 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.equal(facts.panelHidden, false);
   assert.equal(facts.navCount, 3);
   assert.equal(facts.checkboxCount, 0);
-  assert.ok([0, 2].includes(facts.switchCount)); // Older Core menus let sections be hidden; current ones do not.
-  assert.equal(facts.visibleBodies, 0);
+  assert.equal(facts.switchCount, 6); // switches of the one always-open section (Appearance)
+  assert.equal(facts.visibleBodies, 1); // one section is always open
   assert.equal(facts.width, await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('exp-shift-root')).getPropertyValue('--exp-menu-width'))));
   assert.equal(facts.noticeOutside, true);
   assert.equal(facts.versionLabel, `v${pkg.version}`);
@@ -265,8 +266,11 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   const currentChangelog = fs.readFileSync(path.join(__dirname, '../CHANGELOG.md'), 'utf8').split(/^## /m).find(section=>section.startsWith(pkg.version+' ')) || '';
   assert.deepEqual(facts.noticeBullets, [...currentChangelog.matchAll(/^- (.+)$/gm)].map(match => match[1]));
   assert.equal(facts.noticePlacement, 'menu');
-  assert.ok(Math.abs(facts.noticeRight - facts.panelRight) <= 1, JSON.stringify(facts));
-  assert.ok(facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom, JSON.stringify(facts));
+  // With a section always open the menu is tall: the notice stacks beyond it on the shared right edge when it fits,
+  // otherwise it sits beside the menu on its left. Either way it never overlaps the menu.
+  const stacked = Math.abs(facts.noticeRight - facts.panelRight) <= 1 && (facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom);
+  const beside = facts.noticeRight <= facts.panelLeft;
+  assert.ok(stacked || beside, JSON.stringify(facts));
 
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
   assert.deepEqual(labels, ['Appearance', 'Advanced', 'System']);
@@ -280,13 +284,15 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       text: subtitleNode.textContent,
       titleLeft: title.getBoundingClientRect().left,
       subtitleLeft: subtitleNode.getBoundingClientRect().left,
+      statusLeft: shadow.querySelector('[data-exp-part="status"]')?.getBoundingClientRect().left,
       paddingLeft: style.paddingLeft,
       borderTopWidth: style.borderTopWidth,
       textAlign: style.textAlign,
     };
   });
   assert.equal(subtitle.text, 'Adaptive themes and readability');
-  assert.equal(subtitle.subtitleLeft, subtitle.titleLeft);
+  // The menu header shows the health label in place of the tagline, aligned with the title.
+  assert.equal(subtitle.statusLeft, subtitle.titleLeft);
   assert.deepEqual(
     { paddingLeft: subtitle.paddingLeft, borderTopWidth: subtitle.borderTopWidth, textAlign: subtitle.textAlign },
     { paddingLeft: '0px', borderTopWidth: '0px', textAlign: 'start' },
@@ -294,7 +300,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
 
   const expanded = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
-    shadow.querySelector('[data-section="appearance"]').click();
+    shadow.querySelector('[data-exp-section-tab="appearance"]').click();
     const readability = [...shadow.querySelectorAll('details > summary')].find((item) => item.textContent.includes('Readability'));
     readability?.click();
     return {
@@ -331,7 +337,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       headerBadge: Math.round(shadow.querySelector('.header-icon .menu-icon').getBoundingClientRect().width),
     };
   });
-  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: await page.locator('#exp-shift-root [data-exp-part="dock"]').evaluate(n=>n.dataset.expMenuLayout==='lean'?40:38) });
+  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: await page.locator('#exp-shift-root [data-exp-part="dock"]').evaluate(n=>n.dataset.expMenuLayout==='lean'?30:38) });
 });
 
 test('Appearance keeps readability nested while Advanced keeps effects nested', async (t) => {
@@ -1567,7 +1573,7 @@ test('SHIFT sensitive-site import discloses permissions before deliberate apply'
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
  await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main>bisexual identity</main></body></html>'}));
  await page.goto('https://mail.google.com/');await page.evaluate(()=>{window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
- const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-section="advanced"]').click();await root.getByRole('tab',{name:'Transfer',exact:true}).click();
+ const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-exp-section-tab="advanced"]').click();await root.getByRole('tab',{name:'Transfer',exact:true}).click();
  const file={name:'settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({product:'shift',generation:3,schema:1,settings:{theme:'midnight',sensitiveSiteOptIns:['mail.google.com']}}))};
  await root.getByLabel('Import SHIFT settings',{exact:true}).setInputFiles(file);await root.locator('.import-preview').waitFor();assert.match(await root.locator('.import-preview').textContent(),/exact hostnames.*mail.google.com/);
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('exp:v3:shift:settings')).sensitiveSiteOptIns),[]);
@@ -1580,7 +1586,7 @@ test('SHIFT exact-site switch restores theme and saved inspection without reload
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
  await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main id="private">Private message</main></body></html>'}));
  await page.goto('https://mail.google.com/');await page.evaluate(()=>{localStorage.setItem('exp:v3:shift:settings',JSON.stringify({theme:'midnight',siteOverrides:{'mail.google.com':{preservedSelectors:['#private']}}}));window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
- const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-section="advanced"]').click();await root.getByRole('tab',{name:'Profiles',exact:true}).click();
+ const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-exp-section-tab="advanced"]').click();await root.getByRole('tab',{name:'Profiles',exact:true}).click();
  const toggle=root.getByRole('switch',{name:'Enable SHIFT on this site',exact:true});assert.equal(await toggle.getAttribute('aria-checked'),'false');await toggle.click();
  await page.waitForFunction(()=>document.getElementById('private').getAttribute('data-exp-shift-preserve')==='saved');assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
  await toggle.click();assert.equal(await page.locator('#private').getAttribute('data-exp-shift-preserve'),null);assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');

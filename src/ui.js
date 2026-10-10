@@ -441,6 +441,7 @@ EXP.UI = (() => {
         render: () => renderers[id](),
       })),
     });
+    ExtraPotionsCore.setMenuStatus('shift', systemHealthSnapshot);
 
     ({ host, shadow, launcher, panel } = product);
     applyPosition();
