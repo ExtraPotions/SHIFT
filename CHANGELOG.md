@@ -1,3 +1,8 @@
+## 3.5.20 — 2026-10-10
+
+- Report a Problem fills in the GitHub issue with a short summary and copies the full diagnostics.
+- Removes the menu footer.
+
 ## 3.5.19 — 2026-10-10
 
 - Keeps scrolling smooth on long pages like Reddit.
