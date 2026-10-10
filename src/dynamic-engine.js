@@ -1,7 +1,7 @@
 EXP.DynamicEngine = (() => {
   const handles = new Map();
   const remoteCache = new Map();
-  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, discoverMs:0, discoverCalls:0, discoverElements:0, adoptedChecks:0, passes:0, cachedSheets:0 };
+  const stats = { runs:0, sheets:0, rulesSeen:0, rulesGenerated:0, inaccessible:0, remoteSheets:0, remoteRules:0, remoteFailures:0, remoteSkippedNoHref:0, cacheHits:0, cacheMisses:0, variables:0, usageVariables:0, groups:0, shadowRoots:0, adoptedSheets:0, inferredVariables:0, skippedSemanticVariables:0, gradients:0, layeredBackgrounds:0, preservedImages:0, currentColor:0, colorMix:0, masks:0, filters:0, stylesheetLoads:0, slices:0, totalMs:0, maxSliceMs:0, discoverMs:0, discoverCalls:0, discoverElements:0, adoptedChecks:0, passes:0, cachedSheets:0 };
   const remoteLifetime = { attempts:0, successes:0, failures:0, skippedNoHref:0, recoveredRules:0, lastSuccessAt:0, lastFailure:null, hosts:new Set() };
   let sharedObserverCleanup=null, active=false, theme=null, lastThemeKey='', generation=0, nativeDarkMode=false;
   const pendingRemote = new Map();
@@ -100,6 +100,70 @@ EXP.DynamicEngine = (() => {
     if(/^--(?:font|spacing|container|radius|shadow|drop-shadow|blur|ease|animate|aspect|leading|tracking|breakpoint)(?:-|$)/.test(key))return true;
     return /^--color-(?:black|white|slate|gray|grey|zinc|neutral|stone|red|orange|amber|yellow|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?$/.test(key);
   }
+  const semanticVariable=key=>/(?:success|danger|error|warning|info|brand|logo|rating|star|sale|discount|promo|price|positive|negative|favorite|heart|selected|active-state)/.test(key);
+  // How the page uses a variable outweighs its name: one only ever painted as a background is a surface
+  // even when named like a text color (Reddit chat's --color-tone-7). Usage follows var() aliases.
+  const usage={direct:new Map(),referrers:new Map(),asked:new Map(),version:0,dirty:false};
+  const indexedSheets=new WeakMap();
+  const USAGE_SHORTHANDS=['background','border','border-top','border-right','border-bottom','border-left','border-color','outline','column-rule'];
+  function indexRules(rules,depth=0){
+    if(!rules||depth>8)return;
+    for(const rule of rules){
+      try{
+        if(rule.type===CSSRule.STYLE_RULE&&rule.style){
+          // A shorthand holding var() reports its longhands as empty, so shorthands are read directly too.
+          const names=[...Array.from({length:rule.style.length},(_,i)=>rule.style.item(i)),...USAGE_SHORTHANDS];
+          for(const p of names){
+            const v=rule.style.getPropertyValue(p);
+            if(!v.includes('var('))continue;
+            const r=p.startsWith('--')?null:role(p);
+            if(!p.startsWith('--')&&!r)continue;
+            for(const match of v.matchAll(/var\(\s*(--[\w-]+)/g)){
+              const map=p.startsWith('--')?usage.referrers:usage.direct,set=map.get(match[1])||new Set();
+              const entry=p.startsWith('--')?p:r;if(!set.has(entry)){set.add(entry);map.set(match[1],set);usage.dirty=true;}
+            }
+          }
+        }else if(rule.cssRules)indexRules(rule.cssRules,depth+1);
+      }catch{}
+    }
+  }
+  // Identical per-component sheets share a signature, so each distinct sheet is read once.
+  const indexedSignatures=new Set();
+  function indexSheet(sheet){
+    const sig=signature(sheet);if(indexedSheets.get(sheet)===sig)return;
+    indexedSheets.set(sheet,sig);if(indexedSignatures.has(sig))return;
+    indexedSignatures.add(sig);if(indexedSignatures.size>4096)indexedSignatures.delete(indexedSignatures.values().next().value);
+    try{indexRules(sheet.cssRules);}catch{}
+  }
+  function usedRole(name){
+    const roles=new Set(),seen=new Set([name]),pending=[name];
+    while(pending.length&&seen.size<200){
+      const next=pending.pop();
+      for(const r of usage.direct.get(next)||[])roles.add(r);
+      for(const referrer of usage.referrers.get(next)||[])if(!seen.has(referrer)){seen.add(referrer);pending.push(referrer);}
+    }
+    if(roles.has('background')&&!roles.has('foreground'))return'background';
+    if(roles.has('foreground')&&!roles.has('background'))return'foreground';
+    if(roles.size===1&&roles.has('border'))return'border';
+    return null;
+  }
+  function variableRole(name,value){
+    const key=String(name).toLowerCase();
+    if(primitiveVariable(key)||semanticVariable(key))return role('',name,value);
+    const used=usedRole(name);usage.asked.set(name,used);
+    if(used){stats.usageVariables++;return used;}
+    return role('',name,value);
+  }
+  // A role learned after a variable was already themed (a component styled later) re-themes every root once.
+  function settleUsage(){
+    if(!usage.dirty)return;usage.dirty=false;
+    let changed=false;
+    for(const [name,was] of usage.asked)if(usedRole(name)!==was){changed=true;break;}
+    if(!changed)return;
+    usage.version++;usage.asked.clear();
+    queue.add(document);for(const root of rootList)queue.add(root);
+    scheduleSlice();
+  }
   function role(property,name='',value=''){
     if(primitiveVariable(name))return null;
     const prop=String(property||'').toLowerCase();
@@ -110,8 +174,7 @@ EXP.DynamicEngine = (() => {
       return null;
     }
     const key=String(name||'').toLowerCase();
-    const semantic=/(?:success|danger|error|warning|info|brand|logo|rating|star|sale|discount|promo|price|positive|negative|favorite|heart|selected|active-state)/.test(key);
-    if(semantic){stats.skippedSemanticVariables++;return null;}
+    if(semanticVariable(key)){stats.skippedSemanticVariables++;return null;}
     if(EXP.ColorEngine.onSurfaceName(name))return'foreground';
     if(/background|\bbg\b|surface|canvas|panel|card|layer|container|popover|dialog|menu/.test(key))return'background';
     if(/color|text|foreground|\bfg\b|label|ink|content|fill|lighting|copy/.test(key))return'foreground';
@@ -179,7 +242,7 @@ EXP.DynamicEngine = (() => {
           if(rawBg){const transformed=transformValue('background-color',rawBg,scope,theme.page);const token=transformed.match(/(?:#(?:[0-9a-f]{3,8})\b|rgba?\([^)]*\))/i)?.[0];if(token)bg=token;}
           for(let i=0;i<rule.style.length;i++){
             const p=rule.style.item(i),v=rule.style.getPropertyValue(p);let next=v;
-            if(p.startsWith('--')){const rr=role('',p,v);if(rr){next=transformLiterals(v,rr,bg);if(next!==v)stats.variables++;}}
+            if(p.startsWith('--')){const rr=variableRole(p,v);if(rr){next=transformLiterals(v,rr,bg);if(next!==v)stats.variables++;}}
             else next=transformValue(p,v,scope,bg);
             if(next!==v)declarations.push([`${p}:${next}`,rule.style.getPropertyPriority(p)==='important']);
           }
@@ -219,7 +282,7 @@ EXP.DynamicEngine = (() => {
   // up by theme + signature + full-text hash, sharing only when the stored text is identical.
   // Each shared result keeps its source text for that comparison (bounded by SHARED_LIMIT).
   function themedResult(sheet) {
-    const sig = signature(sheet), key = themeKey(theme);
+    const sig = signature(sheet), key = `${themeKey(theme)}|u${usage.version}`;
     const record = sheetResults.get(sheet);
     if (record && record.sig === sig && record.key === key) { stats.cacheHits++; return record.result; }
     const text = sheetText(sheet), indexKey = `${key}|${sig}|${textHash(text)}|${LOCAL_BUDGET}`;
@@ -337,6 +400,8 @@ EXP.DynamicEngine = (() => {
     const normal = [...(root.styleSheets || [])];
     let adopted = []; try { adopted = [...(root.adoptedStyleSheets || [])]; } catch {}
     stats.adoptedSheets += adopted.length;
+    for (const sheet of [...normal, ...adopted]) { if (sheet.ownerNode?.dataset?.expOwned === '1' || isOwnedSheet(sheet)) continue; try { void sheet.cssRules; indexSheet(sheet); } catch {} }
+    settleUsage();
     const live = new Set();
     for (const sheet of [...normal, ...adopted]) {
       if (sheet.ownerNode?.dataset?.expOwned === '1' || isOwnedSheet(sheet))continue;
@@ -404,6 +469,7 @@ EXP.DynamicEngine = (() => {
         if(!active||epoch!==generation)return;
         targets=[...waiters];
         const rules=parseRemote(source),out=[];
+        indexRules(rules);
         walk(rules,out,new Map(),8000);
         css=out.join('\n');
         remoteCache.set(key,css);
@@ -458,7 +524,7 @@ EXP.DynamicEngine = (() => {
   }
 
   function resetRunStats() {
-    stats.sheets = stats.rulesSeen = stats.rulesGenerated = stats.inaccessible = stats.remoteSheets = stats.remoteRules = stats.remoteFailures = stats.remoteSkippedNoHref = stats.variables = stats.groups = stats.shadowRoots = stats.adoptedSheets = stats.inferredVariables = stats.skippedSemanticVariables = stats.gradients = stats.layeredBackgrounds = stats.preservedImages = stats.currentColor = stats.colorMix = stats.masks = stats.filters = 0;
+    stats.sheets = stats.rulesSeen = stats.rulesGenerated = stats.inaccessible = stats.remoteSheets = stats.remoteRules = stats.remoteFailures = stats.remoteSkippedNoHref = stats.variables = stats.usageVariables = stats.groups = stats.shadowRoots = stats.adoptedSheets = stats.inferredVariables = stats.skippedSemanticVariables = stats.gradients = stats.layeredBackgrounds = stats.preservedImages = stats.currentColor = stats.colorMix = stats.masks = stats.filters = 0;
   }
 
   function registerRoot(root) {
@@ -647,6 +713,8 @@ EXP.DynamicEngine = (() => {
     resetRunStats(); stats.runs++; stats.passes++;
     sweepDead();
     const started = performance.now();
+    for (const root of [document, ...rootList]) { let sheets = []; try { sheets = [...(root.styleSheets || []), ...(root.adoptedStyleSheets || [])]; } catch {} for (const sheet of sheets) { if (sheet.ownerNode?.dataset?.expOwned === '1' || isOwnedSheet(sheet)) continue; try { void sheet.cssRules; indexSheet(sheet); } catch {} } }
+    usage.asked.clear(); usage.dirty = false;
     try { processRoot(document); } catch (error) { reportError(error); }
     finally { recordSlice(started); }
     for (const root of rootList) if (root !== document) queue.add(root);

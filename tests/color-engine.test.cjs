@@ -129,3 +129,14 @@ test('inline repair preserves URL artwork while repairing text', async (t) => {
   assert.notEqual(result.color, '#222');
   assert.match(result.marker, /color/);
 });
+
+test('a translucent overlay keeps its transparency so the page under it stays visible', async (t) => {
+  const page = await withColorEngine(t);
+  const result = await page.evaluate(() => {
+    const theme = testThemes.resolve('shift', 'midnight', {});
+    return { scrim: testColors.parse(testColors.background('#0000004d', theme, theme.page)), veil: testColors.parse(testColors.background('rgba(255,255,255,.6)', theme, theme.page)), solid: testColors.parse(testColors.background('#ffffff', theme, theme.page)) };
+  });
+  assert.ok(Math.abs(result.scrim.a - 0.3) < 0.01, 'scrim alpha ' + JSON.stringify(result.scrim));
+  assert.ok(Math.abs(result.veil.a - 0.6) < 0.01, 'veil alpha ' + JSON.stringify(result.veil));
+  assert.equal(result.solid.a, 1);
+});

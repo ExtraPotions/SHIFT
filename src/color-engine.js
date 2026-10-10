@@ -114,12 +114,16 @@ EXP.ColorEngine = (() => {
   function background(value, theme, parentBackground = theme.page) {
     let source = parse(value);
     if (!source || source.a < 0.08) return value;
-    if (source.a < 0.999) source = composite(source, parse(parentBackground) || parse(theme.page));
+    // A translucent layer (an overlay scrim, a hover tint) is matched as it looks over its parent but keeps
+    // its own transparency, so the page under it stays visible.
+    const alpha = source.a;
+    if (alpha < 0.999) source = composite(source, parse(parentBackground) || parse(theme.page));
+    const keepAlpha = (color) => { if (alpha >= 0.999) return color; const parsed = parse(color); return parsed ? rgba({ ...parsed, a: alpha }) : color; };
     const l = luminance(source);
     const sat = saturation(source);
     const low = parse(theme.page);
     const high = parse(theme.overlay || theme.raised || theme.surface);
-    if (!low || !high) return theme.surface;
+    if (!low || !high) return keepAlpha(theme.surface);
     const sourceDepth = clamp((l - 0.08) / 0.92);
     // Keep structural depth visible even in very dark/high-contrast palettes.
     const depth = 0.28 + sourceDepth * 0.66;
@@ -127,9 +131,9 @@ EXP.ColorEngine = (() => {
     // Structural backgrounds belong to the selected SHIFT palette. Source saturation is
     // useful for recognizing hierarchy, but must not tint whole interfaces toward the site's
     // brand color. Semantic color is preserved by foreground/status/artwork paths instead.
-    if (sat < 0.12) return neutralTarget;
+    if (sat < 0.12) return keepAlpha(neutralTarget);
     const chromaLift = clamp(sat * 0.12, 0.02, 0.08);
-    return mix(neutralTarget, theme.raised || theme.surface, chromaLift);
+    return keepAlpha(mix(neutralTarget, theme.raised || theme.surface, chromaLift));
   }
 
   function ensureContrast(candidate, backgroundValue, theme, minimum = 4.5) {
