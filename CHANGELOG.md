@@ -1,3 +1,8 @@
+## 3.5.23 — 2026-10-10 (quiet)
+
+- Uses the shared readability scan from ExtraPotions Core 3.8.1.
+- Diagnostics are unchanged for you.
+
 ## 3.5.22 — 2026-10-10
 
 - Keeps Reddit's upvote and downvote arrows readable in dark themes.

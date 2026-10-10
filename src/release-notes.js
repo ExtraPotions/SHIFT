@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.22';
+EXP.VERSION = '3.5.23';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.23': ["Uses the shared readability scan from ExtraPotions Core 3.8.1.","Diagnostics are unchanged for you."],
     '3.5.22': ["Keeps Reddit's upvote and downvote arrows readable in dark themes.","Lightens other text colors that sites name after the surface they sit on.","Copy Diagnostics and Report a Problem now list hard-to-read text and page overlays, without copying page text."],
     '3.5.21': ["Redesigned menu with tabs and a cleaner look.","Shows a live status line in the menu header."],
     '3.5.20': ["Report a Problem fills in the GitHub issue with a short summary and copies the full diagnostics.","Removes the menu footer."],
@@ -387,7 +388,7 @@ EXP.ReleaseNotes = (() => {
     return fragment;
   }
 
-  const QUIET_RELEASES = Object.freeze(["3.5.17"]);
+  const QUIET_RELEASES = Object.freeze(["3.5.23","3.5.17"]);
   function isQuietUpgrade(previous) { return ExtraPotionsCore.isQuietUpgrade(previous, EXP.VERSION, Object.keys(NOTES), QUIET_RELEASES); }
   return Object.freeze({ forVersion, renderChangelog, isQuietUpgrade, QUIET_RELEASES });
 })();
