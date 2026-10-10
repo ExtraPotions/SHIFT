@@ -521,6 +521,19 @@ test('page rules on a host element still win over themed :host rules', async t =
   assert.notEqual(facts.plain, 'rgb(255, 255, 255)', 'plain :host still themed');
 });
 
+test('a component\'s own !important :host declarations are still themed', async t => {
+  const page = await fixture(t);
+  await defineStyled(page, 'firm-host', ':host{display:block;background:#ffffff !important;color:#111}', '<span>Firm</span>');
+  await defineStyled(page, 'mixed-host', ':host, .inner{display:block;background:#fff !important}', '<div class="inner">Inner</div>');
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const bgs = () => ({ firm: getComputedStyle(document.querySelector('firm-host')).backgroundColor, mixedHost: getComputedStyle(document.querySelector('mixed-host')).backgroundColor, mixedInner: getComputedStyle(document.querySelector('mixed-host').shadowRoot.querySelector('.inner')).backgroundColor });
+  await page.waitForFunction(fn => Object.values(eval(fn)()).every(bg => bg !== 'rgb(255, 255, 255)'), bgs.toString(), { timeout: 3000 }).catch(() => {});
+  const facts = await page.evaluate(bgs);
+  assert.notEqual(facts.firm, 'rgb(255, 255, 255)', ':host !important themed');
+  assert.notEqual(facts.mixedHost, 'rgb(255, 255, 255)', 'mixed list host themed');
+  assert.notEqual(facts.mixedInner, 'rgb(255, 255, 255)', 'mixed list inner themed');
+});
+
 test('a style element edited through CSSOM is not themed from an unedited twin', async t => {
   const page = await fixture(t);
   const text = Array.from({ length: 100 }, (_, i) => `.r${i}{color:#1c1c1c}`).join('');

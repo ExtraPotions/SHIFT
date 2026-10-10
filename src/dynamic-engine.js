@@ -180,15 +180,17 @@ EXP.DynamicEngine = (() => {
             const p=rule.style.item(i),v=rule.style.getPropertyValue(p);let next=v;
             if(p.startsWith('--')){const rr=role('',p,v);if(rr){next=transformLiterals(v,rr,bg);if(next!==v)stats.variables++;}}
             else next=transformValue(p,v,scope,bg);
-            if(next!==v)declarations.push(`${p}:${next}`);
+            if(next!==v)declarations.push([`${p}:${next}`,rule.style.getPropertyPriority(p)==='important']);
           }
           if(declarations.length){
             const {selector,host}=guardSelectorText(rule.selectorText);
-            if(selector){out.push(`${selector}{${declarations.map(d=>`${d}!important`).join(';')}}`);stats.rulesGenerated++;}
+            if(selector){out.push(`${selector}{${declarations.map(([d])=>`${d}!important`).join(';')}}`);stats.rulesGenerated++;}
             // In a shadow tree !important would beat the page's own rules on the host (the cascade
             // inverts for important declarations); the :host() guard's extra specificity already
             // beats the component's own :host rule, so these stay normal and page overrides win.
-            if(host){out.push(`${host}{${declarations.join(';')}}`);stats.rulesGenerated++;}
+            // A declaration the component itself marked !important already beats every page rule
+            // on the host, so it keeps !important (otherwise the component's original would win).
+            if(host){out.push(`${host}{${declarations.map(([d,important])=>important?`${d}!important`:d).join(';')}}`);stats.rulesGenerated++;}
           }
         }else if(rule.cssRules){
           const nested=[];walk(rule.cssRules,nested,scope,budget);
