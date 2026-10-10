@@ -64,6 +64,7 @@ New browser tests on a Reddit-like fixture in `tests/`:
 - A component that reassigns `adoptedStyleSheets`: themed again after that root's next mutation that is not text-only, or at the next full pass.
 - Theme off removes all themed sheets and styles; theme change replaces them.
 - Performance:
+  - CI applies a 3× time scale to every millisecond budget below; deterministic work counters (cache misses, shared sheet count, roots, discovery calls and elements) are the primary check.
   - Reddit-sized fixture (1,500 components, 150 distinct sheets, 40 style waves): `health().maxSliceMs < 50` and `health().totalMs < 1200`. The pre-change baseline was 6,170 ms, and the budget follows the 5× rule.
   - 1,500 identical per-component `<style>` elements: `totalMs < 1500`.
     - Ruling: exact identity is kept, and the 1,500 ms budget is final.

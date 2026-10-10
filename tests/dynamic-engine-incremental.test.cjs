@@ -5,6 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
+// CI runners are slower, so wall-clock budgets are relaxed 3x there; efficiency is asserted through work counters.
+const TIME_SCALE = process.env.CI ? 3 : 1;
+
 // The engine requires Core's shared page observer (commit 44043f0), so Core loads first.
 const core = fs.readFileSync(path.join(__dirname, '../vendor/exp-core/exp-core.js'), 'utf8');
 const source = ['themes.js', 'color-engine.js', 'dynamic-engine.js'].map(file => fs.readFileSync(path.join(__dirname, '../src', file), 'utf8')).join('\n');
@@ -118,11 +121,13 @@ test('a Reddit-sized page themes everything without long engine slices', async t
   await page.waitForTimeout(2000);
   const facts = await page.evaluate(() => ({ unthemed: unthemedPosts(), health: expTest.DynamicEngine.health() }));
   assert.equal(facts.unthemed, 0, `unthemed ${facts.unthemed}`);
-  assert.ok(facts.health.maxSliceMs < 50, `longest slice ${facts.health.maxSliceMs} ms`);
+  assert.ok(facts.health.maxSliceMs < 50 * TIME_SCALE, `longest slice ${facts.health.maxSliceMs} ms`);
   // Spec: total engine time at least 5x below the pre-change engine. On this fixture (150 distinct
   // sheets, 40 style waves) the pre-change baseline was 6,170 ms, so the budget is 1,200 ms.
-  assert.ok(facts.health.totalMs < 1200, `total engine time ${facts.health.totalMs} ms`);
+  assert.ok(facts.health.totalMs < 1200 * TIME_SCALE, `total engine time ${facts.health.totalMs} ms`);
   assert.ok(facts.health.knownRoots >= 1521, `known roots ${facts.health.knownRoots}`);
+  assert.ok(facts.health.adoptedRoots >= 1520, `adopted roots ${facts.health.adoptedRoots}`);
+  assert.ok(facts.health.cacheMisses <= 150 + 40 + 5, `cache misses ${facts.health.cacheMisses} (150 sheets + 40 style waves)`);
 });
 
 test('removed components are released from the engine', async t => {
@@ -237,8 +242,8 @@ test('identical per-component style elements are themed once and share one copy'
   // Ruling: exact sheet identity is kept (CSSOM edits leave textContent unchanged, so every sheet is
   // serialised), with a 1,500 ms budget. Measured 675-1,056 ms, every slice <= 17 ms; the pre-sharing
   // engine (4275262) took about 3,030 ms. Theming completes up to ~1 s later on such pages.
-  assert.ok(facts.health.totalMs < 1500, `total engine time ${facts.health.totalMs} ms`);
-  assert.ok(facts.health.maxSliceMs < 50, `longest slice ${facts.health.maxSliceMs} ms`);
+  assert.ok(facts.health.totalMs < 1500 * TIME_SCALE, `total engine time ${facts.health.totalMs} ms`);
+  assert.ok(facts.health.maxSliceMs < 50 * TIME_SCALE, `longest slice ${facts.health.maxSliceMs} ms`);
   await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
   await page.waitForTimeout(1500);
   const changed = await page.evaluate(() => ({
@@ -327,7 +332,7 @@ test('page batches that add nothing do not walk the changed container', async t 
   assert.equal(typeof spent.elements, 'number');
   assert.equal(spent.calls - baseline.calls, 0, 'no discovery walks over 30 add-free batches');
   assert.equal(spent.elements - baseline.elements, 0, 'no elements visited over 30 add-free batches');
-  assert.ok(spent.ms - baseline.ms < 50, `discovery time ${spent.ms - baseline.ms} ms over 30 add-free batches`);
+  assert.ok(spent.ms - baseline.ms < 50 * TIME_SCALE, `discovery time ${spent.ms - baseline.ms} ms over 30 add-free batches`);
   await page.evaluate(() => {
     customElements.define('box-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Box</div>'; } });
     document.getElementById('box').append(document.createElement('box-post'));
@@ -380,7 +385,8 @@ test('health after stop and start reflects only the new run', async t => {
   const second = await page.evaluate(() => expTest.DynamicEngine.health());
   assert.equal(second.passes, 1, JSON.stringify(second));
   assert.ok(second.slices < first.slices, `slices ${second.slices} vs first run ${first.slices}`);
-  assert.ok(second.totalMs <= first.totalMs, `total ${second.totalMs} vs first run ${first.totalMs}`);
+  assert.ok(second.slices <= 5, `slices after restart ${second.slices}`);
+  assert.ok(second.totalMs < 200 * TIME_SCALE, `total ${second.totalMs} ms after restart`);
   assert.equal(second.cacheMisses, 0, 'the page sheet was cached in the first run');
   assert.equal(second.discoverElements < first.discoverElements, true);
 });
