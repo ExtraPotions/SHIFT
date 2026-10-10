@@ -244,6 +244,8 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       noticePlacement: notice.dataset.placement,
       panelRight: panelRect.right,
       panelLeft: panelRect.left,
+      noticeLeft: noticeRect.left,
+      viewportHeight: innerHeight,
       noticeRight: noticeRect.right,
       noticeTop: noticeRect.top,
       noticeBottom: noticeRect.bottom,
@@ -266,11 +268,13 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   const currentChangelog = fs.readFileSync(path.join(__dirname, '../CHANGELOG.md'), 'utf8').split(/^## /m).find(section=>section.startsWith(pkg.version+' ')) || '';
   assert.deepEqual(facts.noticeBullets, [...currentChangelog.matchAll(/^- (.+)$/gm)].map(match => match[1]));
   assert.equal(facts.noticePlacement, 'menu');
-  // With a section always open the menu is tall: the notice stacks beyond it on the shared right edge when it fits,
-  // otherwise it sits beside the menu on its left. Either way it never overlaps the menu.
-  const stacked = Math.abs(facts.noticeRight - facts.panelRight) <= 1 && (facts.noticeBottom <= facts.panelTop || facts.noticeTop >= facts.panelBottom);
-  const beside = facts.noticeRight <= facts.panelLeft;
-  assert.ok(stacked || beside, JSON.stringify(facts));
+  // Core placeNotice: the notice stacks above the menu on its right edge when there is room; the menu is now tall
+  // (a section is always open), so in this 800px window it sits beside the menu, on its left, bottom-aligned.
+  const gap = facts.panelLeft - facts.noticeRight;
+  assert.ok(gap >= 0 && gap <= 16, 'notice sits right beside the menu: ' + JSON.stringify(facts));
+  assert.ok(facts.noticeLeft >= 0 && facts.noticeTop >= 0 && facts.noticeBottom <= facts.viewportHeight, 'notice is inside the viewport: ' + JSON.stringify(facts));
+  assert.ok(facts.noticeTop < facts.panelBottom && facts.noticeBottom > facts.panelTop, 'notice overlaps the menu vertically: ' + JSON.stringify(facts));
+  assert.ok(Math.abs(facts.noticeBottom - facts.panelBottom) <= 2, 'notice is bottom-aligned with the menu: ' + JSON.stringify(facts));
 
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
   assert.deepEqual(labels, ['Appearance', 'Advanced', 'System']);
@@ -284,6 +288,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       text: subtitleNode.textContent,
       titleLeft: title.getBoundingClientRect().left,
       subtitleLeft: subtitleNode.getBoundingClientRect().left,
+      statusText: shadow.querySelector('[data-exp-part="status"]')?.textContent.trim(),
       statusLeft: shadow.querySelector('[data-exp-part="status"]')?.getBoundingClientRect().left,
       paddingLeft: style.paddingLeft,
       borderTopWidth: style.borderTopWidth,
@@ -293,6 +298,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.equal(subtitle.text, 'Adaptive themes and readability');
   // The menu header shows the health label in place of the tagline, aligned with the title.
   assert.equal(subtitle.statusLeft, subtitle.titleLeft);
+  assert.ok(subtitle.statusText, 'header status text is non-empty');
   assert.deepEqual(
     { paddingLeft: subtitle.paddingLeft, borderTopWidth: subtitle.borderTopWidth, textAlign: subtitle.textAlign },
     { paddingLeft: '0px', borderTopWidth: '0px', textAlign: 'start' },
