@@ -181,8 +181,10 @@ EXP.Engine = (() => {
     const effects=`${state.reduceShadows?'box-shadow:none!important;':''}${state.reduceTransparency?'backdrop-filter:none!important;':''}${state.simplifyGradients?'background-image:none!important;':''}${state.reduceBlur?'filter:none!important;backdrop-filter:none!important;':''}`;
     const reduceMotion=state.reduceMotion==='on'||(state.reduceMotion==='system'&&matchMedia('(prefers-reduced-motion: reduce)').matches);
     const motion=reduceMotion?'html[data-exp-shift] :is([data-exp-shift-live],main,header,footer,nav,aside,section,article,button,input,select,textarea){animation:none!important;transition:none!important;scroll-behavior:auto!important}':'';
+    // Links styled as buttons paint their own fill, so the accent on top of it can vanish (anime.nexus' Watch Now).
+    const LINK_NOT_BUTTON=':not([role="button"],[data-slot="button"],[class*="button" i],[class*="btn" i])';
     const preserveGuard=':not(:where([data-exp-owned="1"],[data-exp-owned="1"] *,[data-exp-shift-preserve],[data-exp-shift-preserve] *))';
-    const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a:not([role="button"])${preserveGuard}{color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
+    const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a${LINK_NOT_BUTTON}${preserveGuard}{color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
     const forms=state.formReadability
       ? `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`
       : '';
