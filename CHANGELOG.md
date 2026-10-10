@@ -1,3 +1,8 @@
+## 3.5.18 — 2026-10-10
+
+- Loads faster on Reddit and other component-heavy sites.
+- Themes Reddit chat and every post consistently.
+
 ## 3.5.17 — 2026-10-09 (quiet)
 
 - Captures README screenshots with the shared ExtraPotions tool.

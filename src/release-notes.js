@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.17';
+EXP.VERSION = '3.5.18';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.18': ["Loads faster on Reddit and other component-heavy sites.","Themes Reddit chat and every post consistently."],
     '3.5.17': ["Captures README screenshots with the shared ExtraPotions tool.","Keeps the README screenshot list in step with the README."],
     '3.5.16': ["Checks for updates by default on new installs, at most every 12 hours.","Labels the launcher with the new version when an update is ready."],
     '3.5.15': ["Shortens the README to a quick overview of what SHIFT does.","Replaces the README screenshots with current captures of the menu."],
