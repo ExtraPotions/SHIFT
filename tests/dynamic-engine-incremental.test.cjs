@@ -521,6 +521,21 @@ test('page rules on a host element still win over themed :host rules', async t =
   assert.notEqual(facts.plain, 'rgb(255, 255, 255)', 'plain :host still themed');
 });
 
+test('a style element edited through CSSOM is not themed from an unedited twin', async t => {
+  const page = await fixture(t);
+  const text = Array.from({ length: 100 }, (_, i) => `.r${i}{color:#1c1c1c}`).join('');
+  await defineStyled(page, 'twin-a', text, '<div class="r51">A</div>');
+  await defineStyled(page, 'twin-b', text, '<div class="r51">B</div>');
+  await page.evaluate(() => {
+    const sheet = document.querySelector('twin-b').shadowRoot.querySelector('style').sheet;
+    sheet.deleteRule(51); sheet.insertRule('.r51{background:#ffffff}', 51);
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  const editedBg = () => getComputedStyle(document.querySelector('twin-b').shadowRoot.querySelector('.r51')).backgroundColor;
+  await page.waitForFunction(fn => eval(fn)() !== 'rgb(255, 255, 255)', editedBg.toString(), { timeout: 3000 }).catch(() => {});
+  assert.notEqual(await page.evaluate(editedBg), 'rgb(255, 255, 255)');
+});
+
 test('generated CSS for selectors other than :host is unchanged', async t => {
   const page = await fixture(t);
   const css = '.a{background:#ffffff}.b::before{color:#111111}div > p.c, ul li{background:#fafafa}a[href*=","]:hover{color:#222222}:is(.x, .y) .z::after{border-color:#dddddd}:host .inner{background:#ffffff}dialog::backdrop{background:#ffffff}@media (min-width: 1px){.m{background:#ffffff}}';

@@ -201,11 +201,9 @@ EXP.DynamicEngine = (() => {
   const ownedNode = node => Boolean(node?.closest?.('[data-exp-owned="1"]'));
   const liveRoot = root => root === document || Boolean(root?.host?.isConnected);
 
-  // Full text of a sheet, for exact identity. A <style> with text is read as written; an empty one
-  // (rules inserted through CSSOM) or a constructed or <link> sheet is serialised rule by rule.
+  // Full text of a sheet, for exact identity: its rules as they are now, serialised one by one.
+  // A <style>'s textContent is not used, since CSSOM edits (insertRule/deleteRule) do not change it.
   function sheetText(sheet) {
-    const owner = sheet.ownerNode;
-    if (owner?.nodeName === 'STYLE') { const text = owner.textContent; if (text) return text; }
     let text = ''; for (const rule of sheet.cssRules) text += rule.cssText + '\n';
     return text;
   }
