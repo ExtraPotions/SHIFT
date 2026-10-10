@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.21';
+EXP.VERSION = '3.5.22';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.22': ["Keeps Reddit's upvote and downvote arrows readable in dark themes.","Lightens other text colors that sites name after the surface they sit on.","Copy Diagnostics and Report a Problem now list hard-to-read text and page overlays, without copying page text."],
     '3.5.21': ["Redesigned menu with tabs and a cleaner look.","Shows a live status line in the menu header."],
     '3.5.20': ["Report a Problem fills in the GitHub issue with a short summary and copies the full diagnostics.","Removes the menu footer."],
     '3.5.19': ["Keeps scrolling smooth on long pages like Reddit.","No longer re-themes the whole page each time a late stylesheet loads.","Includes the faster shared ExtraPotions core."],

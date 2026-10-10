@@ -1,3 +1,9 @@
+## 3.5.22 — 2026-10-10
+
+- Keeps Reddit's upvote and downvote arrows readable in dark themes.
+- Lightens other text colors that sites name after the surface they sit on.
+- Copy Diagnostics and Report a Problem now list hard-to-read text and page overlays, without copying page text.
+
 ## 3.5.21 — 2026-10-10
 
 - Redesigned menu with tabs and a cleaner look.
