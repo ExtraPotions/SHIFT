@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.20';
+EXP.VERSION = '3.5.21';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.21': ["Redesigned menu with tabs and a cleaner look.","Shows a live status line in the menu header."],
     '3.5.20': ["Report a Problem fills in the GitHub issue with a short summary and copies the full diagnostics.","Removes the menu footer."],
     '3.5.19': ["Keeps scrolling smooth on long pages like Reddit.","No longer re-themes the whole page each time a late stylesheet loads.","Includes the faster shared ExtraPotions core."],
     '3.5.18': ["Loads faster on Reddit and other component-heavy sites.","Themes Reddit chat and every post consistently."],
