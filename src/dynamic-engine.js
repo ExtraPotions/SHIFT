@@ -60,8 +60,9 @@ EXP.DynamicEngine = (() => {
     }
     return depth===0?`:host(${inner}:not([data-exp-shift-preserve]))`:null;
   }
+  // Splits a selector list into guarded ordinary parts and guarded :host subjects.
   function guardSelectorText(selectorText){
-    const source=String(selectorText||''),parts=[];
+    const source=String(selectorText||''),parts=[],hosts=[];
     let start=0,paren=0,bracket=0,quote='',escape=false;
     for(let i=0;i<=source.length;i++){
       const ch=source[i]||',';
@@ -82,14 +83,13 @@ EXP.DynamicEngine = (() => {
           const pseudo=part.indexOf('::');
           const head=pseudo>=0?part.slice(0,pseudo):part,tail=pseudo>=0?part.slice(pseudo):'';
           const host=hostGuard(head);
-          parts.push(host
-            ? `${host}${tail}`
-            : `${head}${DYNAMIC_PRESERVE_GUARD}${tail}`);
+          if(host)hosts.push(`${host}${tail}`);
+          else parts.push(`${head}${DYNAMIC_PRESERVE_GUARD}${tail}`);
         }
         start=i+1;
       }
     }
-    return parts.join(',');
+    return {selector:parts.join(','),host:hosts.join(',')};
   }
 
   function primitiveVariable(name){
@@ -179,9 +179,16 @@ EXP.DynamicEngine = (() => {
             const p=rule.style.item(i),v=rule.style.getPropertyValue(p);let next=v;
             if(p.startsWith('--')){const rr=role('',p,v);if(rr){next=transformLiterals(v,rr,bg);if(next!==v)stats.variables++;}}
             else next=transformValue(p,v,scope,bg);
-            if(next!==v)declarations.push(`${p}:${next}!important`);
+            if(next!==v)declarations.push(`${p}:${next}`);
           }
-          if(declarations.length){const selector=guardSelectorText(rule.selectorText);if(selector){out.push(`${selector}{${declarations.join(';')}}`);stats.rulesGenerated++;}}
+          if(declarations.length){
+            const {selector,host}=guardSelectorText(rule.selectorText);
+            if(selector){out.push(`${selector}{${declarations.map(d=>`${d}!important`).join(';')}}`);stats.rulesGenerated++;}
+            // In a shadow tree !important would beat the page's own rules on the host (the cascade
+            // inverts for important declarations); the :host() guard's extra specificity already
+            // beats the component's own :host rule, so these stay normal and page overrides win.
+            if(host){out.push(`${host}{${declarations.join(';')}}`);stats.rulesGenerated++;}
+          }
         }else if(rule.cssRules){
           const nested=[];walk(rule.cssRules,nested,scope,budget);
           const head=rule.cssText?.slice(0,rule.cssText.indexOf('{')).trim();

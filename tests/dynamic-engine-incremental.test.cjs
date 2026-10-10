@@ -493,6 +493,31 @@ test(':host rules theme the host element unless it is preserved', async t => {
   assert.equal(facts.kept, 'rgb(255, 255, 255)', 'preserved host untouched');
 });
 
+test('page rules on a host element still win over themed :host rules', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    document.head.querySelector('style').textContent += 'plain-card.clear{background:transparent}plain-card.red{background:#cc0000}.red-probe{background:#cc0000}card-el.brand{--card-bg:#ffe0b0}.brand-probe{--card-bg:#ffe0b0;background:var(--card-bg)}';
+    customElements.define('card-el', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>:host{display:block;--card-bg:#ffffff;background:var(--card-bg)}</style><span>Card</span>'; } });
+    customElements.define('plain-card', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>:host{display:block;background:#ffffff}</style><span>Plain</span>'; } });
+    const feed = document.getElementById('feed');
+    for (const name of ['clear', 'red']) { const card = document.createElement('plain-card'); card.className = name; feed.append(card); }
+    const brand = document.createElement('card-el'); brand.className = 'brand'; feed.append(brand);
+    feed.append(document.createElement('plain-card'));
+    for (const name of ['red-probe', 'brand-probe']) { const probe = document.createElement('div'); probe.className = name; feed.append(probe); }
+  });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('plain-card:not([class])')).backgroundColor !== 'rgb(255, 255, 255)', null, { timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const facts = await page.evaluate(() => {
+    const bg = selector => getComputedStyle(document.querySelector(selector)).backgroundColor;
+    return { clear: bg('plain-card.clear'), red: bg('plain-card.red'), redProbe: bg('.red-probe'), brand: bg('card-el.brand'), brandProbe: bg('.brand-probe'), plain: bg('plain-card:not([class])') };
+  });
+  assert.equal(facts.clear, 'rgba(0, 0, 0, 0)', 'page transparent wins');
+  assert.equal(facts.red, facts.redProbe, 'page red (themed) wins');
+  assert.equal(facts.brand, facts.brandProbe, 'page variable override wins');
+  assert.notEqual(facts.plain, 'rgb(255, 255, 255)', 'plain :host still themed');
+});
+
 test('generated CSS for selectors other than :host is unchanged', async t => {
   const page = await fixture(t);
   const css = '.a{background:#ffffff}.b::before{color:#111111}div > p.c, ul li{background:#fafafa}a[href*=","]:hover{color:#222222}:is(.x, .y) .z::after{border-color:#dddddd}:host .inner{background:#ffffff}dialog::backdrop{background:#ffffff}@media (min-width: 1px){.m{background:#ffffff}}';
