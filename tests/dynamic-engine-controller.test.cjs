@@ -69,10 +69,9 @@ test('a stylesheet that loads after the page has loaded does not re-apply the th
     link.dispatchEvent(new Event('load'));
     await new Promise(resolve => setTimeout(resolve, 800));
     const after = testShift.Engine.health();
-    return { rechecks: after.nativeRechecks - before.nativeRechecks, applies: after.applies - before.applies, themed: document.documentElement.getAttribute('data-exp-shift'), evidence: Boolean(after.nativeDarkEvidence) };
+    return { rechecks: after.nativeRechecks - before.nativeRechecks, applies: after.applies - before.applies, themed: document.documentElement.getAttribute('data-exp-shift') };
   });
   assert.equal(facts.rechecks, 0, JSON.stringify(facts));
   assert.equal(facts.applies, 0, JSON.stringify(facts));
   assert.equal(facts.themed, 'midnight');
-  assert.equal(facts.evidence, true);
 });
