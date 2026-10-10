@@ -190,9 +190,17 @@ EXP.ColorEngine = (() => {
     return source.replace(COLOR_FUNCTION, (token) => transform(token, role, theme, backgroundValue));
   }
 
+  // "on-background" names (Reddit's --color-secondary-onBackground, Material's --on-surface) hold the text
+  // drawn on a surface, so they are foreground even though they name one.
+  const ON_SURFACE_NAME = /(?:^|[-_])on-?(?:background|bg|surface|canvas|panel|card|layer|container|scrim|primary|secondary|tertiary|accent|media)/;
+  function onSurfaceName(name) {
+    return ON_SURFACE_NAME.test(String(name || '').replace(/^--/, '-').replace(/([a-z])On(?=[A-Z])/g, '$1-on').toLowerCase());
+  }
+
   function variableRole(name) {
     const key = String(name || '').toLowerCase();
     if (key.startsWith('--exp-shift-')) return null;
+    if (onSurfaceName(name)) return 'foreground';
     if (/(?:bg|background|surface|canvas|panel|card|layer|elevation|base|container)/.test(key)) return 'background';
     if (/(?:text|foreground|fg|label|copy|font|ink|content)/.test(key)) return 'foreground';
     if (/(?:border|outline|divider|stroke|rule|separator)/.test(key)) return 'border';
@@ -288,7 +296,7 @@ EXP.ColorEngine = (() => {
   }
 
   return Object.freeze({
-    parse, luminance, saturation, contrastRatio, ensureContrast, transform, background, foreground, border,
+    parse, luminance, saturation, contrastRatio, onSurfaceName, ensureContrast, transform, background, foreground, border,
     inspectInline, inspectOwned, restoreOwned, clear, health,
     INLINE_ATTR, INLINE_VARS_ATTR,
   });

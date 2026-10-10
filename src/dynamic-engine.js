@@ -112,6 +112,7 @@ EXP.DynamicEngine = (() => {
     const key=String(name||'').toLowerCase();
     const semantic=/(?:success|danger|error|warning|info|brand|logo|rating|star|sale|discount|promo|price|positive|negative|favorite|heart|selected|active-state)/.test(key);
     if(semantic){stats.skippedSemanticVariables++;return null;}
+    if(EXP.ColorEngine.onSurfaceName(name))return'foreground';
     if(/background|\bbg\b|surface|canvas|panel|card|layer|container|popover|dialog|menu/.test(key))return'background';
     if(/color|text|foreground|\bfg\b|label|ink|content|fill|lighting|copy/.test(key))return'foreground';
     if(/border|outline|divider|stroke|rule|separator/.test(key))return'border';
