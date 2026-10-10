@@ -120,7 +120,7 @@ EXP.DynamicEngine = (() => {
             if(!p.startsWith('--')&&!r)continue;
             for(const match of v.matchAll(/var\(\s*(--[\w-]+)/g)){
               const map=p.startsWith('--')?usage.referrers:usage.direct,set=map.get(match[1])||new Set();
-              const entry=p.startsWith('--')?p:r;if(!set.has(entry)){set.add(entry);map.set(match[1],set);usage.dirty=true;}
+              const entry=p.startsWith('--')?p:`${r}|${rule.selectorText}`;if(!set.has(entry)){set.add(entry);map.set(match[1],set);usage.dirty=true;}
             }
           }
         }else if(rule.cssRules)indexRules(rule.cssRules,depth+1);
@@ -136,15 +136,17 @@ EXP.DynamicEngine = (() => {
     try{indexRules(sheet.cssRules);}catch{}
   }
   function usedRole(name){
-    const roles=new Set(),seen=new Set([name]),pending=[name];
+    const counts={background:0,foreground:0,border:0},seen=new Set([name]),pending=[name];
     while(pending.length&&seen.size<200){
       const next=pending.pop();
-      for(const r of usage.direct.get(next)||[])roles.add(r);
+      for(const entry of usage.direct.get(next)||[])counts[entry.slice(0,entry.indexOf('|'))]++;
       for(const referrer of usage.referrers.get(next)||[])if(!seen.has(referrer)){seen.add(referrer);pending.push(referrer);}
     }
-    if(roles.has('background')&&!roles.has('foreground'))return'background';
-    if(roles.has('foreground')&&!roles.has('background'))return'foreground';
-    if(roles.size===1&&roles.has('border'))return'border';
+    // A clear majority (3 to 1) decides; Reddit paints --color-tone-7 as a surface nearly everywhere and as text once.
+    const {background:bg,foreground:fg,border}=counts;
+    if(bg&&bg>=3*fg)return'background';
+    if(fg&&fg>=3*bg)return'foreground';
+    if(border&&!bg&&!fg)return'border';
     return null;
   }
   function variableRole(name,value){
@@ -455,7 +457,7 @@ EXP.DynamicEngine = (() => {
       remoteLifetime.skippedNoHref++;
       return;
     }
-    const key=`${href}|${themeKey(theme)}`, epoch=generation;
+    const key=`${href}|${themeKey(theme)}|u${usage.version}`, epoch=generation;
     // Other roots using the same sheet while it is in flight wait for this request's result.
     if(pendingRemote.has(key)){remoteWaiters.get(key)?.add(root);return;}
     let css=remoteCache.get(key), targets=[root];
@@ -731,7 +733,7 @@ EXP.DynamicEngine = (() => {
       for (const indexKey of [...sharedResults.keys()]) if (!indexKey.startsWith(`${nextKey}|`)) sharedResults.delete(indexKey);
       // A remote copy is rethemed only once its new-theme result arrives; until then (or if that
       // fetch fails) the page is better without it than with the previous theme's colors.
-      for (const href of [...remoteOwners.keys()]) if (!remoteCache.has(`${href}|${nextKey}`)) dropRemote(href);
+      for (const href of [...remoteOwners.keys()]) if (!remoteCache.has(`${href}|${nextKey}|u${usage.version}`)) dropRemote(href);
     }
     theme = nextTheme; lastThemeKey = nextKey;
     queue.clear(); sliceHandle?.cancel(); sliceHandle = null;
