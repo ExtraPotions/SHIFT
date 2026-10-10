@@ -234,9 +234,9 @@ test('identical per-component style elements are themed once and share one copy'
   assert.equal(facts.unthemed, 0, `unthemed ${facts.unthemed}`);
   assert.equal(facts.constructed, 1, `constructed sheets ${facts.constructed}`);
   assert.ok(facts.health.cacheMisses <= 2, `cache misses ${facts.health.cacheMisses}`);
-  // Exact sharing serialises every sheet (CSSOM edits leave textContent unchanged), about 820-1,040 ms
-  // here. The pre-sharing engine (4275262) took about 3,030 ms on this fixture; this budget (2x
-  // below it) is interim and awaits a ruling, since the 5x rule would be about 600 ms.
+  // Ruling: exact sheet identity is kept (CSSOM edits leave textContent unchanged, so every sheet is
+  // serialised), with a 1,500 ms budget. Measured 675-1,056 ms, every slice <= 17 ms; the pre-sharing
+  // engine (4275262) took about 3,030 ms. Theming completes up to ~1 s later on such pages.
   assert.ok(facts.health.totalMs < 1500, `total engine time ${facts.health.totalMs} ms`);
   assert.ok(facts.health.maxSliceMs < 50, `longest slice ${facts.health.maxSliceMs} ms`);
   await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));

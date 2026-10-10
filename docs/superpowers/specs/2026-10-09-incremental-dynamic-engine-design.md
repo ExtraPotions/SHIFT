@@ -28,7 +28,7 @@ Measured on Reddit (user trace, 61 s) and on a local Reddit-like fixture (1,500 
 - Shadow roots that no observer reports:
   - an element inserted before its definition gets its root while upgrading: each undefined tag gets one `customElements.whenDefined` watch for the page's lifetime (not renewed on stop/start); when it resolves while theming, that tag's elements are looked at again;
   - a defined element that attaches its root after insertion (timer, microtask): rechecked once on the next animation frame and once about 250 ms later (one frame and one timer per batch; each element at most once per run).
-- Text changes outside a `<style>` inside a component (`.data =` or `.textContent =`) are ignored; an edit of a component `<style>`'s text reprocesses that root. CSSOM edits (`insertRule`, `deleteRule`, `replaceSync`) cause no mutation, so they are noticed only the next time that root is processed.
+- Text changes outside a `<style>` inside a component (`.data =` or `.textContent =`) are ignored; an edit of a component `<style>`'s text reprocesses that root. CSSOM edits (`insertRule`, `deleteRule`, `replaceSync`) cause no mutation. An in-place edit is noticed when that root is next processed, but only if it changes the rule count or the sampled signature. A same-count swap at an unsampled index can stay stale until the next theme change or full pass. This is a known limitation, accepted so that every sheet is not serialized on every pass.
 - Triggers:
   - new shadow root → process that root;
   - `<style>` or `link[rel~="stylesheet"]` added in a known root → reprocess that root only;
@@ -43,7 +43,8 @@ Measured on Reddit (user trace, 61 s) and on a local Reddit-like fixture (1,500 
   - On a theme change, a result whose text is unchanged is rethemed in place (`replaceSync`), updating every root that adopts it at once. If `replaceSync` fails, a fresh constructed sheet replaces it in every adopting root (or a `<style>` per root).
 - Generation is unchanged (same `walk()`, 6000-rule budget, `DYNAMIC_PRESERVE_GUARD`, owned-sheet skipping), except for selectors whose subject is exactly `:host` or `:host(X)`:
   - `:host` is featureless, so the appended guard never matched. These are guarded inside `:host()` instead: `:host(:not([data-exp-shift-preserve]))` or `:host(X:not([data-exp-shift-preserve]))`. Only a preserved host is covered; a preserved ancestor of a host is not.
-  - They are emitted as their own rule without `!important`. In a shadow tree, important declarations beat the page's own rules on the host, so page overrides (transparent, brand colors, variable overrides) would lose. The guard's extra specificity still beats the component's own `:host` rule.
+  - They are emitted as their own rule. In a shadow tree, important declarations beat the page's own rules on the host, so declarations the component wrote without `!important` are emitted without it, and page overrides (transparent, brand colors, variable overrides) still win. The guard's extra specificity still beats the component's own `:host` rule.
+  - Declarations the component itself marked `!important` keep `!important`. Those already beat every page rule on the host, and without `!important` the component's original would win over the themed value.
 - Document root: one `<style data-exp-owned="1" data-exp-shift-dynamic="1">` per stylesheet, as today.
 - Shadow roots: the result is also built once as a constructed `CSSStyleSheet` whose first rule is the owned-sheet marker (`.exp-owned-sheet-marker{}`). It is appended to the end of the root's `adoptedStyleSheets` for every root whose sheets include the original. If a root's adopted list no longer contains it (component reassigned the list), it is re-added when that root is next processed.
 - Fallback: if adoption throws or is unsupported, a `<style data-exp-owned="1" data-exp-shift-dynamic="1">` is inserted into that root.
@@ -64,7 +65,10 @@ New browser tests on a Reddit-like fixture in `tests/`:
 - Theme off removes all themed sheets and styles; theme change replaces them.
 - Performance:
   - Reddit-sized fixture (1,500 components, 150 distinct sheets, 40 style waves): `health().maxSliceMs < 50` and `health().totalMs < 1200`. The pre-change baseline was 6,170 ms, and the budget follows the 5× rule.
-  - 1,500 identical per-component `<style>` elements: `totalMs < 1500`. This is an interim budget pending a ruling: exact sharing costs about 820–1,040 ms there, against about 3,030 ms for the pre-sharing engine.
+  - 1,500 identical per-component `<style>` elements: `totalMs < 1500`.
+    - Ruling: exact identity is kept, and the 1,500 ms budget is final.
+    - Measured 675–1,056 ms with every slice ≤ 17 ms; the pre-sharing engine took about 3,030 ms.
+    - On pages with many identical component styles, theming completes up to about 1 s later.
 
 Existing tests that look for `style[data-exp-shift-dynamic]` inside shadow roots (`tests/browser.test.cjs` around lines 1392 and 1430) check for the themed adopted sheet instead; all others stay.
 
