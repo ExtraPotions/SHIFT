@@ -25,7 +25,8 @@ EXP.DynamicEngine = (() => {
   const remoteWaiters = new Map();      // pending remote key -> Set<root> that need the result
   const watchedTags = new Set();        // custom element names with a whenDefined watch (page lifetime)
   let lateChecked = new WeakSet();      // defined elements already queued for a late shadow-root check (per run)
-  let lateFrame = [];
+  let runId = 0;                        // incremented by stop(); a theme change keeps the run
+  let lateBatch = null;                 // elements awaiting the current late shadow-root check
   const LATE_SHADOW_MS = 250;
   const SWEEP_DELAY_MS = 500;
   let sweepTimer = 0, sweptSize = 0;
@@ -510,18 +511,19 @@ EXP.DynamicEngine = (() => {
   // A defined element may attach its shadow root after insertion (in a timer or microtask), which
   // no observer reports either. Such elements are looked at again on the next frame and once
   // more about 250 ms later; one frame and one timer serve each batch, and each element is
-  // checked at most once.
+  // checked at most once. The timer does not wait for the frame (frames do not run in background
+  // tabs), and both act only within the run that scheduled them (runId; a theme change keeps the run).
   function watchLateShadow(el) {
     if (lateChecked.has(el)) return;
-    lateChecked.add(el); lateFrame.push(el);
-    if (lateFrame.length > 1) return;
-    const frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn => setTimeout(fn, 16));
-    frame(() => {
-      const batch = lateFrame; lateFrame = [];
-      if (!active) return;
-      const waiting = batch.filter(node => !adoptLateShadow(node));
-      if (waiting.length) setTimeout(() => { if (active) waiting.forEach(adoptLateShadow); }, LATE_SHADOW_MS);
-    });
+    lateChecked.add(el);
+    if (lateBatch) { lateBatch.push(el); return; }
+    const batch = lateBatch = [el], run = runId;
+    const check = () => {
+      if (lateBatch === batch) lateBatch = null;
+      if (active && run === runId) batch.forEach(adoptLateShadow);
+    };
+    if (typeof requestAnimationFrame === 'function' && !document.hidden) requestAnimationFrame(check);
+    setTimeout(check, LATE_SHADOW_MS);
   }
   function adoptLateShadow(el) {
     if (!el.isConnected) return true;
@@ -694,7 +696,7 @@ EXP.DynamicEngine = (() => {
 
   function stop() {
     active = false; nativeDarkMode = false; generation++; pendingRemote.clear(); remoteWaiters.clear(); remoteOwners.clear();
-    lateFrame = []; lateChecked = new WeakSet();
+    runId++; lateBatch = null; lateChecked = new WeakSet();
     resetRunStats(); resetRunTotals();
     sliceHandle?.cancel(); sliceHandle = null; queue.clear();
     clearTimeout(sweepTimer); sweepTimer = 0; sweptSize = 0;

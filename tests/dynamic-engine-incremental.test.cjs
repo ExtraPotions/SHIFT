@@ -536,6 +536,21 @@ test('a style element edited through CSSOM is not themed from an unedited twin',
   assert.notEqual(await page.evaluate(editedBg), 'rgb(255, 255, 255)');
 });
 
+test('the late shadow-root re-check runs without animation frames (background tab)', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => { window.requestAnimationFrame = () => 0; });
+  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    customElements.define('hidden-post', class extends HTMLElement {
+      connectedCallback() { setTimeout(() => { if (!this.shadowRoot) this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Hidden</div>'; }, 120); }
+    });
+    document.getElementById('feed').append(document.createElement('hidden-post'));
+  });
+  await page.waitForFunction(() => document.querySelector('hidden-post').shadowRoot && innerBg(document.querySelector('hidden-post')) !== white, null, { timeout: 3000 }).catch(() => {});
+  assert.notEqual(await page.evaluate(() => innerBg(document.querySelector('hidden-post'))), 'rgb(255, 255, 255)');
+});
+
 test('generated CSS for selectors other than :host is unchanged', async t => {
   const page = await fixture(t);
   const css = '.a{background:#ffffff}.b::before{color:#111111}div > p.c, ul li{background:#fafafa}a[href*=","]:hover{color:#222222}:is(.x, .y) .z::after{border-color:#dddddd}:host .inner{background:#ffffff}dialog::backdrop{background:#ffffff}@media (min-width: 1px){.m{background:#ffffff}}';
