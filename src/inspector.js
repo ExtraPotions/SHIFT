@@ -38,50 +38,6 @@ EXP.Inspector = (() => {
     card.append(title,note,button('Select page element',()=>select(message=>{show(message);if(!picking)onSelected?.();})),button('Refresh inspection',()=>show()),button('Temporarily bypass selected element',()=>{preserve();show('Session bypass applied.');}),button('Preserve selected element on this site',()=>{const selector=saveSelected();show(selector?`Saved site rule: ${selector}`:'Choose a stable page element first.');}),button('Clear saved element rules for this site',()=>{clearSaved();show('Saved element rules removed.');}),button('Resume session bypasses',()=>{resume();show('Session bypasses removed.');}),button('Cancel selection',()=>{cancel();show('Selection cancelled.');}),output);
     card.addEventListener('toggle',()=>{if(card.open)show();});return card;
   }
-  // Diagnostics: the hardest-to-read text on screen and what covers the page, so a washed-out site can be
-  // diagnosed from a copied report. Records colors and element names only, never page text.
-  function readabilityScan({limit=25,budget=6000}={}){
-    const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d',{willReadFrequently:true});
-    const rgba=color=>{context.clearRect(0,0,1,1);context.fillStyle='#000';context.fillStyle=color;context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].map(n=>n/255);};
-    const channel=v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4,luminance=c=>.2126*channel(c[0])+.7152*channel(c[1])+.0722*channel(c[2]);
-    const up=node=>node.parentElement||node.getRootNode?.().host||null;
-    const css=color=>'rgb('+color.slice(0,3).map(v=>Math.round(v*255)).join(', ')+')';
-    const name=node=>({tag:node.tagName.toLowerCase(),id:node.id?String(node.id).slice(0,40):'',cls:String(node.className?.baseVal??node.className??'').slice(0,80),host:node.getRootNode?.().host?.tagName.toLowerCase()||''});
-    const backdrop=node=>{const layers=[];for(let n=node;n;n=up(n)){const c=rgba(getComputedStyle(n).backgroundColor);if(c[3]>0)layers.push(c);if(c[3]>=.99)break;}return layers.reduceRight((base,c)=>base.map((v,i)=>c[i]*c[3]+v*(1-c[3])),[1,1,1]);};
-    const nodes=[];const walk=root=>{for(const node of root.querySelectorAll('*')){if(nodes.length>=budget)return;if(node.closest('[data-exp-owned="1"]')||node.id?.startsWith('exp-'))continue;nodes.push(node);if(node.shadowRoot)walk(node.shadowRoot);}};
-    walk(document);
-    const rows=[];
-    for(const node of nodes){
-      const text=[...node.childNodes].reduce((sum,child)=>sum+(child.nodeType===3?child.textContent.trim().length:0),0);
-      if(!text)continue;
-      const box=node.getBoundingClientRect();
-      if(!box.width||!box.height||box.bottom<0||box.top>innerHeight*2)continue;
-      const style=getComputedStyle(node),fg=rgba(style.color),bg=backdrop(node),mixed=fg.slice(0,3).map((v,i)=>v*fg[3]+bg[i]*(1-fg[3]));
-      const a=luminance(mixed),b=luminance(bg);
-      rows.push({ratio:Math.round((Math.max(a,b)+.05)/(Math.min(a,b)+.05)*100)/100,...name(node),textLength:text,color:style.color,background:css(bg),opacity:style.opacity,
-        ...(style.filter!=='none'?{filter:style.filter}:{}),...(node.closest('[data-exp-shift-preserve]')?{preserved:true}:{}),...(node.hasAttribute('data-exp-shift-live')?{repaired:true}:{})});
-    }
-    rows.sort((x,y)=>x.ratio-y.ratio);
-    const layer=node=>{const style=getComputedStyle(node);return {...name(node),background:style.backgroundColor,opacity:style.opacity,position:style.position,...(style.filter!=='none'?{filter:style.filter}:{}),...(style.backdropFilter&&style.backdropFilter!=='none'?{backdropFilter:style.backdropFilter}:{}),...(style.mixBlendMode!=='normal'?{blend:style.mixBlendMode}:{})};};
-    const points=[[.5,.4],[.1,.4],[.5,.85]].map(([x,y])=>{
-      const px=Math.round(innerWidth*x),py=Math.round(innerHeight*y);
-      const stack=document.elementsFromPoint(px,py).filter(node=>!node.closest('[data-exp-owned="1"]')).slice(0,6).map(layer);
-      let root=document,deepest=null;for(let i=0;i<20;i++){const hit=root.elementFromPoint(px,py);if(!hit||hit===deepest)break;deepest=hit;if(!hit.shadowRoot)break;root=hit.shadowRoot;}
-      const chain=[];for(let n=deepest;n&&chain.length<10;n=up(n))chain.push(layer(n));
-      return {x:px,y:py,stack,chain};
-    });
-    // Click-through layers (pointer-events:none) never show up at a point, so list large painted layers too.
-    const overlays=[];
-    for(const node of nodes){
-      if(overlays.length>=8)break;
-      const style=getComputedStyle(node);if(style.position!=='fixed'&&style.position!=='absolute'&&style.position!=='sticky')continue;
-      const box=node.getBoundingClientRect(),area=Math.max(0,Math.min(box.right,innerWidth)-Math.max(box.left,0))*Math.max(0,Math.min(box.bottom,innerHeight)-Math.max(box.top,0));
-      if(area<innerWidth*innerHeight*.5)continue;
-      const painted=rgba(style.backgroundColor)[3]>0||style.filter!=='none'||(style.backdropFilter&&style.backdropFilter!=='none')||style.mixBlendMode!=='normal';
-      if(painted)overlays.push({...layer(node),coverage:Math.round(area/(innerWidth*innerHeight)*100)/100,pointerEvents:style.pointerEvents,zIndex:style.zIndex});
-    }
-    return {scanned:nodes.length,truncated:nodes.length>=budget,viewport:{width:innerWidth,height:innerHeight},colorScheme:getComputedStyle(document.documentElement).colorScheme,worst:rows.slice(0,limit),overlays,points};
-  }
   function destroy(){cancel();resume();restoreSavedMarks();selected=null;announce=()=>{};}
-  return Object.freeze({createControls,destroy,readabilityScan,select,preserve,resume,cancel,applySaved,selectorFor});
+  return Object.freeze({createControls,destroy,select,preserve,resume,cancel,applySaved,selectorFor});
 })();

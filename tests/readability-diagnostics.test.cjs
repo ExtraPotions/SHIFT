@@ -1,5 +1,5 @@
 'use strict';
-// Diagnostics carry a readability scan so a washed-out page can be diagnosed from Copy Diagnostics or
+// Core's diagnostics carry a readability scan so a washed-out page can be diagnosed from Copy Diagnostics or
 // Report a Problem alone, without DevTools. The scan never copies page text.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{chromium}=require('playwright');
 const script=fs.readFileSync(path.join(__dirname,'../shift.user.js'),'utf8');
