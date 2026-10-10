@@ -238,6 +238,9 @@ EXP.Engine = (() => {
   }
   const onLifecycleLoad=(event)=>{
     const target=event?.target;
+    // Only stylesheets that arrive while the page is still loading can change the native-dark
+    // diagnosis worth a re-apply; later ones (feeds, chat) are themed by the engine and resolver.
+    if(document.readyState==='complete')return;
     if(target?.nodeType===1&&target.matches?.('link[rel~="stylesheet"]')&&!target.dataset?.expOwned)scheduleNativeRecheck();
   };
   const onWindowLoad=()=>scheduleNativeRecheck();

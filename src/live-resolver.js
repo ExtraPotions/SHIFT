@@ -79,13 +79,15 @@ EXP.LiveResolver = (() => {
     }catch{}
     return false;
   }
+  // Geometry first: most candidates on long pages are off screen, and the box read is the
+  // cheapest check that rejects them (layout is clean after the first read in a pass).
   function visible(el){
     try{
-      if(ExtraPotionsCore.isPresentationSuppressed(el))return false;
+      const r=el.getBoundingClientRect();
+      if(!(r.width>1&&r.height>1&&r.bottom>=-240&&r.top<=innerHeight+240&&r.right>=-240&&r.left<=innerWidth+240))return false;
       const cs=getComputedStyle(el);
       if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)<=.01)return false;
-      const r=el.getBoundingClientRect();
-      return r.width>1&&r.height>1&&r.bottom>=-240&&r.top<=innerHeight+240&&r.right>=-240&&r.left<=innerWidth+240;
+      return !ExtraPotionsCore.isPresentationSuppressed(el);
     }catch{return false;}
   }
   function bright(color){
