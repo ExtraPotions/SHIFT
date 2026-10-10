@@ -1,3 +1,9 @@
+## 3.5.19 — 2026-10-10
+
+- Keeps scrolling smooth on long pages like Reddit.
+- No longer re-themes the whole page each time a late stylesheet loads.
+- Includes the faster shared ExtraPotions core.
+
 ## 3.5.18 — 2026-10-10
 
 - Loads faster on Reddit and other component-heavy sites.
