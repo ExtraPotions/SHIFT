@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.23';
+EXP.VERSION = '3.5.24';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.24': ["Reddit chat no longer washes out in dark mode: panels and conversation rows stay dark and their text stays readable.","Translucent overlays such as dimming scrims keep their transparency instead of becoming solid sheets.","Buttons that are links, such as Watch Now on anime.nexus, keep readable text instead of taking the link color.","Low-contrast text is now repaired on sites that use modern CSS colors (oklch), such as anime.nexus."],
     '3.5.23': ["Uses the shared readability scan from ExtraPotions Core 3.8.1.","Diagnostics are unchanged for you."],
     '3.5.22': ["Keeps Reddit's upvote and downvote arrows readable in dark themes.","Lightens other text colors that sites name after the surface they sit on.","Copy Diagnostics and Report a Problem now list hard-to-read text and page overlays, without copying page text."],
     '3.5.21': ["Redesigned menu with tabs and a cleaner look.","Shows a live status line in the menu header."],

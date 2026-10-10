@@ -1,3 +1,10 @@
+## 3.5.24 — 2026-10-10
+
+- Reddit chat no longer washes out in dark mode: panels and conversation rows stay dark and their text stays readable.
+- Translucent overlays such as dimming scrims keep their transparency instead of becoming solid sheets.
+- Buttons that are links, such as Watch Now on anime.nexus, keep readable text instead of taking the link color.
+- Low-contrast text is now repaired on sites that use modern CSS colors (oklch), such as anime.nexus.
+
 ## 3.5.23 — 2026-10-10 (quiet)
 
 - Uses the shared readability scan from ExtraPotions Core 3.8.1.
