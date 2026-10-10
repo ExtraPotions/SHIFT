@@ -140,3 +140,21 @@ test('a translucent overlay keeps its transparency so the page under it stays vi
   assert.ok(Math.abs(result.veil.a - 0.6) < 0.01, 'veil alpha ' + JSON.stringify(result.veil));
   assert.equal(result.solid.a, 1);
 });
+
+test('modern CSS color syntaxes parse, so contrast is measured against the real fill', async (t) => {
+  // Tailwind 4 and shadcn sites compute colors as oklch()/oklab()/color(); Chromium keeps that syntax.
+  const page = await withColorEngine(t);
+  const result = await page.evaluate(() => ({
+    oklch: testColors.parse('oklch(0.92 0.004 286.32)'),
+    oklab: testColors.parse('oklab(0.705 0.00415142 -0.0144141 / 0.4)'),
+    srgb: testColors.parse('color(srgb 0.800376 0.718243 0.747545)'),
+    lab: testColors.parse('lab(50 20 30)'),
+    ratio: testColors.contrastRatio('rgb(241, 140, 156)', 'oklch(0.92 0.004 286.32)'),
+  }));
+  const near = (got, want) => Object.entries(want).every(([k, v]) => Math.abs(got[k] - v) <= (k === 'a' ? 0.01 : 2));
+  assert.ok(result.oklch && near(result.oklch, { r: 228, g: 228, b: 231, a: 1 }), 'oklch ' + JSON.stringify(result.oklch));
+  assert.ok(result.oklab && Math.abs(result.oklab.a - 0.4) < 0.01, 'oklab ' + JSON.stringify(result.oklab));
+  assert.ok(result.srgb && near(result.srgb, { r: 204, g: 183, b: 191, a: 1 }), 'color(srgb) ' + JSON.stringify(result.srgb));
+  assert.ok(result.lab && result.lab.a === 1, 'lab ' + JSON.stringify(result.lab));
+  assert.ok(result.ratio > 1.7 && result.ratio < 2, 'pink on the light oklch fill ' + result.ratio);
+});

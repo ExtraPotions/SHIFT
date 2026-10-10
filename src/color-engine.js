@@ -51,6 +51,13 @@ EXP.ColorEngine = (() => {
       } else {
         const match = normalized.match(/^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
         if (match) result = { r: +match[1], g: +match[2], b: +match[3], a: match[4] === undefined ? 1 : +match[4] };
+        // The canvas keeps oklch()/oklab()/lab()/color() as written, so paint a pixel and read its sRGB value.
+        else if (/^(?:oklch|oklab|lch|lab|hwb|color)\(/i.test(normalized)) {
+          context.clearRect(0, 0, 1, 1);
+          context.fillRect(0, 0, 1, 1);
+          const [r, g, b, alpha] = context.getImageData(0, 0, 1, 1).data;
+          result = { r, g, b, a: Math.round(alpha / 255 * 1000) / 1000 };
+        }
       }
       cache.set(key, result);
       if (cache.size > 512) cache.delete(cache.keys().next().value);

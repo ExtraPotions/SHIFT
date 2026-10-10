@@ -9,7 +9,7 @@ const html=`<!doctype html><html class="dark"><head><style>
 </style></head><body><main><p>Read the <a class="plain" href="#a">plain link</a> here.</p>
 <a class="watch group/button inline-flex bg-primary text-primary-foreground" href="#w">Watch Now</a>
 <a class="btn shop bg-primary text-primary-foreground" href="#s">Shop</a>
-<a class="slot bg-primary text-primary-foreground" data-slot="button" href="#d">Details</a></main></body></html>`;
+<a class="slot bg-primary text-primary-foreground" data-slot="button" href="#d">Details</a><span class="pinned bg-primary" style="color:rgb(241,140,156)">Pinned</span></main></body></html>`;
 
 function measure(){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d');
@@ -19,7 +19,7 @@ function measure(){
   const accent=getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-accent').trim();
   const row=sel=>{const el=document.querySelector(sel),cs=getComputedStyle(el);return {color:cs.color,background:cs.backgroundColor,ratio:ratio(cs.color,cs.backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(document.body).backgroundColor:cs.backgroundColor)};};
   const probe=document.createElement('i');probe.style.color=accent;document.body.append(probe);const accentColor=getComputedStyle(probe).color;probe.remove();
-  return {accentColor,plain:row('.plain'),watch:row('.watch'),shop:row('.shop'),slot:row('.slot')};
+  return {accentColor,plain:row('.plain'),watch:row('.watch'),shop:row('.shop'),slot:row('.slot'),pinned:row('.pinned')};
 }
 
 test('links styled as buttons keep their own readable text while plain links get the accent',async t=>{
@@ -37,4 +37,17 @@ test('links styled as buttons keep their own readable text while plain links get
     assert.notEqual(result[key].color,result.accentColor,`${key} keeps its own text color: ${JSON.stringify(result)}`);
     assert.ok(result[key].ratio>=4.5,`${key} contrast ${result[key].ratio}: ${JSON.stringify(result)}`);
   }
+});
+
+test('text the page pins to a low-contrast color on an oklch fill is repaired',async t=>{
+  const browser=await chromium.launch();t.after(()=>browser.close());
+  const page=await browser.newPage({colorScheme:'dark'});
+  await page.addInitScript(()=>{const saved=new Map([['exp:v3:shift:settings',{theme:'crimson'}]]);window.GM_getValue=(k,f)=>saved.get(k)||f;window.GM_setValue=(k,v)=>saved.set(k,v);window.GM_xmlhttpRequest=()=>{};});
+  await page.route('**/*',route=>route.fulfill({contentType:'text/html',body:html}));
+  await page.goto('https://anime.nexus/');
+  await page.addScriptTag({content:script});
+  await page.waitForFunction(()=>document.documentElement.hasAttribute('data-exp-shift'));
+  await page.waitForTimeout(1200);
+  const result=await page.evaluate(measure);
+  assert.ok(result.pinned.ratio>=4.5,'pinned contrast '+result.pinned.ratio+': '+JSON.stringify(result.pinned));
 });
