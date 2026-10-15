@@ -1,0 +1,22 @@
+{
+  "name": "extrapotions-shift",
+  "version": "3.5.32",
+  "private": true,
+  "description": "SHIFT semantic appearance userscript",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "build:check": "node scripts/build.cjs --check",
+    "test": "node scripts/build.cjs && node --test tests/*.test.cjs",
+    "release:check": "node scripts/release-check.cjs",
+    "screenshots": "node ../exp-core/scripts/capture-screenshots.cjs SHIFT",
+    "prepare:release:feature": "node scripts/prepare-feature-release.cjs && npm run build",
+    "test:installed-browser": "node scripts/test-installed-browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0",
+    "terser": "5.51.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
