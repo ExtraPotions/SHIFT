@@ -10,7 +10,7 @@ for (const asset of ['shift-launcher.svg']) {
 const run = (args) => cp.execFileSync(process.execPath, args, { cwd: root, stdio: 'inherit' });
 run(['scripts/verify-exp-core-pin.cjs']);
 run(['scripts/build.cjs', '--check']);
-run(['--test', 'tests/*.test.cjs']);
+run(['scripts/run-tests.cjs']);
 
 const files = [];
 for (const directory of ['src', 'scripts', 'tests', 'docs']) {
