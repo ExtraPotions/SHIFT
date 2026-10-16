@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.32';
+EXP.VERSION = '3.5.33';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.33': ["Maintenance release; product features and settings are unchanged.","Includes the current shared foundation."],
     '3.5.32': ["Keeps the launcher clear of floating site buttons that mark themselves as a button on their outer element.","Updates the shared foundation to exp-core 3.9.3."],
     '3.5.31': ["Keeps the launcher clear of Twitch's Sign Up bar at phone width.","Keeps the launcher clear of floating site buttons such as a store's shopping assistant, with the shared foundation updated to exp-core 3.9.2."],
     '3.5.30': ["Adds site integrations for EDHREC, Archidekt, Nexus Mods, Thunderstore, SteamDB, and backpack.tf, each with its own switches.","Adds a per-site image blur, and keeps site integrations working on the Original theme.","Can hide SteamGifts giveaways you cannot afford, and checks again when your points change.","Updates the shared foundation to exp-core 3.9.1."],
@@ -397,7 +398,7 @@ EXP.ReleaseNotes = (() => {
     return fragment;
   }
 
-  const QUIET_RELEASES = Object.freeze(["3.5.23","3.5.17"]);
+  const QUIET_RELEASES = Object.freeze(["3.5.33","3.5.23","3.5.17"]);
   function isQuietUpgrade(previous) { return ExtraPotionsCore.isQuietUpgrade(previous, EXP.VERSION, Object.keys(NOTES), QUIET_RELEASES); }
   return Object.freeze({ forVersion, renderChangelog, isQuietUpgrade, QUIET_RELEASES });
 })();
