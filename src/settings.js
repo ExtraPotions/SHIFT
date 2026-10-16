@@ -134,6 +134,10 @@ EXP.Settings = (() => {
     } catch {}
   }
   function snapshot() { return clone(state || defaults); }
+  function diagnosticSnapshot(value = snapshot()) {
+    const { profiles, customThemes, customAccents, currentProfile, siteOverrides, sensitiveSiteOptIns, exclusions, ...settings } = value;
+    return { ...settings, profileCount: profiles.length, customThemeCount: customThemes.length, customAccentCount: customAccents.length, siteOverrideCount: Object.keys(siteOverrides).length, sensitiveSiteOptInCount: sensitiveSiteOptIns.length, exclusionCount: exclusions.length };
+  }
   function replace(next, reason = 'replace') { if(ExtraPotionsCore.productDataResetting?.('shift'))return snapshot(); const valid = validate(next);  rawWrite('settings', valid); state = valid; for (const listener of listeners) listener(snapshot(), reason); return snapshot(); }
   function update(patch, reason = 'update') { return replace({ ...snapshot(), ...patch }, reason); }
   function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
@@ -171,5 +175,5 @@ EXP.Settings = (() => {
     for (const listener of listeners) listener(snapshot(), 'product-reset');
     return snapshot();
   }
-  return Object.freeze({resetAll, clone, PREFIX, SCHEMA, defaults, load, snapshot, update, replace, subscribe, effective, explain, exportData, prepareImport, importData });
+  return Object.freeze({resetAll, clone, PREFIX, SCHEMA, defaults, load, snapshot, diagnosticSnapshot, update, replace, subscribe, effective, explain, exportData, prepareImport, importData });
 })();

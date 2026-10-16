@@ -402,9 +402,9 @@ EXP.UI = (() => {
   function renderRecoveryData() {
     healthControl?.dispose();
     healthControl=ExtraPotionsCore.createProductTimeline('shift',systemHealthSnapshot,setMessage,{layout:'grouped'});
-    return ExtraPotionsCore.createProductSystem({id:'shift',version:EXP.VERSION,issueSettings:()=>({current:EXP.Settings.snapshot(),defaults:EXP.Settings.defaults}),
+    return ExtraPotionsCore.createProductSystem({id:'shift',version:EXP.VERSION,issueSettings:()=>({current:EXP.Settings.diagnosticSnapshot(),defaults:EXP.Settings.diagnosticSnapshot(EXP.Settings.defaults)}),
       timeline:healthControl.element,
-      diagnostics:EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.exportData(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage),
+      diagnostics:EXP.Diagnostics.createDiagnosticsControls(() => EXP.Diagnostics.createDiagnosticsReport('SHIFT', { host, product: { id:'shift', version: EXP.VERSION }, settings: EXP.Settings.diagnosticSnapshot(), mode: EXP.Engine.health(), adapter: EXP.Adapters.health(), updates: EXP.Updates.status(), core: EXP.Core.diagnosticSnapshot() }), setMessage),
       layout:'grouped',
       onReset:()=>{importDraft=null;const next=EXP.Settings.resetAll();saved=EXP.Settings.clone(next);onApply(next);product?.renderActive();location.reload();},notify:setMessage
     });
