@@ -1,3 +1,8 @@
+## 3.5.34 — 2026-10-16
+
+- Uses less memory before the menu is first opened, with shared foundation exp-core 3.9.5.
+- Leaves private settings out of diagnostic reports and issue summaries while preserving settings exports.
+
 ## 3.5.33 — 2026-10-16 (quiet)
 
 - Maintenance release; product features and settings are unchanged.
