@@ -186,7 +186,7 @@ EXP.Engine = (() => {
     const preserveGuard=':not(:where([data-exp-owned="1"],[data-exp-owned="1"] *,[data-exp-shift-preserve],[data-exp-shift-preserve] *))';
     const links=state.linkVisibility==='site'?'':`html[${HOST_ATTR}] a${LINK_NOT_BUTTON}${preserveGuard}{color:var(--exp-shift-accent)!important;text-decoration-thickness:${state.linkVisibility==='high'?'2px':'auto'}!important}`;
     const forms=state.formReadability
-      ? `html[${HOST_ATTR}] :is(input,select,textarea)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`
+      ? `html[${HOST_ATTR}] :is(input,select,textarea,option,optgroup)${preserveGuard}{background-color:var(--exp-shift-input)!important;color:var(--exp-shift-text)!important;border-color:var(--exp-shift-accent)!important}`
       : '';
     const muted=state.mutedRecovery?`html[${HOST_ATTR}] :is(.muted,.text-muted,[class*="muted" i],[class*="secondary" i],[class*="subtle" i],figcaption,small,caption)${preserveGuard}{color:color-mix(in srgb,var(--exp-shift-muted) 80%,var(--exp-shift-text))!important}`:'';
     const focus=state.focusVisibility==='site'?'':`html[${HOST_ATTR}] :focus-visible{outline:${state.focusVisibility==='high'?3:2}px solid var(--exp-shift-accent)!important;outline-offset:2px!important}`;

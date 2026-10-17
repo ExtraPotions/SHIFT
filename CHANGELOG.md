@@ -1,3 +1,9 @@
+## 3.5.35 — 2026-10-17
+
+- Releases removed page elements from saved color repairs as feeds change.
+- Keeps native dropdown options readable, including sites with white option backgrounds.
+- Includes Core 3.9.6 with reduced duplicate menu stylesheet parsing.
+
 ## 3.5.34 — 2026-10-16
 
 - Uses less memory before the menu is first opened, with shared foundation exp-core 3.9.5.

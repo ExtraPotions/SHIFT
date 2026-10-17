@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.34';
+EXP.VERSION = '3.5.35';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.35': ["Releases removed page elements from saved color repairs as feeds change.","Keeps native dropdown options readable, including sites with white option backgrounds.","Includes Core 3.9.6 with reduced duplicate menu stylesheet parsing."],
     '3.5.34': ["Uses less memory before the menu is first opened, with shared foundation exp-core 3.9.5.","Leaves private settings out of diagnostic reports and issue summaries while preserving settings exports."],
     '3.5.33': ["Maintenance release; product features and settings are unchanged.","Includes the current shared foundation."],
     '3.5.32': ["Keeps the launcher clear of floating site buttons that mark themselves as a button on their outer element.","Updates the shared foundation to exp-core 3.9.3."],

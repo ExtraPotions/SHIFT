@@ -529,6 +529,7 @@ EXP.LiveResolver = (() => {
     // Own child-list observation, not Core's page batch: the batch names only mutation targets,
     // so each appended feed item would re-scan its whole container (tests/mutation-root-cost).
     observer=new MutationObserver(mutations=>{
+      const removedRoots=[];
       for(const mutation of mutations){
         if(mutation.type==='attributes'){
           const target=mutation.target;
@@ -540,7 +541,9 @@ EXP.LiveResolver = (() => {
           if(node?.nodeType!==1||node.closest?.('[data-exp-owned="1"],[data-exp-shift-preserve]'))continue;
           schedule(node);
         }
+        for(const node of mutation.removedNodes) if(node.nodeType===1&&!node.isConnected) removedRoots.push(node);
       }
+      if(removedRoots.length)pruneDetached(removedRoots);
     });
     observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','open']});
     document.addEventListener('scroll',onScroll,{capture:true,passive:true});
@@ -553,6 +556,21 @@ EXP.LiveResolver = (() => {
   function inspectElement(el){
     const style=getComputedStyle(el);
     return {tag:el.tagName.toLowerCase(),foreground:style.color,background:style.backgroundColor,font:style.font,repairs:[...new Map([...[...(ledger.get(el)||[])].map(([property,[value,priority]])=>[property,{property,original:value||'(inherited or stylesheet)',priority,current:el.style.getPropertyValue(property)}]),...EXP.ColorEngine.inspectOwned(el).map(value=>[value.property,value])]).values()]};
+  }
+  function pruneDetached(removedRoots) {
+    for(const [el,properties] of ledger){
+      if(el.isConnected)continue;
+      for(const [property,[value,priority]] of properties){if(value)el.style.setProperty(property,value,priority);else el.style.removeProperty(property);}
+      el.removeAttribute(ATTR);ledger.delete(el);
+    }
+    EXP.ColorEngine.pruneDetached();
+    let changed=false;
+    for(const root of removedRoots)for(const el of [root,...root.querySelectorAll('[data-exp-shift-pseudo-id]')]){
+      if(el.isConnected)continue;
+      const id=el.getAttribute('data-exp-shift-pseudo-id');
+      if(id){changed=pseudoRules.delete(id)||changed;el.removeAttribute('data-exp-shift-pseudo-id');}
+    }
+    if(changed)syncPseudoStyle();
   }
   function restoreElement(root){
     for(const [el,properties] of [...ledger]){

@@ -287,17 +287,23 @@ EXP.ColorEngine = (() => {
       element.removeAttribute(INLINE_ATTR);element.removeAttribute(INLINE_VARS_ATTR);inlineLedger.delete(element);inlineStyleLedger.delete(element);
     }
   }
+  function restoreInline(element) {
+    const originalStyle = inlineStyleLedger.get(element);
+    if (originalStyle === null) element.removeAttribute('style');
+    else element.setAttribute('style', originalStyle);
+    element.removeAttribute(INLINE_ATTR);
+    element.removeAttribute(INLINE_VARS_ATTR);
+    inlineLedger.delete(element);
+    inlineStyleLedger.delete(element);
+  }
   function clear(root = document) {
-    for (const [element, saved] of [...inlineLedger]) {
+    for (const element of inlineLedger.keys()) {
       if (root !== document && root !== element && !root.contains?.(element)) continue;
-      const originalStyle = inlineStyleLedger.get(element);
-      if (originalStyle === null) element.removeAttribute('style');
-      else element.setAttribute('style', originalStyle);
-      element.removeAttribute(INLINE_ATTR);
-      element.removeAttribute(INLINE_VARS_ATTR);
-      inlineLedger.delete(element);
-      inlineStyleLedger.delete(element);
+      restoreInline(element);
     }
+  }
+  function pruneDetached() {
+    for (const element of inlineLedger.keys()) if (!element.isConnected) restoreInline(element);
   }
 
   function health(root = document) {
@@ -311,7 +317,7 @@ EXP.ColorEngine = (() => {
 
   return Object.freeze({
     parse, luminance, saturation, contrastRatio, onSurfaceName, ensureContrast, transform, background, foreground, border,
-    inspectInline, inspectOwned, restoreOwned, clear, health,
+    inspectInline, inspectOwned, restoreOwned, clear, pruneDetached, health,
     INLINE_ATTR, INLINE_VARS_ATTR,
   });
 })();
