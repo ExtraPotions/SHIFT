@@ -1,3 +1,9 @@
+## 3.5.36 — 2026-10-18
+
+- Adds six navigation themes with Light, Dark and System modes; retired palettes reset to Default.
+- Keeps Twitch neutral text and backgrounds readable while switching themes and loading styles.
+- Uses smaller theme buttons and compact menus with inline settings and readable diagnostics.
+
 ## 3.5.35 — 2026-10-17
 
 - Releases removed page elements from saved color repairs as feeds change.

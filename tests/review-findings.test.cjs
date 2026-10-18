@@ -14,11 +14,11 @@ function measure(selectors){
 async function themed(t,url,html){
   const browser=await chromium.launch();t.after(()=>browser.close());
   const page=await browser.newPage();
-  await page.addInitScript(()=>{const saved=new Map([['exp:v3:shift:settings',{theme:'crimson'}]]);window.GM_getValue=(k,f)=>saved.get(k)||f;window.GM_setValue=(k,v)=>saved.set(k,v);window.GM_xmlhttpRequest=()=>{};});
+  await page.addInitScript(()=>{const saved=new Map([['exp:v3:shift:settings',{theme:'red'}]]);window.GM_getValue=(k,f)=>saved.get(k)||f;window.GM_setValue=(k,v)=>saved.set(k,v);window.GM_xmlhttpRequest=()=>{};});
   await page.route('**/*',route=>route.fulfill({contentType:'text/html',body:html}));
   await page.goto(url);
   await page.addScriptTag({content:script});
-  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='crimson');
+  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='red');
   await page.waitForTimeout(1200);
   return page;
 }
@@ -64,7 +64,7 @@ test('a theme chosen in another tab reaches a tab that is already open',async t=
   const browser=await chromium.launch();t.after(()=>browser.close());
   const page=await browser.newPage();
   await page.addInitScript(()=>{
-    const saved=new Map([['exp:v3:shift:settings',{theme:'crimson'}]]);window.__valueListeners=[];
+    const saved=new Map([['exp:v3:shift:settings',{theme:'red'}]]);window.__valueListeners=[];
     window.GM_getValue=(k,f)=>saved.has(k)?saved.get(k):f;window.GM_setValue=(k,v)=>saved.set(k,v);window.GM_xmlhttpRequest=()=>{};
     window.GM_addValueChangeListener=(k,fn)=>{window.__valueListeners.push([k,fn]);return window.__valueListeners.length;};
     // Another tab saves a new choice: the manager stores it and tells this tab, with remote=true.
@@ -73,12 +73,12 @@ test('a theme chosen in another tab reaches a tab that is already open',async t=
   await page.route('**/*',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:#fff;color:#111"><p>Article</p></body></html>'}));
   await page.goto('https://en.wikipedia.org/wiki/Color');
   await page.addScriptTag({content:script});
-  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='crimson');
+  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='red');
   const settingsKey=await page.evaluate(()=>window.__valueListeners.map(([k])=>k).find(k=>/shift:settings$/.test(k)));
   assert.ok(settingsKey,'SHIFT listens for settings saved in other tabs');
   const other=await page.evaluate(()=>GM_getValue('exp:v3:shift:settings'));
   const amethyst=JSON.parse(JSON.stringify(other));
   const setTheme=(value,theme)=>{for(const p of value.profiles||[])if(p.appearance)p.appearance.theme=theme;if('theme' in value)value.theme=theme;return value;};
-  await page.evaluate(([k,v])=>window.__remoteSave(k,v),[settingsKey,setTheme(amethyst,'amethyst')]);
-  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='amethyst',null,{timeout:3000});
+  await page.evaluate(([k,v])=>window.__remoteSave(k,v),[settingsKey,setTheme(amethyst,'indigo')]);
+  await page.waitForFunction(()=>document.documentElement.getAttribute('data-exp-shift')==='indigo',null,{timeout:3000});
 });

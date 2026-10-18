@@ -143,7 +143,7 @@ EXP.Engine = (() => {
   function lockHost(theme,paint=true){
     const html=document.documentElement;if(!html)return;
     if(paint){
-      for(const node of [html,document.body]){if(!node)continue;rememberHost(node);node.style.setProperty('background-color',theme.page,'important');node.style.setProperty('color',theme.text,'important');node.style.setProperty('color-scheme','dark','important');}
+      for(const node of [html,document.body]){if(!node)continue;rememberHost(node);node.style.setProperty('background-color',theme.page,'important');node.style.setProperty('color',theme.text,'important');node.style.setProperty('color-scheme',theme.colorScheme||'dark','important');}
     }
     html.setAttribute(HOST_ATTR,theme.id||'1');
   }
@@ -203,7 +203,7 @@ EXP.Engine = (() => {
       ${EXP.ThemeRules.css(state,EXCLUDE)}${EXP.SiteFixes.css()}`;
     return `@media screen{
       :root,html[${HOST_ATTR}],:host{${vars}}
-      html[${HOST_ATTR}]{color-scheme:dark!important}
+      html[${HOST_ATTR}]{color-scheme:${theme.colorScheme||'dark'}!important}
       html[${HOST_ATTR}] :is(iframe,embed,object){color-scheme:${nativeFrameScheme()}!important}
       ${structural}
       html[${HOST_ATTR}] [data-exp-shift-live]{${effects}}

@@ -1,5 +1,21 @@
 EXP.SiteFixes = (() => {
   const fixes = Object.freeze({
+    twitch: {
+      hosts: ['twitch.tv'],
+      // Pair native text and surfaces before asynchronous stylesheet recovery can run.
+      css: `html[data-exp-shift],html[data-exp-shift] body{
+        --color-text-base:var(--exp-shift-text)!important;
+        --color-text-alt:var(--exp-shift-text)!important;
+        --color-text-alt-2:var(--exp-shift-muted)!important;
+        --color-text-input:var(--exp-shift-text)!important;
+        --color-background-body:var(--exp-shift-page)!important;
+        --color-background-base:var(--exp-shift-page)!important;
+        --color-background-alt:var(--exp-shift-surface)!important;
+        --color-background-alt-2:var(--exp-shift-raised)!important;
+        --color-background-input:var(--exp-shift-input)!important;
+        --color-background-float:var(--exp-shift-overlay)!important;
+      }`
+    },
     amazon: {
       hosts: ['amazon.com'],
       // Small, declarative exceptions. Dynamic Engine remains primary.

@@ -351,7 +351,7 @@ test('generic unknown sites get dark surfaces, readable text, preserved media, a
 
 
 test('all six palettes preserve native media filters as feed elements change', async (t) => {
-  const palettes = { midnight:'rgb(5, 10, 18)', amethyst:'rgb(16, 11, 24)', crimson:'rgb(12, 5, 8)', verdant:'rgb(6, 17, 13)', pride:'rgb(16, 10, 18)', obsidian:'rgb(0, 0, 0)' };
+  const palettes = Object.fromEntries(['default','indigo','blue','green','red','gray'].map(id=>[id,'rgb(24, 23, 29)']));
   for (const [theme, background] of Object.entries(palettes)) await t.test(theme, async (t) => {
     const page = await fixture(t, 'native-media.test', [
       '<style>html,body{color-scheme:dark;background:#101318;color:#d7dce2}',

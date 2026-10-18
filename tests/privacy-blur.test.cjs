@@ -81,15 +81,14 @@ test('the Privacy switch in Effects turns the blur on for this site, and Reset t
   const host = page.locator('#exp-shift-root');
   await host.locator('.launcher').click();
   await host.locator('[data-exp-section-tab="advanced"]').evaluate((node) => node.click());
-  await host.locator('.exp-submenu-row:visible').filter({ hasText: /^Effects$/ }).evaluate((node) => node.click());
+  await host.locator('summary:visible').filter({ hasText: /^Effects & integrations$/ }).evaluate((node) => node.click());
   const toggle = host.locator('button[role="switch"][aria-label="Blur images and videos until hover"]');
   assert.equal(await toggle.getAttribute('aria-checked'), 'false');
   await toggle.evaluate((node) => node.click());
   await page.waitForFunction(() => getComputedStyle(document.getElementById('plain')).filter === 'blur(18px)');
   assert.deepEqual(await page.evaluate(() => GM_getValue('exp:v3:shift:settings').siteOverrides), { 'blur.example': { privacyBlur: true } });
   page.on('dialog', (dialog) => dialog.accept());
-  await host.locator('button:visible').filter({ hasText: /^Back$/ }).evaluate((node) => node.click());
-  await host.locator('.exp-submenu-row:visible').filter({ hasText: /^Profiles$/ }).evaluate((node) => node.click());
+  await host.locator('summary:visible').filter({ hasText: /^Profiles & sites$/ }).evaluate((node) => node.click());
   await host.locator('button:visible').filter({ hasText: /^Reset site$/ }).first().evaluate((node) => node.click());
   await page.waitForFunction(() => getComputedStyle(document.getElementById('plain')).filter === 'none');
   assert.deepEqual(await page.evaluate(() => GM_getValue('exp:v3:shift:settings').siteOverrides), {});

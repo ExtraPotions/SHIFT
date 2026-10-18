@@ -1,8 +1,14 @@
 'use strict';
 const test=require('node:test'), assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
-// Opens a shared-menu submenu detail view by its row label; 'Overview' returns to the section's home view.
-async function openSubmenu(scope,label){const title=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-title:visible');if(await title.count()&&(await title.first().textContent())===label)return;const back=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-back:visible');while(await back.count())await back.first().click();if(label!=='Overview')await scope.locator('.exp-submenu-row:visible').filter({hasText:new RegExp('^'+label+'$')}).click();}
+// Opens the current inline settings group without collapsing an already-open disclosure.
+async function openSubmenu(scope,label){
+ const aliases={Style:'Highlight style',Menu:'Menu Preferences',Transfer:'Settings transfer',Effects:'Effects & integrations',Profiles:'Profiles & sites',Page:'Page tools',Retailers:'Retailer modules',Review:'Protection review',Activity:'Page activity',Playback:'Playback options',Alerts:'Notifications',Patterns:'Advanced Amazon',Tools:'Page tools'};
+ if(label==='Overview')return;
+ const shortcut=scope.locator('[data-exp-menu-shortcut="'+label.toLowerCase()+'"]');if(await shortcut.count()){await shortcut.click();return;}
+ const summary=scope.locator('summary:visible').filter({hasText:new RegExp('^'+(aliases[label]||label)+'(?: .*)?'+'$')}).first();
+ await summary.waitFor();if(!await summary.evaluate(n=>n.parentElement.open))await summary.click();
+}
 const script=fs.readFileSync(path.join(__dirname,'../shift.user.js'),'utf8');
 async function expectTabSelected(tab){assert.equal(await tab.getAttribute('aria-selected'),'true');}
 async function fixture(t){
@@ -10,7 +16,7 @@ async function fixture(t){
   await page.route('https://fixture.test/**',r=>r.fulfill({contentType:'text/html',body:`<style>body{background:white;color:#111}.information-layout{background:transparent}.alert-success,.alert-danger{background:#eee;color:#111}</style><main><table><thead><tr><th>Header</th></tr></thead><tbody><tr><td>Value</td></tr></tbody></table><div class="alert-success"><span>Saved</span></div><div class="alert-danger"><span>Failed</span></div><div class="information-layout">Layout</div><div id="owned" data-exp-owned="1"><button style="background:rgb(21,32,43);color:rgb(220,230,240)">Other product</button></div><div data-exp-shift-preserve><code id="preserved" style="background:rgb(12,23,34)">Media label</code></div><button id="control">Action</button><input value="Original"><pre>Code</pre></main>`}));
   await page.goto('https://fixture.test/');await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
   await page.locator('#exp-shift-root .launcher').click();await page.locator('#exp-shift-root [data-exp-section-tab="appearance"]').click();
-  await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Midnight"]').click();
+  await page.locator('#exp-shift-root [data-shift-theme=default]').click();
   return page;
 }
 async function toggleSafeMode(page){
@@ -26,7 +32,7 @@ test('component theme distinguishes table headings, state messages and controls 
   await page.locator('#control').hover();assert.notEqual((await css()).button.bg,before.button.bg);
   await page.evaluate(()=>{const row=document.querySelector('thead tr');row.insertAdjacentHTML('beforeend','<th id="late">Late header</th>');});
   assert.equal(await page.locator('#late').evaluate(n=>getComputedStyle(n).backgroundColor),before.head.bg);
-  await page.locator('#exp-shift-root .exp-theme-swatch[aria-label="Crimson"]').click();assert.notEqual((await css()).head.bg,before.head.bg);
+  await page.locator('#exp-shift-root [data-shift-color-mode=light]').click();assert.notEqual((await css()).head.bg,before.head.bg);
 });
 test('Original and Safe Mode restore component role styling',async t=>{
   const page=await fixture(t);
@@ -34,7 +40,7 @@ test('Original and Safe Mode restore component role styling',async t=>{
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
   await toggleSafeMode(page);
   await page.locator('#exp-shift-root [data-exp-section-tab="appearance"]').click();
-  await page.locator('#exp-shift-root button').filter({hasText:/^Hold to Show Original$/}).dispatchEvent('pointerdown');
+  await page.locator('#exp-shift-root [data-exp-part="dock"] button').filter({hasText:/^Hold to Show Original$/}).dispatchEvent('pointerdown');
   assert.equal(await page.locator('.alert-success').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(238, 238, 238)');
 });
 test('live contrast repair starts when leaving Original and resumes after Safe Mode',async t=>{

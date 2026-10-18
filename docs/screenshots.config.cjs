@@ -2,10 +2,10 @@
 
 // README screenshots, captured by exp-core's shared tool: npm run screenshots
 
-const THEME = 'Midnight';
+const THEME = 'Indigo';
 
 async function applyTheme(page, host) {
-  const swatch = host.locator(`.exp-theme-swatch[aria-label*="${THEME}"]`);
+  const swatch = host.getByRole('button',{name:THEME+' theme',exact:true});
   if (!(await swatch.count())) {
     const found = await host.locator('.exp-theme-swatch').evaluateAll(items => items.map(item => item.getAttribute('aria-label')));
     throw new Error(`Missing ${THEME} theme; found ${found.join(', ')}`);

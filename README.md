@@ -16,7 +16,7 @@
 
 ## What you can do
 
-- **Theme any website:** keep the original look, follow your system, or pick Midnight, Amethyst, Crimson, Verdant, Pride, or High contrast.
+- **Theme any website:** choose Light, Dark, or System with Default, Indigo, Blue, Green, Red, or Gray navigation colors. Turn off Use page theme to show the original site. Retired palettes reset to Default.
 - **Read more comfortably:** tune link visibility, text contrast, focus outlines, and visual effects.
 - **Set it per site:** use profiles and site-specific choices, and see which setting controls the current page with "Why this appearance?".
 - **Recover quickly:** hold to show the original page, pause changes, or keep a specific element untouched.
@@ -27,7 +27,7 @@ Known banking, healthcare, and email sites stay unchanged unless you enable SHIF
 
 <table>
   <tr>
-    <td width="50%" valign="top" align="center"><a href="docs/screenshots/appearance-demo.png"><img src="docs/screenshots/appearance-demo.png" width="320" alt="SHIFT: Midnight theme applied to a sample page"></a><br><strong>Midnight theme on a sample page</strong></td>
+    <td width="50%" valign="top" align="center"><a href="docs/screenshots/appearance-demo.png"><img src="docs/screenshots/appearance-demo.png" width="320" alt="SHIFT: Indigo theme applied to a sample page"></a><br><strong>Indigo theme on a sample page</strong></td>
     <td width="50%" valign="top" align="center"><a href="docs/screenshots/readability.png"><img src="docs/screenshots/readability.png" width="220" alt="SHIFT: readability controls"></a><br><strong>Readability controls</strong></td>
   </tr>
 </table>
@@ -44,3 +44,4 @@ Screenshots use sample content.
 **Artwork and documentation:** [CC BY-NC-SA 4.0](LICENSE-ASSETS.md)
 
 SHIFT is an independent project and is not affiliated with or endorsed by the websites where it is used.
+

@@ -8,6 +8,7 @@ EXP.Settings = (() => {
   const defaults = Object.freeze({
     schema: SCHEMA,
     theme: 'original',
+    colorMode: 'dark',
     accent: 'site-default',
     themeStrength: 'normal',
     surfaceLevel: 'conservative',
@@ -75,6 +76,7 @@ EXP.Settings = (() => {
     const normalizedTheme = candidate.theme === undefined ? defaults.theme : EXP.Themes?.normalizeTheme(candidate.theme) || candidate.theme;
     const enums = {
       theme: Object.keys(EXP.Themes?.catalog || { original: {} }), accent: ['site-default'],
+      colorMode: ['light','dark','system'],
       themeStrength: ['soft', 'normal', 'strong'],
       surfaceLevel: ['off', 'conservative', 'balanced', 'aggressive'], linkVisibility: ['site', 'enhanced', 'high'], textContrast: ['normal', 'enhanced'],
       focusVisibility: ['site', 'enhanced', 'high'], reduceMotion: ['off', 'system', 'on'], launcherPosition: ['automatic-end-bottom', 'end-top', 'end-bottom', 'start-top', 'start-bottom']
@@ -108,6 +110,7 @@ EXP.Settings = (() => {
     for (const appearance of [...result.profiles.map(profile => profile.appearance), ...Object.values(result.siteOverrides)]) {
       if (!appearance || typeof appearance !== 'object') continue;
       if (typeof appearance.theme === 'string' && EXP.Themes) appearance.theme = EXP.Themes.normalizeTheme(appearance.theme);
+      if(appearance.colorMode!==undefined&&!['light','dark','system'].includes(appearance.colorMode))delete appearance.colorMode;
       if (appearance.accent !== undefined) appearance.accent = 'site-default';
     }
     return result;

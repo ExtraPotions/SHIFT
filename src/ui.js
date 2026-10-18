@@ -1,5 +1,6 @@
 EXP.UI = (() => {
   let healthControl;
+  let pageActions;
   function systemHealthSnapshot() {
     const settings=EXP.Settings.effective(),data=EXP.Engine.health(),adapter=EXP.Adapters?.health?.()||{},checkedAt=Date.now();
     if(settings.safeMode||ExtraPotionsCore.suiteSitePaused())return {state:'paused',reason:'Page appearance changes are paused.',checkedAt};
@@ -19,7 +20,7 @@ EXP.UI = (() => {
     skinVertical:'linear-gradient(180deg,#b9fff9,#20d9d3,#f23868)'
   });
   const routes = [
-    ['appearance', 'Appearance'], ['advanced', 'Advanced'], ['system', 'System']
+    ['appearance', 'Appearance'], ['advanced', 'Advanced'], ['look','Look'], ['system', 'System']
   ];
   let host;
   let shadow;
@@ -108,7 +109,7 @@ EXP.UI = (() => {
   function row(label, help) {
     const node = el('div', { class: 'row' });
     const copy = el('div', { class: 'copy' });
-    copy.append(el('span', { class: 'label' }, label));
+    const title=el('span', { class: 'label' }, label);ExtraPotionsCore.setMenuHelp(title,help);copy.append(title);
     node.append(copy);
     return node;
   }
@@ -131,28 +132,40 @@ EXP.UI = (() => {
 
   function actionRow(label, help, action, actionLabel = label) { const node = row(label, help); node.append(button(actionLabel, action, ['Reset','Reset site'].includes(actionLabel) ? 'action warn' : 'action')); return node; }
 
-  function applyMenuTheme() { ExtraPotionsCore.applyTheme(host, 'shift'); }
+  function applyMenuTheme() {
+    const state=EXP.Settings.effective(),palette=EXP.Themes.resolve(state.theme,state.accent,state);
+    if(!EXP.Themes.catalog[state.theme]?.navigationTheme){ExtraPotionsCore.applyTheme(host,'shift',[PRODUCT_THEME]);panel?.style.removeProperty('--exp-menu-navigation');panel?.style.removeProperty('color-scheme');return;}
+    const light=palette.colorScheme==='light';
+    ExtraPotionsCore.applyTheme(host,'shift',[{...PRODUCT_THEME,bg:palette.page,panel:palette.surface,text:palette.text,muted:palette.muted,line:light?'#d5d0dc':'#514e5b',accent:palette.accent,accent2:palette.accent,focus:palette.accent,onAccent:palette.page,skinMode:'flat'}]);
+    panel?.style.setProperty('--exp-menu-navigation',palette.navigation);
+    panel?.style.setProperty('color-scheme',palette.colorScheme);
+  }
 
   function commit(patch, reason = 'appearance', message = 'Appearance updated.') {
     saved = onSettings({ ...saved, ...patch }, reason);
+    applyMenuTheme();
     product?.renderActive();
     setMessage(message);
   }
   function appearanceSwatches() {
-    const choices = EXP.Themes.themeOptions().filter(([id]) => !['original', 'system'].includes(id)).map(([id, name]) => {
-      const palette = EXP.Themes.resolve(id);
-      return { id, name, swatch: palette.pageEdge || 'linear-gradient(135deg,' + palette.page + ' 50%,' + palette.highlight + ' 50%)' };
-    });
-    const line = el('div', { class:'row palette-row' });
-    const dots = el('div', { class:'exp-theme-swatches' });
-    ExtraPotionsCore.createThemeSwatches({ container:dots, themes:choices, value:saved.theme, label:'Website theme', onChange:id => commit({ theme:id, accent:'site-default' }, 'theme-swatch', choices.find(item => item.id === id).name + ' applied.') });
-    const css = choices.map(theme => '.exp-theme-swatch[data-swatch="' + theme.id + '"]{background:' + theme.swatch + '}').join('');
-    if (swatchStyle) swatchStyle.textContent = css;
-    else swatchStyle = EXP.Core.injectStyle(shadow, css, { expShiftSwatches:'1' });
-    line.style.setProperty('display','grid','important');
-    line.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
-    line.append(dots);
-    return line;
+    const grid=el('div',{class:'shift-navigation-themes',role:'group','aria-label':'Navigation theme'});
+    for(const theme of EXP.Themes.navigationThemes){
+      const palette=EXP.Themes.resolve(theme.id,'site-default',saved);
+      const control=button('',()=>commit({theme:theme.id,accent:'site-default'},'navigation-theme',theme.name+' theme applied.'));
+      control.setAttribute('aria-label',theme.name+' theme');control.setAttribute('aria-pressed',String(saved.theme===theme.id));control.dataset.shiftTheme=theme.id;
+      const preview=el('span',{class:'shift-theme-preview','aria-hidden':'true'});preview.style.setProperty('--preview-navigation',palette.navigation);preview.style.setProperty('--preview-page',palette.page);preview.style.setProperty('--preview-ink',palette.muted);
+      preview.append(el('i'),el('i'));control.append(preview,el('span',{},theme.name));grid.append(control);
+    }
+    return grid;
+  }
+
+  function colorModes(){
+    const controls=el('div',{class:'shift-color-modes',role:'group','aria-label':'Color mode'});
+    for(const [value,label] of [['light','Light'],['dark','Dark'],['system','System']]){
+      const control=button(label,()=>commit({colorMode:value,theme:EXP.Themes.catalog[saved.theme]?.navigationTheme?saved.theme:'default'},'color-mode',label+' mode applied.'));
+      control.dataset.shiftColorMode=value;control.setAttribute('aria-pressed',String(saved.colorMode===value));controls.append(control);
+    }
+    return controls;
   }
 
   function appearanceFooter() {
@@ -205,12 +218,8 @@ EXP.UI = (() => {
           const scope = body || header?.parentElement;
           const labels = { themeStrength:'Theme Strength',surfaceLevel:'Surface Intelligence',repairSurfaces:'Repair unreadable surfaces',preserveArt:'Preserve artwork and charts',reduceMotion:'Reduce motion',reduceShadows:'Reduce shadows',reduceTransparency:'Reduce transparency',simplifyGradients:'Simplify gradients',reduceBlur:'Reduce blur' };
           const targetLabel = sources[key].kind === 'global' ? (labels[key] || label) : sources[key].kind === 'profile' && !EXP.Settings.snapshot().siteOverrides[location.hostname]?.profileId ? 'Current profile' : 'Site profile';
-          const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('.exp-theme-swatch[aria-pressed="true"]') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
-          const disclosure = control?.closest('details');
-          const tabPanel=control?.closest('.exp-submenu-tabpanel');
-          // The control's panel is owned by its submenu row, or by Back for the home view.
-          if(tabPanel)shadow.querySelector(`[aria-controls="${tabPanel.id}"]`)?.click();
-          if (disclosure) disclosure.open = true;
+          const control = sources[key].kind === 'global' && ['theme','accent'].includes(key) ? scope?.querySelector('[data-shift-theme][aria-pressed="true"]') || [...(scope?.querySelectorAll('button')||[])].find(n=>n.textContent==='Use page theme') : [...(scope?.querySelectorAll('button,select,input') || [])].find(n => n.getAttribute('aria-label') === targetLabel);
+          for(let group=control?.parentElement;group&&group!==body;group=group.parentElement)if(group.tagName==='DETAILS')group.open=true;
           (control || header)?.focus();(control || header)?.scrollIntoView({block:'nearest'});
           });
         }, 'secondary'));
@@ -224,9 +233,9 @@ EXP.UI = (() => {
 
   function renderAppearance() {
     const fragment = document.createDocumentFragment();
-    const themes = section('Website theme', 'Six palettes for websites. The SHIFT menu keeps its own colors.');
-    themes.append(selectControl('Display mode', 'Keep the original site, follow your system, or use a theme.', ['original','system'].includes(saved.theme) ? saved.theme : 'themed', [['original','Original site'],['system','Follow system'],['themed','Use theme']], mode => commit({theme: mode === 'themed' ? 'midnight' : mode, accent:'site-default'}, 'display-mode')));
-    themes.append(appearanceSwatches());
+    const themes = section('Website appearance');
+    themes.append(switchControl('Use page theme','Turn off to show the original site.',saved.theme!=='original',enabled=>commit({theme:enabled?'default':'original'},'display-mode')));
+    themes.append(el('h3',{},'Color mode'),colorModes(),el('h3',{},'Navigation theme'),appearanceSwatches());
     themes.append(selectControl('Theme Strength', 'Soft narrows depth differences; Strong increases raised-surface depth.', saved.themeStrength, [['soft', 'Soft'], ['normal', 'Normal'], ['strong', 'Strong']], (themeStrength) => commit({ themeStrength }, 'theme-strength', `Theme strength set to ${themeStrength}.`)));
     fragment.append(themes, appearanceExplanation());
 
@@ -243,7 +252,6 @@ EXP.UI = (() => {
     fragment.append(ExtraPotionsCore.createDisclosure('Motion', motion));
     fragment.append(ExtraPotionsCore.createDisclosure('Surfaces', surfaces));
     fragment.append(appearanceFooter());
-    fragment.append(renderMenuUpdates());
     return fragment;
   }
 
@@ -298,7 +306,7 @@ EXP.UI = (() => {
       if (profileId === 'inherit') delete siteOverrides[location.hostname].profileId; else siteOverrides[location.hostname].profileId = profileId;
       onSettings({ ...state, siteOverrides }, 'site-profile'); setMessage('Site profile updated.');
     }));
-    current.append(actionRow('Use current appearance on this site', 'Creates a hostname override without changing the selected profile.', () => { const now = EXP.Settings.effective(); const siteOverrides = { ...state.siteOverrides, [location.hostname]: { ...(state.siteOverrides[location.hostname] || {}), theme: now.theme, accent: now.accent, themeStrength: now.themeStrength, surfaceLevel: now.surfaceLevel, linkVisibility: now.linkVisibility, textContrast: now.textContrast, focusVisibility: now.focusVisibility } }; onSettings({ ...state, siteOverrides }, 'site-appearance-override'); setMessage('Site appearance override saved.'); }, 'Save override'));
+    current.append(actionRow('Use current appearance on this site', 'Creates a hostname override without changing the selected profile.', () => { const now = EXP.Settings.effective(); const siteOverrides = { ...state.siteOverrides, [location.hostname]: { ...(state.siteOverrides[location.hostname] || {}), theme: now.theme, colorMode: now.colorMode, accent: now.accent, themeStrength: now.themeStrength, surfaceLevel: now.surfaceLevel, linkVisibility: now.linkVisibility, textContrast: now.textContrast, focusVisibility: now.focusVisibility } }; onSettings({ ...state, siteOverrides }, 'site-appearance-override'); setMessage('Site appearance override saved.'); }, 'Save override'));
     current.append(actionRow('Reset this site', 'Remove this site override and exclusion without changing global settings.', () => {
       if (!confirm(`Reset SHIFT settings for ${location.hostname}?`)) return;
       const siteOverrides = { ...state.siteOverrides }; delete siteOverrides[location.hostname];
@@ -317,7 +325,7 @@ EXP.UI = (() => {
       const name = prompt('Profile name'); if (!name?.trim()) return;
       const id = `profile-${Date.now().toString(36)}`;
       const effective = EXP.Settings.effective();
-      const profile = { id, name: name.trim().slice(0, 80), appearance: { theme: effective.theme, accent: effective.accent, surfaceLevel: effective.surfaceLevel, linkVisibility: effective.linkVisibility }, builtIn: false };
+      const profile = { id, name: name.trim().slice(0, 80), appearance: { theme: effective.theme, colorMode: effective.colorMode, accent: effective.accent, surfaceLevel: effective.surfaceLevel, linkVisibility: effective.linkVisibility }, builtIn: false };
       onSettings({ ...state, profiles: [...state.profiles, profile], currentProfile: id }, 'profile-create'); setMessage('Profile created.');
     }, 'New profile'));
     const current = state.profiles.find((profile) => profile.id === state.currentProfile);
@@ -336,7 +344,7 @@ EXP.UI = (() => {
     const importRow = row('Import profile', 'Validates product, generation, schema, and appearance references.');
     const importInput = el('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import SHIFT profile' });
     importInput.hidden = true;
-    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedThemes = new Set(EXP.Themes.themeOptions(state).map(([id]) => id)); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (!allowedThemes.has(payload.profile.appearance.theme) || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = EXP.Settings.clone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
+    importInput.addEventListener('change', async () => { try { const payload = JSON.parse(await importInput.files[0].text()); if (payload.product !== 'shift' || payload.generation !== 3 || payload.schema !== 1 || payload.type !== 'profile' || !payload.profile?.appearance) throw new Error('Unsupported profile file.'); const allowedAccents = new Set(EXP.Themes.accentOptions(state).map(([id]) => id)); if (typeof payload.profile.appearance.theme !== 'string' || !payload.profile.appearance.theme || !allowedAccents.has(payload.profile.appearance.accent)) throw new Error('Profile references an unavailable theme or accent.'); const profile = { ...payload.profile, appearance: { ...payload.profile.appearance, theme: EXP.Themes.normalizeTheme(payload.profile.appearance.theme) }, id: `profile-${Date.now().toString(36)}`, name: String(payload.profile.name || 'Imported profile').slice(0, 80), builtIn: false }; const validated = EXP.Settings.replace({ ...state, profiles: [...state.profiles, profile], currentProfile: profile.id }, 'profile-import'); saved = EXP.Settings.clone(validated); setMessage('Profile imported.'); } catch (error) { setMessage(error.message, 'error'); } });
     importRow.append(button('Import', () => importInput.click(), 'action'), importInput); group.append(importRow);
     const actions = el('div', { class: 'button-grid profile-actions' });
     for (const item of [...group.querySelectorAll(':scope > .row')]) {
@@ -364,7 +372,7 @@ EXP.UI = (() => {
   function renderMenuUpdates() {
     const state = EXP.Settings.snapshot();
     const fragment = document.createDocumentFragment();
-    const chromeGroup = ExtraPotionsCore.createDisclosure('Menu Preferences');chromeGroup.append(ExtraPotionsCore.createMenuSizeControls());
+    const chromeGroup = document.createElement('div');chromeGroup.append(ExtraPotionsCore.createMenuSizeControls());
     chromeGroup.append(switchControl('Auto-close menu', 'Close after 15 seconds without menu activity.', state.menuAutoClose, (menuAutoClose) => { onSettings({ ...state, menuAutoClose }, 'menu-auto-close'); product?.refresh(); setMessage(menuAutoClose ? 'Automatic close enabled.' : 'Automatic close disabled.'); }));
     fragment.append(chromeGroup);
 
@@ -427,6 +435,7 @@ EXP.UI = (() => {
 
     const renderers = {
       appearance: renderAppearance,
+      look:renderMenuUpdates,
       advanced: renderAdvanced,
       system: renderRecoveryData,
     };
@@ -451,9 +460,13 @@ EXP.UI = (() => {
     ExtraPotionsCore.setMenuStatus('shift', systemHealthSnapshot);
 
     ({ host, shadow, launcher, panel } = product);
+    pageActions=ExtraPotionsCore.createPageActions({host,shadow,label:'SHIFT',visible:()=>{const state=EXP.Settings.effective();return state.theme!=='original'&&!state.excluded&&!state.safeMode&&!ExtraPotionsCore.suiteSitePaused();},actions:[{label:'Hold to Show Original',hold:value=>EXP.Engine.holdOriginal(value)}]});
     applyPosition();
 
     EXP.Core.injectStyle(shadow, STYLE, { expShiftProductUi: '1' });
+    const systemScheme=matchMedia('(prefers-color-scheme: dark)');
+    const followSystem=()=>{const state=EXP.Settings.effective();if(state.colorMode==='system'||state.theme==='system'){onApply?.(state);applyMenuTheme();product?.renderActive();product?.refresh();}};
+    systemScheme.addEventListener('change',followSystem);
 
     toast = el('div', { class: 'toast', role: 'status', 'aria-live': 'polite', hidden: true });
     const nav = panel.querySelector('nav');
@@ -510,9 +523,12 @@ EXP.UI = (() => {
         applyMenuTheme(EXP.Settings.effective());
         product?.renderActive();
         product?.refresh();
+        pageActions?.refresh();
       },
       toggle() { product?.toggle(); },
       destroy() {
+        pageActions?.destroy();pageActions=null;
+        systemScheme.removeEventListener('change',followSystem);
         importDraft=null;healthControl?.dispose();EXP.Inspector.destroy();
         clearTimeout(toastTimer);
         noticeController?.destroy();
@@ -524,6 +540,15 @@ EXP.UI = (() => {
   }
 
   const STYLE = `
+    .shift-color-modes{display:flex;gap:4px;margin:5px 0 9px;min-width:0}
+    .shift-color-modes>button{flex:1;min-width:0;padding:4px;font-size:12px;min-height:30px;border:1px solid var(--theme-muted);border-radius:5px;background:var(--theme-panel);color:var(--theme-text)}
+    .shift-navigation-themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:5px 0 8px}
+    .shift-navigation-themes>button{display:flex;align-items:center;gap:5px;min-width:0;min-height:30px;padding:4px;text-align:left;font-size:11px;border:1px solid var(--theme-muted);border-radius:5px;background:var(--theme-panel);color:var(--theme-text)}
+    .shift-navigation-themes>[aria-pressed=true],.shift-color-modes>[aria-pressed=true]{outline:2px solid var(--theme-accent2);outline-offset:0}
+    .shift-theme-preview{display:grid;flex:none;grid-template-columns:27% minmax(0,1fr);width:19px;height:19px;border:1px solid var(--theme-muted);border-radius:2px;overflow:hidden}
+    .shift-theme-preview>i:first-child{background:var(--preview-navigation);border-right:1px solid var(--theme-muted)}
+    .shift-theme-preview>i:last-child{position:relative;background:var(--preview-page)}
+    .shift-theme-preview>i:last-child::after{content:'';position:absolute;left:5px;top:7px;width:65%;height:2px;background:var(--preview-ink);box-shadow:0 6px var(--preview-ink)}
     .fl-tool-body .diagnostics-controls .action{font-size:var(--exp-font-size-small,11px)!important;padding:4px!important;min-height:28px!important;line-height:1.2!important}
     .fl-tool-body .row.palette-row.mini-row{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:7px!important}
     .fl-tool-body .row.palette-row>.copy{grid-column:1/-1;min-width:0;width:100%;margin:0!important}
@@ -535,3 +560,4 @@ EXP.UI = (() => {
   `;
   return Object.freeze({ build,refreshHealth:()=>healthControl?.refresh() });
 })();
+

@@ -54,7 +54,7 @@ EXP.Preload = (() => {
     if (!state.theme || state.theme === 'original') return false;
     const theme = EXP.Themes.resolve(state.theme, state.accent, state);
     if (!theme || theme.original || !theme.page || !theme.text) return false;
-    const css = `html{background:${theme.page}!important;background-color:${theme.page}!important;color:${theme.text}!important;color-scheme:dark!important}body{background-color:${theme.page}!important;color:${theme.text}!important}`;
+    const css = `html{background:${theme.page}!important;background-color:${theme.page}!important;color:${theme.text}!important;color-scheme:${theme.colorScheme||'dark'}!important}body{background-color:${theme.page}!important;color:${theme.text}!important}`;
     try {
       style = document.createElement('style');
       style.id = STYLE_ID;

@@ -44,11 +44,11 @@ async function fixture(t) {
   });
   return page;
 }
-const midnight = 'expTest.Themes.resolve("midnight","site-default")';
+const darkTheme = 'expTest.Themes.resolve("blue","site-default")';
 
 test('every component sharing an adopted stylesheet is themed', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(3)); addPosts(0, 300); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(3)); addPosts(0, 300); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(2000);
   const facts = await page.evaluate(() => ({ unthemed: unthemedPosts(), health: expTest.DynamicEngine.health() }));
   assert.equal(facts.unthemed, 0, JSON.stringify(facts.health));
@@ -57,7 +57,7 @@ test('every component sharing an adopted stylesheet is themed', async t => {
 
 test('a late component with nested shadow roots is themed with no other page change', async t => {
   const page = await fixture(t);
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(300);
   await page.evaluate(() => {
     customElements.define('chat-msg', class extends HTMLElement { connectedCallback() { const s = this.attachShadow({ mode: 'open' }); s.innerHTML = '<style>.msg{background:#ffffff;color:#0f1a1c}</style><div class="msg" id="msg">Hello</div>'; } });
@@ -75,7 +75,7 @@ test('a late component with nested shadow roots is themed with no other page cha
 
 test('a component that reassigns adoptedStyleSheets is themed again after its next change', async t => {
   const page = await fixture(t);
-  await page.evaluate(`window.sheets = makeSheets(1); definePost(sheets); addPosts(0, 1); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`window.sheets = makeSheets(1); definePost(sheets); addPosts(0, 1); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => innerBg(document.querySelector('shift-post')) !== white, null, { timeout: 3000 });
   await page.evaluate(() => {
     const shadow = document.querySelector('shift-post').shadowRoot;
@@ -88,10 +88,10 @@ test('a component that reassigns adoptedStyleSheets is themed again after its ne
 
 test('a theme change replaces copies in place and stop removes every copy', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(2)); addPosts(0, 20); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(2)); addPosts(0, 20); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(1000);
   const before = await page.evaluate(() => innerBg(document.querySelector('shift-post')));
-  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
+  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('red', 'site-default', {colorMode:'light'})));
   await page.waitForTimeout(1000);
   const changed = await page.evaluate(() => ({
     bg: innerBg(document.querySelector('shift-post')),
@@ -110,7 +110,7 @@ test('a theme change replaces copies in place and stop removes every copy', asyn
 
 test('a Reddit-sized page themes everything without long engine slices', async t => {
   const page = await fixture(t);
-  await page.evaluate(`window.sheets = makeSheets(150); definePost(sheets); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`window.sheets = makeSheets(150); definePost(sheets); expTest.DynamicEngine.start(${darkTheme});`);
   await page.evaluate(async () => {
     for (let wave = 0; wave < 40; wave++) {
       addPosts(wave * 38, 38);
@@ -132,7 +132,7 @@ test('a Reddit-sized page themes everything without long engine slices', async t
 
 test('removed components are released from the engine', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(2, 10)); addPosts(0, 50); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(2, 10)); addPosts(0, 50); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
   await page.evaluate(() => {
     [...document.querySelectorAll('shift-post')].slice(10).forEach(post => post.remove());
@@ -146,7 +146,7 @@ test('removed components are released from the engine', async t => {
 
 test('a component removed, released, and re-attached after stop keeps none of our copies', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 3); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 3); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
   await page.evaluate(() => { window.detached = document.querySelector('shift-post'); detached.remove(); });
   await page.waitForTimeout(1200);
@@ -177,7 +177,7 @@ test('a cross-origin stylesheet shared by many components is themed in all of th
     return { inaccessible };
   }, { href, body });
   assert.equal(facts.inaccessible, true, 'fixture sheet must be cross-origin');
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const remoteBg = () => [...document.querySelectorAll('remote-post')].filter(post => getComputedStyle(post.shadowRoot.querySelector('.remote-inner')).backgroundColor === 'rgb(255, 255, 255)').length;
   await page.waitForFunction(remoteBg => eval(remoteBg)() === 0, remoteBg.toString(), { timeout: 3000 }).catch(() => {});
   const unthemed = await page.evaluate(remoteBg);
@@ -186,7 +186,7 @@ test('a cross-origin stylesheet shared by many components is themed in all of th
 
 test('components defined after insertion are themed once they upgrade', async t => {
   const page = await fixture(t);
-  await page.evaluate(`{ const feed = document.getElementById('feed'); for (let i = 0; i < 5; i++) feed.append(document.createElement('lazy-post')); } expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`{ const feed = document.getElementById('feed'); for (let i = 0; i < 5; i++) feed.append(document.createElement('lazy-post')); } expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(300);
   await page.evaluate(() => customElements.define('lazy-post', class extends HTMLElement {
     connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner">Lazy</div>'; }
@@ -208,7 +208,7 @@ test('one failing component does not stall theming of the others', async t => {
     document.getElementById('feed').append(document.createElement('bad-post'));
     definePost(makeSheets(1, 5)); addPosts(0, 10);
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 3000 }).catch(() => {});
   assert.equal(await page.evaluate(() => unthemedPosts()), 0);
 });
@@ -220,7 +220,7 @@ test('identical per-component style elements are themed once and share one copy'
     customElements.define('styled-post', class extends HTMLElement {
       connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>' + styleText + '</style><div class="inner">Post</div>'; }
     });
-    expTest.DynamicEngine.start(${midnight});
+    expTest.DynamicEngine.start(${darkTheme});
   `);
   await page.evaluate(async () => {
     const feed = document.getElementById('feed');
@@ -244,7 +244,7 @@ test('identical per-component style elements are themed once and share one copy'
   // engine (4275262) took about 3,030 ms. Theming completes up to ~1 s later on such pages.
   assert.ok(facts.health.totalMs < 1500 * TIME_SCALE, `total engine time ${facts.health.totalMs} ms`);
   assert.ok(facts.health.maxSliceMs < 50 * TIME_SCALE, `longest slice ${facts.health.maxSliceMs} ms`);
-  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
+  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('red', 'site-default', {colorMode:'light'})));
   await page.waitForTimeout(1500);
   const changed = await page.evaluate(() => ({
     bgs: [...new Set([...document.querySelectorAll('styled-post')].map(innerBg))],
@@ -269,7 +269,7 @@ test('different stylesheets whose sampled signatures collide are each themed fro
   const sheetText = letter => Array.from({ length: 100 }, (_, i) => i % 2 ? `.${letter}${i}{background:#ffffff}` : `.e${i}{color:#1c1c1c}`).join('');
   await defineStyled(page, 'odd-a', sheetText('a'), '<div class="a1 own">A</div>');
   await defineStyled(page, 'odd-b', sheetText('b'), '<div class="b1 own">B</div>');
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const ownBg = tag => getComputedStyle(document.querySelector(tag).shadowRoot.querySelector('.own')).backgroundColor;
   await page.waitForFunction(fn => ['odd-a', 'odd-b'].every(tag => eval(fn)(tag) !== 'rgb(255, 255, 255)'), ownBg.toString(), { timeout: 3000 }).catch(() => {});
   const facts = await page.evaluate(fn => ({ a: eval(fn)('odd-a'), b: eval(fn)('odd-b') }), ownBg.toString());
@@ -282,10 +282,10 @@ test('per-instance style variables that differ in one character are each themed 
   const hostText = surface => `.wrap{--surface:${surface};--ink:#111111;--line:#dddddd;display:block}.box{background:var(--surface)}`;
   const values = { 'host-a': '#ffffff', 'host-b': '#f0f0f0', 'host-c': '#fffffe' };
   for (const [tag, value] of Object.entries(values)) await defineStyled(page, tag, hostText(value), '<div class="wrap"><div class="box">Box</div></div>');
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => ['host-a', 'host-b', 'host-c'].every(tag => document.querySelector(tag).shadowRoot.adoptedStyleSheets.some(ownedSheet)), null, { timeout: 3000 }).catch(() => {});
   const facts = await page.evaluate(values => {
-    const theme = expTest.Themes.resolve('midnight', 'site-default');
+    const theme = expTest.Themes.resolve('blue', 'site-default');
     const probe = document.createElement('div'); document.body.append(probe);
     const asRgb = color => { probe.style.background = color; return getComputedStyle(probe).backgroundColor; };
     const out = {};
@@ -316,7 +316,7 @@ test('page batches that add nothing do not walk the changed container', async t 
     for (let i = 0; i < 1000; i++) { const row = document.createElement('div'); row.innerHTML = '<span>a</span><b>b</b><i>c</i><em>d</em>'; box.append(row); }
     document.body.append(box);
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(500);
   const read = () => { const health = expTest.DynamicEngine.health(); return { ms: health.discoverMs, calls: health.discoverCalls, elements: health.discoverElements }; };
   const baseline = await page.evaluate(read);
@@ -347,7 +347,7 @@ test('an in-place edit of a component style element is themed', async t => {
     customElements.define('edit-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.part{background:#fff}</style><div class="part">Part</div><div class="late">Late</div>'; } });
     document.getElementById('feed').append(document.createElement('edit-post'));
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const partBg = () => getComputedStyle(document.querySelector('edit-post').shadowRoot.querySelector('.part')).backgroundColor;
   await page.waitForFunction(fn => eval(fn)() !== 'rgb(255, 255, 255)', partBg.toString(), { timeout: 3000 });
   await page.evaluate(() => { document.querySelector('edit-post').shadowRoot.querySelector('style').firstChild.data = '.part{background:#f0f0f0}.late{background:#f0f0f0}'; });
@@ -369,7 +369,7 @@ test('a never-defined tag is watched once across repeated theme on and off', asy
     const original = customElements.whenDefined.bind(customElements);
     customElements.whenDefined = tag => { if (tag === 'never-post') calls++; return original(tag); };
     document.getElementById('feed').append(document.createElement('never-post'));
-    for (let i = 0; i < 5; i++) { expTest.DynamicEngine.start(${midnight}); expTest.DynamicEngine.stop(); }
+    for (let i = 0; i < 5; i++) { expTest.DynamicEngine.start(${darkTheme}); expTest.DynamicEngine.stop(); }
     return calls;
   })()`);
   assert.equal(calls, 1);
@@ -377,10 +377,10 @@ test('a never-defined tag is watched once across repeated theme on and off', asy
 
 test('health after stop and start reflects only the new run', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(3)); addPosts(0, 300); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(3)); addPosts(0, 300); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
   const first = await page.evaluate(() => expTest.DynamicEngine.health());
-  await page.evaluate(`expTest.DynamicEngine.stop(); document.getElementById('feed').replaceChildren(); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.stop(); document.getElementById('feed').replaceChildren(); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(300);
   const second = await page.evaluate(() => expTest.DynamicEngine.health());
   assert.equal(second.passes, 1, JSON.stringify(second));
@@ -393,7 +393,7 @@ test('health after stop and start reflects only the new run', async t => {
 
 test('health reports shadow roots found after start', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(1, 5)); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(1, 5)); expTest.DynamicEngine.start(${darkTheme});`);
   await page.evaluate(() => addPosts(0, 7));
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
   assert.equal(await page.evaluate(() => expTest.DynamicEngine.health().shadowRoots), 7);
@@ -422,9 +422,9 @@ test('a theme change whose remote fetch fails leaves no old-theme remote copy, a
     documentRemote: document.querySelectorAll('style[data-exp-shift-dynamic-remote]').length,
     shadowRemote: document.querySelector('remote-card').shadowRoot.adoptedStyleSheets.filter(ownedSheet).length + document.querySelector('remote-card').shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length,
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(fn => { const c = eval(fn)(); return c.documentRemote === 1 && c.shadowRemote === 1; }, copies.toString(), { timeout: 3000 });
-  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default')));
+  await page.evaluate(() => expTest.DynamicEngine.refresh(expTest.Themes.resolve('red', 'site-default', {colorMode:'light'})));
   await page.waitForTimeout(500);
   const afterFailure = await page.evaluate(copies);
   assert.deepEqual(afterFailure, { documentRemote: 0, shadowRemote: 0 });
@@ -434,7 +434,7 @@ test('a theme change whose remote fetch fails leaves no old-theme remote copy, a
 
 test('a failed in-place replace still moves every component to the new theme', async t => {
   const page = await fixture(t);
-  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 10); expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`definePost(makeSheets(1, 5)); addPosts(0, 10); expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => unthemedPosts() === 0, null, { timeout: 5000 });
   const before = await page.evaluate(() => innerBg(document.querySelector('shift-post')));
   const facts = await page.evaluate(async () => {
@@ -455,7 +455,7 @@ test('a failed in-place replace still moves every component to the new theme', a
       }
       return original.call(this, text);
     };
-    expTest.DynamicEngine.refresh(expTest.Themes.resolve('crimson', 'site-default'));
+    expTest.DynamicEngine.refresh(expTest.Themes.resolve('red', 'site-default', {colorMode:'light'}));
     await new Promise(resolve => setTimeout(resolve, 800));
     CSSStyleSheet.prototype.replaceSync = original;
     return { failed: Boolean(failed), staleAfterFailingSlice, bgs: [...new Set(posts.map(innerBg))], copies: [...new Set(posts.map(post => post.shadowRoot.adoptedStyleSheets.filter(ownedSheet).length + post.shadowRoot.querySelectorAll('style[data-exp-shift-dynamic]').length))] };
@@ -469,7 +469,7 @@ test('a failed in-place replace still moves every component to the new theme', a
 
 test('a defined component that attaches its shadow root after insertion is themed', async t => {
   const page = await fixture(t);
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(200);
   await page.evaluate(() => {
     // Core's page batch arrives about 60 ms after insertion; the shadow root comes later still.
@@ -493,7 +493,7 @@ test(':host rules theme the host element unless it is preserved', async t => {
     const active = document.createElement('arg-host'); active.className = 'active'; feed.append(active);
     const kept = document.createElement('bare-host'); kept.id = 'kept'; kept.setAttribute('data-exp-shift-preserve', ''); feed.append(kept);
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const hostBgs = () => ({ bare: getComputedStyle(document.querySelector('bare-host:not(#kept)')).backgroundColor, arg: getComputedStyle(document.querySelector('arg-host')).backgroundColor, kept: getComputedStyle(document.getElementById('kept')).backgroundColor });
   await page.waitForFunction(fn => { const bgs = eval(fn)(); return bgs.bare !== 'rgb(255, 255, 255)' && bgs.arg !== 'rgb(255, 255, 255)'; }, hostBgs.toString(), { timeout: 3000 }).catch(() => {});
   const facts = await page.evaluate(hostBgs);
@@ -514,7 +514,7 @@ test('page rules on a host element still win over themed :host rules', async t =
     feed.append(document.createElement('plain-card'));
     for (const name of ['red-probe', 'brand-probe']) { const probe = document.createElement('div'); probe.className = name; feed.append(probe); }
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => getComputedStyle(document.querySelector('plain-card:not([class])')).backgroundColor !== 'rgb(255, 255, 255)', null, { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(300);
   const facts = await page.evaluate(() => {
@@ -531,7 +531,7 @@ test('a component\'s own !important :host declarations are still themed', async 
   const page = await fixture(t);
   await defineStyled(page, 'firm-host', ':host{display:block;background:#ffffff !important;color:#111}', '<span>Firm</span>');
   await defineStyled(page, 'mixed-host', ':host, .inner{display:block;background:#fff !important}', '<div class="inner">Inner</div>');
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const bgs = () => ({ firm: getComputedStyle(document.querySelector('firm-host')).backgroundColor, mixedHost: getComputedStyle(document.querySelector('mixed-host')).backgroundColor, mixedInner: getComputedStyle(document.querySelector('mixed-host').shadowRoot.querySelector('.inner')).backgroundColor });
   await page.waitForFunction(fn => Object.values(eval(fn)()).every(bg => bg !== 'rgb(255, 255, 255)'), bgs.toString(), { timeout: 3000 }).catch(() => {});
   const facts = await page.evaluate(bgs);
@@ -549,7 +549,7 @@ test('a style element edited through CSSOM is not themed from an unedited twin',
     const sheet = document.querySelector('twin-b').shadowRoot.querySelector('style').sheet;
     sheet.deleteRule(51); sheet.insertRule('.r51{background:#ffffff}', 51);
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   const editedBg = () => getComputedStyle(document.querySelector('twin-b').shadowRoot.querySelector('.r51')).backgroundColor;
   await page.waitForFunction(fn => eval(fn)() !== 'rgb(255, 255, 255)', editedBg.toString(), { timeout: 3000 }).catch(() => {});
   assert.notEqual(await page.evaluate(editedBg), 'rgb(255, 255, 255)');
@@ -558,7 +558,7 @@ test('a style element edited through CSSOM is not themed from an unedited twin',
 test('the late shadow-root re-check runs without animation frames (background tab)', async t => {
   const page = await fixture(t);
   await page.evaluate(() => { window.requestAnimationFrame = () => 0; });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForTimeout(200);
   await page.evaluate(() => {
     customElements.define('hidden-post', class extends HTMLElement {
@@ -575,7 +575,7 @@ test('generated CSS for selectors other than :host is unchanged', async t => {
   const css = '.a{background:#ffffff}.b::before{color:#111111}div > p.c, ul li{background:#fafafa}a[href*=","]:hover{color:#222222}:is(.x, .y) .z::after{border-color:#dddddd}:host .inner{background:#ffffff}dialog::backdrop{background:#ffffff}@media (min-width: 1px){.m{background:#ffffff}}';
   const out = await page.evaluate(css => {
     document.head.querySelector('style').textContent = css;
-    expTest.DynamicEngine.start(expTest.Themes.resolve('midnight', 'site-default'));
+    expTest.DynamicEngine.start({page:'#050a12',surface:'#0c1726',raised:'#142238',overlay:'#1d2e49',text:'#d4deeb',muted:'#b5c3d6',highlight:'#91baff',accent:'#91baff'});
     return document.querySelector('style[data-exp-shift-dynamic]').textContent;
   }, css);
   const guard = ':not(:where([data-exp-shift-preserve],[data-exp-shift-preserve] *))';
@@ -598,7 +598,7 @@ test('text replaced inside a component does not trigger adopted-sheet checks, bu
     customElements.define('text-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner"><span class="value">0</span></div><div class="late">Late</div>'; } });
     document.getElementById('feed').append(document.createElement('text-post'));
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => innerBg(document.querySelector('text-post')) !== white, null, { timeout: 3000 });
   await page.waitForTimeout(200);
   const read = () => { const health = expTest.DynamicEngine.health(); return { checks: health.adoptedChecks, slices: health.slices }; };
@@ -622,7 +622,7 @@ test('text edits inside a component do not trigger adopted-sheet checks or slice
     customElements.define('ticker-post', class extends HTMLElement { connectedCallback() { if (this.shadowRoot) return; this.attachShadow({ mode: 'open' }).innerHTML = '<style>.inner{background:#ffffff;color:#111}</style><div class="inner"><span class="value">0</span></div>'; } });
     document.getElementById('feed').append(document.createElement('ticker-post'));
   });
-  await page.evaluate(`expTest.DynamicEngine.start(${midnight});`);
+  await page.evaluate(`expTest.DynamicEngine.start(${darkTheme});`);
   await page.waitForFunction(() => innerBg(document.querySelector('ticker-post')) !== white, null, { timeout: 3000 });
   await page.waitForTimeout(200);
   const read = () => { const health = expTest.DynamicEngine.health(); return { checks: health.adoptedChecks, slices: health.slices, calls: health.discoverCalls }; };

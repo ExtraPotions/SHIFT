@@ -2,8 +2,14 @@
 // Core's diagnostics carry a readability scan so a washed-out page can be diagnosed from Copy Diagnostics or
 // Report a Problem alone, without DevTools. The scan never copies page text.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{chromium}=require('playwright');
-// Opens a shared-menu submenu detail view by its row label; 'Overview' returns to the section's home view.
-async function openSubmenu(scope,label){const title=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-title:visible');if(await title.count()&&(await title.first().textContent())===label)return;const back=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-back:visible');while(await back.count())await back.first().click();if(label!=='Overview')await scope.locator('.exp-submenu-row:visible').filter({hasText:new RegExp('^'+label+'$')}).click();}
+// Opens the current inline settings group without collapsing an already-open disclosure.
+async function openSubmenu(scope,label){
+ const aliases={Style:'Highlight style',Menu:'Menu Preferences',Transfer:'Settings transfer',Effects:'Effects & integrations',Profiles:'Profiles & sites',Page:'Page tools',Retailers:'Retailer modules',Review:'Protection review',Activity:'Page activity',Playback:'Playback options',Alerts:'Notifications',Patterns:'Advanced Amazon',Tools:'Page tools'};
+ if(label==='Overview')return;
+ const shortcut=scope.locator('[data-exp-menu-shortcut="'+label.toLowerCase()+'"]');if(await shortcut.count()){await shortcut.click();return;}
+ const summary=scope.locator('summary:visible').filter({hasText:new RegExp('^'+(aliases[label]||label)+'(?: .*)?'+'$')}).first();
+ await summary.waitFor();if(!await summary.evaluate(n=>n.parentElement.open))await summary.click();
+}
 const script=fs.readFileSync(path.join(__dirname,'../shift.user.js'),'utf8');
 const html=`<style>body{background:#fff;color:#111}</style><main><p>Readable heading</p><x-card data-exp-shift-preserve></x-card></main>
 <div class="veil" data-exp-shift-preserve style="position:fixed;inset:0;background:rgba(255,255,255,.6);pointer-events:none"></div>

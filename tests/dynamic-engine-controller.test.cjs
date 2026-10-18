@@ -73,5 +73,5 @@ test('a stylesheet that loads after the page has loaded does not re-apply the th
   });
   assert.equal(facts.rechecks, 0, JSON.stringify(facts));
   assert.equal(facts.applies, 0, JSON.stringify(facts));
-  assert.equal(facts.themed, 'midnight');
+  assert.equal(facts.themed, 'default');
 });

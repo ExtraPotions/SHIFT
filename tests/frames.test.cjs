@@ -45,7 +45,7 @@ const facts = frame => frame.evaluate(() => ({
 }));
 
 test('SHIFT never paints a frame from another origin, so overlays stay transparent over what is beneath them', async t => {
-  const { browser, page } = await load({ schema: 1, theme: 'midnight', currentProfile: 'original' });
+  const { browser, page } = await load({ schema: 1, theme: 'default', currentProfile: 'original' });
   t.after(() => browser.close());
   const overlayFrame = page.frames().find(frame => frame.url().startsWith('https://overlay.test/'));
   assert.ok(overlayFrame, 'the foreign overlay frame loaded');
@@ -73,9 +73,9 @@ test('SHIFT still themes the top page and frames from its own origin', async t =
   const { browser, page } = await load({ schema: 1, theme: 'midnight', currentProfile: 'original' });
   t.after(() => browser.close());
   const topFacts = await facts(page.mainFrame());
-  assert.equal(topFacts.attr, 'midnight');
-  assert.equal(topFacts.htmlBg, 'rgb(5, 10, 18)');
+  assert.equal(topFacts.attr, 'default');
+  assert.equal(topFacts.htmlBg, 'rgb(24, 23, 29)');
   const sameOrigin = page.frames().find(frame => frame.url() === 'https://site.test/inner');
   assert.ok(sameOrigin, 'the same-origin frame loaded');
-  assert.equal((await facts(sameOrigin)).attr, 'midnight', 'a frame of the same site is still themed');
+  assert.equal((await facts(sameOrigin)).attr, 'default', 'a frame of the same site is still themed');
 });

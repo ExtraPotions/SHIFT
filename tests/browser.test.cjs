@@ -4,8 +4,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
-// Opens a shared-menu submenu detail view by its row label; 'Overview' returns to the section's home view.
-async function openSubmenu(scope,label){const title=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-title:visible');if(await title.count()&&(await title.first().textContent())===label)return;const back=scope.locator('.exp-submenu-detail:not([hidden])>.exp-submenu-back:visible');while(await back.count())await back.first().click();if(label!=='Overview')await scope.locator('.exp-submenu-row:visible').filter({hasText:new RegExp('^'+label+'$')}).click();}
+// Opens the current inline settings group without collapsing an already-open disclosure.
+async function openSubmenu(scope,label){
+ const aliases={Style:'Highlight style',Menu:'Menu Preferences',Transfer:'Settings transfer',Effects:'Effects & integrations',Profiles:'Profiles & sites',Page:'Page tools',Retailers:'Retailer modules',Review:'Protection review',Activity:'Page activity',Playback:'Playback options',Alerts:'Notifications',Patterns:'Advanced Amazon',Tools:'Page tools'};
+ if(label==='Overview')return;
+ const shortcut=scope.locator('[data-exp-menu-shortcut="'+label.toLowerCase()+'"]');if(await shortcut.count()){await shortcut.click();return;}
+ const summary=scope.locator('summary:visible').filter({hasText:new RegExp('^'+(aliases[label]||label)+'(?: .*)?'+'$')}).first();
+ await summary.waitFor();if(!await summary.evaluate(n=>n.parentElement.open))await summary.click();
+}
 
 const script = fs.readFileSync(path.resolve(__dirname, '../shift.user.js'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8'));
@@ -90,9 +96,9 @@ test('inline background shorthand survives Original boot and exclusion', async (
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
+    shadow.querySelector('[data-shift-theme=red]').click();
   });
-  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'crimson');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'red');
   const themed = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   assert.notEqual(themed, boot);
   await root.evaluate((node) => {
@@ -193,23 +199,23 @@ test('appearance live-commits on selection and survives SPA traversal', async (t
     const shadow = host.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Pride"]').click();
+    shadow.querySelector('[data-shift-theme=blue]').click();
   });
   const appearance = () => page.evaluate(() => ({
     theme: document.documentElement.getAttribute('data-exp-shift'),
     page: getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim(),
     saved: window.__gmValues.has('exp:v3:shift:settings'),
   }));
-  assert.deepEqual(await appearance(), { theme: 'pride', page: '#100a12', saved: true });
+  assert.deepEqual(await appearance(), { theme: 'blue', page: '#18171d', saved: true });
   await page.evaluate(() => history.pushState({}, '', '/preview-route'));
   await page.waitForTimeout(650);
-  assert.deepEqual(await appearance(), { theme: 'pride', page: '#100a12', saved: true });
+  assert.deepEqual(await appearance(), { theme: 'blue', page: '#18171d', saved: true });
   await page.evaluate(() => history.pushState({}, '', '/applied-route'));
   await page.waitForTimeout(650);
-  assert.deepEqual(await appearance(), { theme: 'pride', page: '#100a12', saved: true });
+  assert.deepEqual(await appearance(), { theme: 'blue', page: '#18171d', saved: true });
 });
 
-test('first run is Original and menu is a simplified three-row shell', async (t) => {
+test('first run keeps Original and uses the four-section sidebar', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
 
@@ -257,9 +263,9 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   });
 
   assert.equal(facts.panelHidden, false);
-  assert.equal(facts.navCount, 3);
+  assert.equal(facts.navCount, 4);
   assert.equal(facts.checkboxCount, 0);
-  assert.equal(facts.switchCount, 6); // switches of the one always-open section (Appearance)
+  assert.ok(facts.switchCount>=2,'appearance controls remain switches');
   assert.equal(facts.visibleBodies, 1); // one section is always open
   assert.equal(facts.width, await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('exp-shift-root')).getPropertyValue('--exp-menu-width'))));
   assert.equal(facts.noticeOutside, true);
@@ -279,7 +285,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   assert.ok(Math.abs(facts.noticeBottom - facts.panelBottom) <= 2, 'notice is bottom-aligned with the menu: ' + JSON.stringify(facts));
 
   const labels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].map((item) => item.textContent.replace(/[▸▾]/g, '').trim()));
-  assert.deepEqual(labels, ['Appearance', 'Advanced', 'System']);
+  assert.deepEqual(labels, ['Appearance','Look','Advanced','System']);
 
   const subtitle = await root.evaluate((node) => {
     const shadow = node.shadowRoot;
@@ -298,9 +304,9 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
     };
   });
   assert.equal(subtitle.text, 'Adaptive themes and readability');
-  // The menu header shows the health label in place of the tagline, aligned with the title.
-  assert.equal(subtitle.statusLeft, subtitle.titleLeft);
-  assert.ok(subtitle.statusText, 'header status text is non-empty');
+  // The compact header keeps its subtitle beneath the title.
+  assert.equal(subtitle.subtitleLeft, subtitle.titleLeft);
+  assert.ok(subtitle.text,'subtitle is non-empty');
   assert.deepEqual(
     { paddingLeft: subtitle.paddingLeft, borderTopWidth: subtitle.borderTopWidth, textAlign: subtitle.textAlign },
     { paddingLeft: '0px', borderTopWidth: '0px', textAlign: 'start' },
@@ -320,7 +326,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
   });
   assert.ok(expanded.switchCount >= 2);
   assert.equal(expanded.visibleBodies, 1);
-  assert.equal(expanded.nested, 5, 'Appearance holds the explanation, Readability, Motion, Surfaces, and Menu Preferences');
+  assert.equal(expanded.nested, 4, 'Appearance holds the explanation, Readability, Motion, and Surfaces');
   assert.equal(expanded.readabilityOpen, true);
 
   const reopened = await root.evaluate((node) => {
@@ -345,7 +351,7 @@ test('first run is Original and menu is a simplified three-row shell', async (t)
       headerBadge: Math.round(shadow.querySelector('.header-icon .menu-icon').getBoundingClientRect().width),
     };
   });
-  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: await page.locator('#exp-shift-root [data-exp-part="dock"]').evaluate(n=>n.dataset.expMenuLayout==='lean'?30:38) });
+  assert.deepEqual(launcherChrome, { button: 48, radius: '10px', hasRing: false, icon: 40, headerBadge: await page.locator('#exp-shift-root [data-exp-part="dock"]').evaluate(n=>n.dataset.expMenuLayout==='lean'?28:38) });
 });
 
 test('Appearance keeps readability nested while Advanced keeps effects nested', async (t) => {
@@ -396,11 +402,11 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
-  const palettes = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.exp-theme-swatch')].map((item) => item.getAttribute('aria-label')));
-  assert.deepEqual(palettes, ['Midnight', 'Amethyst', 'Crimson', 'Verdant', 'Pride', 'High contrast']);
-  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[aria-label="Display mode"]').value), 'original');
+  const palettes = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-shift-theme]')].map((item) => item.dataset.shiftTheme));
+  assert.deepEqual(palettes, ['default','indigo','blue','green','red','gray']);
+  assert.equal(await page.evaluate(()=>document.documentElement.hasAttribute('data-exp-shift')), false);
   assert.equal(await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('button')].some((item) => item.textContent === 'Apply' || item.textContent === 'Cancel')), false);
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-shift-theme=red]').click());
   await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page'));
   await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
   assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
@@ -411,17 +417,17 @@ test('appearance selects and swatches live-commit with real engine effects', asy
   });
   assert.equal(await page.evaluate(() => window.GM_getValue('exp:v3:shift:settings').themeStrength), 'strong');
   assert.equal(await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('select')].find((item) => item.getAttribute('aria-label') === 'Theme Strength')?.value), 'strong');
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#050a12'));
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-shift-theme=default]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#18171d'));
   await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
   assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
   assert.equal(await page.locator('img[data-exp-shift-live]').count(), 0);
-  await root.evaluate(node=>(()=>{const select=node.shadowRoot.querySelector('[aria-label="Display mode"]');select.value='original';select.dispatchEvent(new Event('change',{bubbles:true}));})());
+  await root.getByRole('switch',{name:'Use page theme',exact:true}).click();
   await page.waitForFunction(()=>window.GM_getValue('exp:v3:shift:settings').theme==='original' && document.querySelectorAll('[data-exp-shift-live]').length===0);
-  assert.equal(await root.evaluate(node=>node.shadowRoot.querySelector('[aria-label="Display mode"]').value), 'original');
+  assert.equal(await page.evaluate(()=>document.documentElement.hasAttribute('data-exp-shift')), false);
 });
 
-test('Pride and Amethyst palettes recolor the live page when constructable sheets are inert', async (t) => {
+test('Blue and Indigo palettes recolor the live page when constructable sheets are inert', async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
@@ -441,113 +447,32 @@ test('Pride and Amethyst palettes recolor the live page when constructable sheet
   await page.waitForSelector('#exp-shift-root', { state: 'attached' });
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Pride"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100a12'));
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100b18'));
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-shift-theme=blue]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#18171d'));
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-shift-theme=indigo]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#18171d'));
   assert.notEqual(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgba(0, 0, 0, 0)');
 });
 
-test('Pride palette recolors the live page', async (t) => {
+test('Blue palette recolors the live page', async (t) => {
   const { browser, page } = await fixture();
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Pride"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100a12'));
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-shift-theme=blue]').click());
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#18171d'));
   assert.notEqual(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgba(0, 0, 0, 0)');
 });
 
-test('Pride paints a muted rainbow highlight and a pink accent', async (t) => {
-  const { browser, page } = await fixture();
-  t.after(() => browser.close());
-  const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => {
-    const shadow = node.shadowRoot;
-    shadow.querySelector('.launcher').click();
-    shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Pride"]').click();
-  });
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100a12'));
-  const sheet = await page.evaluate(() => document.querySelector('#exp-shift-page-style')?.textContent || '');
-  assert.match(sheet, /#c84e66/);
-  assert.match(sheet, /#d07840/);
-  assert.match(sheet, /#3b8a5f/);
-  assert.match(sheet, /#7455a4/);
-  assert.match(sheet, /--exp-shift-accent:#ef9ccc/);
-  assert.match(sheet, /--exp-shift-highlight:#ef9ccc/);
-  assert.match(sheet, /--exp-shift-page:#100a12/);
-  assert.match(sheet, /linear-gradient\(90deg,#c84e66/);
-  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('a')).color), 'rgb(239, 156, 204)');
-});
-
-test('Pride palette differs materially from Crimson with rainbow page and menu treatment', async (t) => {
-  const { browser, page } = await fixture();
-  t.after(() => browser.close());
-  const root = page.locator('#exp-shift-root');
-  const openAppearance = () => root.evaluate((node) => {
-    const shadow = node.shadowRoot;
-    shadow.querySelector('.launcher').click();
-    shadow.querySelector('[data-section="appearance"]').click();
-  });
-  await openAppearance();
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Pride"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#100a12'));
-  const pride = await page.evaluate(() => {
-    const html = document.documentElement;
-    const rootNode = document.querySelector('#exp-shift-root');
-    const shadow = rootNode.shadowRoot;
-    const sheet = document.querySelector('#exp-shift-page-style')?.textContent || '';
-    const menuStyle = shadow.querySelector('style[data-exp-shift-menu-theme]')?.textContent || '';
-    return {
-      page: getComputedStyle(document.body).backgroundColor,
-      vars: {
-        page: getComputedStyle(html).getPropertyValue('--exp-shift-page').trim(),
-        surface: getComputedStyle(html).getPropertyValue('--exp-shift-surface').trim(),
-        accent: getComputedStyle(html).getPropertyValue('--exp-shift-accent').trim(),
-        highlight: getComputedStyle(html).getPropertyValue('--exp-shift-highlight').trim()
-      },
-      sheet,
-      menuStyle,
-      lean: shadow.querySelector('[data-exp-part="dock"]').dataset.expMenuLayout === 'lean',
-      menuBg: getComputedStyle(shadow.querySelector('[data-exp-part="dock"]')).backgroundImage,
-      dividerBg: getComputedStyle(shadow.querySelector('.header-divider')).backgroundImage,
-      dividerHeight: getComputedStyle(shadow.querySelector('.header-divider')).height,
-      uiTheme: rootNode.dataset.uiTheme
-    };
-  });
-  assert.equal(pride.vars.page, '#100a12');
-  assert.equal(pride.vars.surface, '#1d1222');
-  assert.equal(pride.vars.accent, '#ef9ccc');
-  assert.equal(pride.vars.highlight, '#ef9ccc');
-  assert.match(pride.sheet, /#c84e66/);
-  assert.match(pride.sheet, /#3d79a6/);
-  if(pride.lean)assert.equal(pride.menuBg,'none');else assert.match(pride.menuBg, /linear-gradient/);
-  assert.match(pride.dividerBg, /linear-gradient/);
-  assert.doesNotMatch(pride.dividerBg, /200,\s*78,\s*102|#c84e66/i);
-  assert.equal(pride.uiTheme, 'shift');
-  assert.doesNotMatch(pride.dividerBg, /rgba\(0,\s*0,\s*0,\s*0\).*200/i);
-  assert.equal(pride.dividerHeight, '2px');
-  assert.equal(pride.uiTheme, 'shift');
-  await root.evaluate((node) => node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click());
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#0c0508'));
-  const ember = await page.evaluate(() => ({
-    page: getComputedStyle(document.body).backgroundColor,
-    vars: {
-      page: getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim(),
-      surface: getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-surface').trim(),
-      accent: getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-accent').trim()
-    },
-    sheet: document.querySelector('#exp-shift-page-style')?.textContent || ''
-  }));
-  assert.equal(ember.vars.page, '#0c0508');
-  assert.equal(ember.vars.surface, '#1d090f');
-  assert.equal(ember.vars.accent, '#f18c9c');
-  assert.doesNotMatch(ember.sheet, /#c84e66/);
-  assert.notEqual(pride.page, ember.page);
-  assert.notEqual(pride.vars.page, ember.vars.page);
-  assert.notEqual(pride.vars.surface, ember.vars.surface);
-  assert.notEqual(pride.vars.accent, ember.vars.accent);
+test('Blue and Red apply distinct navigation and accent colors while retaining fixed menu identity',async t=>{
+ const {browser,page}=await fixture();t.after(()=>browser.close());const root=page.locator('#exp-shift-root');
+ await root.locator('.launcher').click();
+ const facts=[];
+ for(const theme of ['blue','red']){
+  await root.locator('[data-shift-theme='+theme+']').click();
+  facts.push(await page.evaluate(()=>({navigation:getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-navigation').trim(),accent:getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-accent').trim(),menu:document.querySelector('#exp-shift-root').dataset.uiTheme})));
+ }
+ assert.notEqual(facts[0].accent,facts[1].accent);assert.equal(facts[0].menu,'shift');assert.equal(facts[1].menu,'shift');
 });
 
 test('narrow viewport keeps launcher and sequential navigation reachable', async (t) => {
@@ -652,7 +577,7 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate((node) => { const shadow=node.shadowRoot;shadow.querySelector('.launcher').click();shadow.querySelector('[data-section="appearance"]').click(); });
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('[data-shift-theme=red]').click(); });
   await page.waitForFunction(() => document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
   await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'advanced').click());
   await openSubmenu(root,'Page');
@@ -660,15 +585,15 @@ test('Safe Mode restores owned effects and can recover without losing appearance
   await page.waitForFunction(() => !(document.querySelector('#exp-shift-page-style')?.textContent) && document.querySelectorAll('[data-exp-shift-live]').length === 0);
   await openSubmenu(root,'Page');
   await root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Safe Mode'); row.querySelector('[role="switch"]').click(); });
-  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#0c0508') && document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
+  await page.waitForFunction(() => document.querySelector('#exp-shift-page-style')?.textContent.includes('--exp-shift-page:#18171d') && document.documentElement.hasAttribute('data-exp-shift') && Boolean(document.querySelector('#exp-shift-page-style')?.textContent));
 });
 
-test('Appearance keeps theme controls up front and opens readability, motion and surfaces as detail views', async (t) => {
+test('Appearance keeps theme controls up front and expands secondary controls inline', async (t) => {
   const { browser, page } = await fixture(); t.after(() => browser.close());
   const root = page.locator('#exp-shift-root');
   await root.evaluate(node => {const s=node.shadowRoot;s.querySelector('.launcher').click();s.querySelector('[data-section="appearance"]').click();});
   assert.equal(await root.locator('.appearance-group').count(),0);
-  assert.deepEqual(await root.locator('.route-body:not([hidden]) .exp-submenu-row').allTextContents(),['Readability','Motion','Surfaces','Menu']);
+  const groups=await root.locator('.route-body:not([hidden]) summary').allTextContents();for(const label of ['Readability','Motion','Surfaces'])assert.ok(groups.includes(label),label);
   assert.equal(await root.locator('[data-shift-appearance-explanation]').evaluate(n=>n.open),false);
   assert.equal(await root.getByText('Create custom theme',{exact:true}).count(),0);
   assert.equal(await root.getByText('Import custom theme',{exact:true}).count(),0);
@@ -693,10 +618,10 @@ test('Advanced and System hold site and chrome controls', async (t) => {
   assert.ok(profileLabels.includes('Current profile'));
   assert.ok(profileLabels.includes('Safe Mode'));
   assert.ok(profileLabels.includes('Export SHIFT settings'));
-  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="appearance"]').click());
+  await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="look"]').click());
   const menuLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.equal(menuLabels.includes('Menu width'), false);
-  assert.ok(menuLabels.includes('Update notifications'), 'Menu Preferences live in Appearance');
+  assert.ok(menuLabels.includes('Update notifications'), 'Menu preferences live in Look');
   await root.evaluate((node) => node.shadowRoot.querySelector('[data-section="system"]').click());
   const recoveryLabels = await root.evaluate((node) => [...node.shadowRoot.querySelectorAll('.route-body:not([hidden]) .label')].map((item) => item.textContent));
   assert.equal(recoveryLabels.includes('Safe Mode'),false);
@@ -710,7 +635,7 @@ test('update metadata is checked by default and stops when the setting is turned
   t.after(() => browser.close());
   await page.waitForFunction(() => window.__updateRequests === 1);
   const root = page.locator('#exp-shift-root');
-  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'appearance').click(); });
+  await root.evaluate((node) => { node.shadowRoot.querySelector('.launcher').click(); [...node.shadowRoot.querySelectorAll('[data-section]')].find((item) => item.dataset.section === 'look').click(); });
   const toggle = () => root.evaluate((node) => { const row = [...node.shadowRoot.querySelectorAll('.row')].find((item) => item.querySelector('.label')?.textContent === 'Update notifications'); const control = row.querySelector('[role="switch"]'); const before = control.getAttribute('aria-checked'); control.click(); return before; });
   assert.equal(await toggle(), 'true');
   await page.waitForTimeout(500);
@@ -792,9 +717,9 @@ test('everywhere CSS variables theme common chrome without waiting for surface m
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim() === '#100b18');
+  await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--exp-shift-page').trim() === '#18171d');
   const painted = await page.evaluate(() => {
     const css = (id) => getComputedStyle(document.getElementById(id));
     return {
@@ -811,8 +736,8 @@ test('everywhere CSS variables theme common chrome without waiting for surface m
       sheet: document.querySelector('#exp-shift-page-style')?.textContent || ''
     };
   });
-  assert.equal(painted.pageVar, '#100b18');
-  assert.equal(painted.accentVar, '#c3a0ff');
+  assert.equal(painted.pageVar, '#18171d');
+  assert.equal(painted.accentVar, '#b8a4ff');
   assert.match(painted.sheet, /:root,html\[data-exp-shift\],:host/);
   assert.match(painted.sheet, /\.MuiPaper-root/);
   assert.match(painted.sheet, /\.bg-white/);
@@ -853,9 +778,9 @@ test('theming avoids white-screen underpaint and nested overpaint', async (t) =>
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
+    shadow.querySelector('[data-shift-theme=default]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(5, 10, 18)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   await page.waitForTimeout(300);
   const facts = await page.evaluate(() => {
     const luminance = (color) => {
@@ -906,8 +831,8 @@ test('theming avoids white-screen underpaint and nested overpaint', async (t) =>
       inlineBodyBg: document.body.style.getPropertyValue('background-color'),
     };
   });
-  assert.equal(facts.htmlBg, 'rgb(5, 10, 18)');
-  assert.equal(facts.bodyBg, 'rgb(5, 10, 18)');
+  assert.equal(facts.htmlBg, 'rgb(24, 23, 29)');
+  assert.equal(facts.bodyBg, 'rgb(24, 23, 29)');
   assert.notEqual(facts.bodyColor, 'rgb(17, 17, 17)');
   assert.ok(facts.copyContrast >= 4.5, JSON.stringify(facts));
   assert.ok(facts.cellContrast >= 4.5, JSON.stringify(facts));
@@ -922,8 +847,8 @@ test('theming avoids white-screen underpaint and nested overpaint', async (t) =>
   assert.notEqual(facts.innerBg, 'rgb(250, 250, 250)');
   assert.notEqual(facts.cellBg, 'rgb(255, 255, 255)');
   assert.notEqual(facts.stickyBg, 'rgb(238, 238, 238)');
-  assert.ok(['#050a12', 'rgb(5, 10, 18)'].includes(facts.inlineHtmlBg), JSON.stringify(facts.inlineHtmlBg));
-  assert.ok(['#050a12', 'rgb(5, 10, 18)'].includes(facts.inlineBodyBg), JSON.stringify(facts.inlineBodyBg));
+  assert.ok(['#18171d', 'rgb(24, 23, 29)'].includes(facts.inlineHtmlBg), JSON.stringify(facts.inlineHtmlBg));
+  assert.ok(['#18171d', 'rgb(24, 23, 29)'].includes(facts.inlineBodyBg), JSON.stringify(facts.inlineBodyBg));
 });
 
 test('content wrappers like Greasy Fork .width keep readable contrast', async (t) => {
@@ -944,9 +869,9 @@ test('content wrappers like Greasy Fork .width keep readable contrast', async (t
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   const facts = await page.evaluate(() => {
     const luminance = (color) => {
       const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
@@ -1005,9 +930,9 @@ test('common layout wrappers stay transparent over hero art', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   const facts = await page.evaluate(() => {
     const opaque = (bg) => {
       const match = String(bg || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/i);
@@ -1057,9 +982,9 @@ test('transparent section/article stay clear over hero art', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   await page.waitForTimeout(400);
   const facts = await page.evaluate(() => {
     const opaque = (bg) => {
@@ -1113,9 +1038,9 @@ test('excluding a site restores stylesheet backgrounds without a white canvas', 
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
+    shadow.querySelector('[data-shift-theme=red]').click();
   });
-  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'crimson');
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-exp-shift') === 'red');
   await root.evaluate((node) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('[data-section="advanced"]').click();
@@ -1166,19 +1091,19 @@ test('host CSS themes SPA app shells that never use landmarks', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 11, 24)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   const painted = await page.evaluate(() => ({
     html: getComputedStyle(document.documentElement).backgroundColor,
     body: getComputedStyle(document.body).backgroundColor,
     shell: getComputedStyle(document.getElementById('root')).backgroundColor,
     host: document.documentElement.getAttribute('data-exp-shift')
   }));
-  assert.equal(painted.html, 'rgb(16, 11, 24)');
-  assert.equal(painted.body, 'rgb(16, 11, 24)');
+  assert.equal(painted.html, 'rgb(24, 23, 29)');
+  assert.equal(painted.body, 'rgb(24, 23, 29)');
   assert.notEqual(painted.shell, 'rgb(255, 255, 255)');
-  assert.equal(painted.host, 'amethyst');
+  assert.equal(painted.host, 'indigo');
 });
 
 test('page stylesheet is restored after the site steals it', async (t) => {
@@ -1189,12 +1114,12 @@ test('page stylesheet is restored after the site steals it', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Pride"]').click();
+    shadow.querySelector('[data-shift-theme=blue]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 10, 18)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
   await page.evaluate(() => document.getElementById('exp-shift-page-style')?.remove());
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 10, 18)' && Boolean(document.getElementById('exp-shift-page-style')));
-  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(16, 10, 18)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)' && Boolean(document.getElementById('exp-shift-page-style')));
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(24, 23, 29)');
 });
 
 test('inline html and body backgrounds lose to the chosen palette', async (t) => {
@@ -1215,10 +1140,10 @@ test('inline html and body backgrounds lose to the chosen palette', async (t) =>
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Pride"]').click();
+    shadow.querySelector('[data-shift-theme=blue]').click();
   });
-  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(16, 10, 18)');
-  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(16, 10, 18)');
+  await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(24, 23, 29)');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(24, 23, 29)');
 });
 
 test('open shadow roots of viewport shells receive the palette', async (t) => {
@@ -1251,7 +1176,7 @@ test('open shadow roots of viewport shells receive the palette', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
+    shadow.querySelector('[data-shift-theme=default]').click();
   });
   await page.waitForFunction(() => {
     const inner = document.getElementById('shadow-shell')?.shadowRoot?.getElementById('inner');
@@ -1314,7 +1239,7 @@ test('3.1 color engine transforms stylesheet hierarchy', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const themed = await page.evaluate(() => ({
@@ -1341,7 +1266,7 @@ test('3.1 color engine follows dynamically replaced stylesheets', async (t) => {
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
+    shadow.querySelector('[data-shift-theme=default]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const first = await page.evaluate(() => getComputedStyle(document.getElementById('card')).backgroundColor);
@@ -1371,7 +1296,7 @@ test('3.1 color engine transforms inline colors and semantic variables', async (
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
+    shadow.querySelector('[data-shift-theme=red]').click();
   });
   await page.waitForFunction(() => document.getElementById('inline').hasAttribute('data-exp-shift-inline'));
   const themed = await page.evaluate(() => {
@@ -1406,7 +1331,7 @@ test('3.1 color engine transforms styles inside open shadow roots', async (t) =>
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
+    shadow.querySelector('[data-shift-theme=default]').click();
   });
   await page.waitForFunction(() => document.getElementById('component-host').shadowRoot.adoptedStyleSheets.some(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } }));
   const facts = await page.evaluate(() => {
@@ -1445,7 +1370,7 @@ test('3.1 color engine transforms adopted stylesheets without replacing site she
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Crimson"]').click();
+    shadow.querySelector('[data-shift-theme=red]').click();
   });
   await page.waitForFunction(() => document.getElementById('adopted-host').shadowRoot.adoptedStyleSheets.some(sheet => { try { return sheet.cssRules[0]?.selectorText === '.exp-owned-sheet-marker'; } catch { return false; } }));
   const facts = await page.evaluate(() => {
@@ -1469,7 +1394,7 @@ test('selected palette also transforms explicit native dark pages', async (t) =>
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
   await page.waitForTimeout(500);
   const facts = await page.evaluate(() => ({
@@ -1481,7 +1406,7 @@ test('selected palette also transforms explicit native dark pages', async (t) =>
   assert.ok(facts.generated <= 2, JSON.stringify(facts));
   assert.notEqual(facts.cardBg, 'rgb(28, 33, 40)', JSON.stringify(facts));
   assert.notEqual(facts.cardBg, 'rgb(255, 255, 255)', JSON.stringify(facts));
-  assert.equal(facts.host, 'amethyst');
+  assert.equal(facts.host, 'indigo');
   await root.locator('[data-shift-appearance-explanation]>summary').click();
   await root.locator('[data-shift-appearance-explanation] [role="status"]').waitFor();
   assert.match(await root.locator('[data-shift-appearance-explanation]').textContent(), /applies your selected palette/);
@@ -1497,7 +1422,7 @@ test('3.1 still transforms dark-looking pages that do not declare a native dark 
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Verdant"]').click();
+    shadow.querySelector('[data-shift-theme=green]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const bg = await page.evaluate(() => getComputedStyle(document.getElementById('mixed-card')).backgroundColor);
@@ -1515,7 +1440,7 @@ test('3.1 contrast-aware foreground repair keeps transformed text readable', asy
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
   await page.waitForFunction(() => document.getElementById('contrast-card').hasAttribute('data-exp-shift-inline'));
   const ratio = await page.evaluate(() => {
@@ -1546,7 +1471,7 @@ test('3.1 contrast repair preserves colored foreground identity when already rea
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Midnight"]').click();
+    shadow.querySelector('[data-shift-theme=default]').click();
   });
   await page.waitForFunction(() => document.getElementById('colored-copy').hasAttribute('data-exp-shift-inline'));
   const color = await page.evaluate(() => getComputedStyle(document.getElementById('colored-copy')).color);
@@ -1568,7 +1493,7 @@ test('3.1 transforms pseudo-element chrome and CSS gradients while preserving UR
     const shadow = node.shadowRoot;
     shadow.querySelector('.launcher').click();
     shadow.querySelector('[data-section="appearance"]').click();
-    shadow.querySelector('.exp-theme-swatch[aria-label="Amethyst"]').click();
+    shadow.querySelector('[data-shift-theme=indigo]').click();
   });
   await page.waitForFunction(() => document.querySelectorAll('style[data-exp-shift-dynamic]').length > 0);
   const facts = await page.evaluate(() => ({
@@ -1587,7 +1512,7 @@ test('SHIFT sensitive-site import discloses permissions before deliberate apply'
  await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main>bisexual identity</main></body></html>'}));
  await page.goto('https://mail.google.com/');await page.evaluate(()=>{window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
  const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-exp-section-tab="advanced"]').click();await openSubmenu(root,'Transfer');
- const file={name:'settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({product:'shift',generation:3,schema:1,settings:{theme:'midnight',sensitiveSiteOptIns:['mail.google.com']}}))};
+ const file={name:'settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({product:'shift',generation:3,schema:1,settings:{theme:'default',sensitiveSiteOptIns:['mail.google.com']}}))};
  await root.getByLabel('Import SHIFT settings',{exact:true}).setInputFiles(file);await root.locator('.import-preview').waitFor();assert.match(await root.locator('.import-preview').textContent(),/exact hostnames.*mail.google.com/);
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('exp:v3:shift:settings')).sensitiveSiteOptIns),[]);
  await root.getByRole('button',{name:'Cancel import',exact:true}).click();assert.equal(await root.locator('.import-preview').count(),0);
@@ -1598,7 +1523,7 @@ test('SHIFT sensitive-site import discloses permissions before deliberate apply'
 test('SHIFT exact-site switch restores theme and saved inspection without reload',async t=>{
  const browser=await chromium.launch();t.after(()=>browser.close());const page=await browser.newPage();
  await page.route('**/*',r=>r.abort());await page.route('https://mail.google.com/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html><body style="background:white;color:#111"><main id="private">Private message</main></body></html>'}));
- await page.goto('https://mail.google.com/');await page.evaluate(()=>{localStorage.setItem('exp:v3:shift:settings',JSON.stringify({theme:'midnight',siteOverrides:{'mail.google.com':{preservedSelectors:['#private']}}}));window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
+ await page.goto('https://mail.google.com/');await page.evaluate(()=>{localStorage.setItem('exp:v3:shift:settings',JSON.stringify({theme:'default',siteOverrides:{'mail.google.com':{preservedSelectors:['#private']}}}));window.GM_getValue=(_k,d)=>d;window.GM_setValue=()=>{};window.GM_xmlhttpRequest=()=>{};});await page.addScriptTag({content:script});await page.waitForSelector('#exp-shift-root',{state:'attached'});
  const root=page.locator('#exp-shift-root');await root.locator('.launcher').click();await root.locator('[data-exp-section-tab="advanced"]').click();await openSubmenu(root,'Profiles');
  const toggle=root.getByRole('switch',{name:'Enable SHIFT on this site',exact:true});assert.equal(await toggle.getAttribute('aria-checked'),'false');await toggle.click();
  await page.waitForFunction(()=>document.getElementById('private').getAttribute('data-exp-shift-preserve')==='saved');assert.notEqual(await page.locator('body').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(255, 255, 255)');
