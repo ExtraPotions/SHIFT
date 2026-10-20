@@ -303,7 +303,7 @@ test('first run keeps Original and uses the four-section sidebar', async (t) => 
       textAlign: style.textAlign,
     };
   });
-  assert.equal(subtitle.text, 'Adaptive themes and readability');
+  assert.equal(subtitle.text, 'A clearer view of the web');
   // The compact header keeps its subtitle beneath the title.
   assert.equal(subtitle.subtitleLeft, subtitle.titleLeft);
   assert.ok(subtitle.text,'subtitle is non-empty');

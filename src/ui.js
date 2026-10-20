@@ -445,7 +445,7 @@ EXP.UI = (() => {
       keepOpen: () => Boolean(importDraft),
       name: 'SHIFT',
       version: EXP.VERSION,
-      subtitle: 'Adaptive themes and readability',
+      subtitle: 'A clearer view of the web',
       artwork: ICON_URL,
       theme: PRODUCT_THEME,
       supportUrl: SUPPORT_URL,

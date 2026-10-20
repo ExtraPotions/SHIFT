@@ -1,7 +1,8 @@
-EXP.VERSION = '3.5.36';
+EXP.VERSION = '3.5.37';
 
 EXP.ReleaseNotes = (() => {
   const NOTES = Object.freeze({
+    '3.5.37': ["Refreshes the joined gem and approved product tagline.","Uses the shared compact menu with support and reset grouped inside System.","Keeps six navigation themes, compact controls and contained setting help."],
     '3.5.36': ["Adds six navigation themes with Light, Dark and System modes; retired palettes reset to Default.","Keeps Twitch neutral text and backgrounds readable while switching themes and loading styles.","Uses smaller theme buttons and compact menus with inline settings and readable diagnostics."],
     '3.5.35': ["Releases removed page elements from saved color repairs as feeds change.","Keeps native dropdown options readable, including sites with white option backgrounds.","Includes Core 3.9.6 with reduced duplicate menu stylesheet parsing."],
     '3.5.34': ["Uses less memory before the menu is first opened, with shared foundation exp-core 3.9.5.","Leaves private settings out of diagnostic reports and issue summaries while preserving settings exports."],

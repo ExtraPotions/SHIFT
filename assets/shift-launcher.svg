@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
-  <title id="title">SHIFT Launcher Gem</title><desc id="desc">A borderless offset crystal with cyan and coral phases divided by a diagonal seam.</desc>
-  <polygon points="548,184 790,360 770,650 476,840 230,662 254,366" fill="#15151d"/><polygon points="548,184 548,416 254,366" fill="#b9fff9"/><polygon points="548,184 790,360 548,416" fill="#62f5ec"/><polygon points="254,366 548,416 438,526 230,662" fill="#1cd5d1"/><polygon points="230,662 438,526 476,840" fill="#1977d5"/><polygon points="548,416 790,360 604,548 438,526" fill="#fff0c8"/><polygon points="790,360 770,650 604,548" fill="#ff8c72"/><polygon points="770,650 476,840 604,548" fill="#f23868"/><polygon points="438,526 604,548 476,840" fill="#93357d"/><polygon points="548,416 604,548 438,526" fill="#292132"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">SHIFT Launcher Gem</title>
+  <desc id="desc">Balanced borderless crystal with broad joined cyan, blue and coral facets. No inset symbol.</desc>
+  <polygon points="64,3 104,36 64,68" fill="#b9fff9"/>
+  <polygon points="104,36 112,77 64,68" fill="#62f5ec"/>
+  <polygon points="112,77 96,110 64,68" fill="#1cd5d1"/>
+  <polygon points="96,110 64,126 64,68" fill="#1977d5"/>
+  <polygon points="64,126 32,110 64,68" fill="#93357d"/>
+  <polygon points="32,110 16,77 64,68" fill="#f23868"/>
+  <polygon points="16,77 24,36 64,68" fill="#ff8c72"/>
+  <polygon points="24,36 64,3 64,68" fill="#fff0c8"/>
 </svg>

@@ -1,3 +1,9 @@
+## 3.5.37 — 2026-10-20
+
+- Refreshes the joined gem and approved product tagline.
+- Uses the shared compact menu with support and reset grouped inside System.
+- Keeps six navigation themes, compact controls and contained setting help.
+
 ## 3.5.36 — 2026-10-18
 
 - Adds six navigation themes with Light, Dark and System modes; retired palettes reset to Default.
