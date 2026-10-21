@@ -2,13 +2,15 @@
 
 # SHIFT
 
+> **Retired — 2026-10-20.** SHIFT is no longer actively maintained or recommended for new installations. Its repository, releases, tags, history and source remain available for reference and rollback. Existing installations are not remotely disabled. Disable SHIFT in your userscript manager and refresh affected tabs to stop its page transformations; keep its settings if you may return to it. Other ExtraPotions products work independently and retain their own Core menus and themes.
+
 **A clearer view of the web**
 
-[![Install SHIFT](docs/badges/install.svg)](https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js)
+[Preserved SHIFT releases](https://github.com/ExtraPotions/SHIFT/releases)
 [![Code: PolyForm Noncommercial 1.0.0](docs/badges/code.svg)](LICENSE-CODE.md)
 [![Artwork and documentation: CC BY-NC-SA 4.0](docs/badges/assets.svg)](LICENSE-ASSETS.md)
 
-## Get started
+## Historical installation
 
 1. Install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/get-it/) or [Tampermonkey](https://www.tampermonkey.net/).
 2. [Install SHIFT](https://github.com/ExtraPotions/SHIFT/releases/latest/download/shift.user.js) and confirm in your userscript manager.
